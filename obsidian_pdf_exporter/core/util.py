@@ -42,12 +42,42 @@ def today_iso() -> str:
     return datetime.date.today().strftime("%Y-%m-%d")
 
 
-def repo_root(start: Path) -> Path:
-    """Walk up from ``start`` to the directory containing ``.git``."""
-    for p in [start, *start.parents]:
+def vault_root(start: Path) -> Path:
+    """Walk up from ``start`` to the vault root.
+
+    Detection order: ``.obsidian`` (Obsidian vault marker) → ``.git`` → ``start``.
+    The ``.obsidian`` directory is the canonical vault marker and wins when both
+    are present at different levels.
+    """
+    for marker in (".obsidian", ".git"):
+        for p in [start, *start.parents]:
+            if (p / marker).exists():
+                return p
+    return start
+
+
+def is_git_repo(path: Path) -> bool:
+    """True iff ``path`` is inside a git working tree."""
+    return _find_git_root(path) is not None
+
+
+def git_root(path: Path) -> Path:
+    """Return the git working-tree root containing ``path``.
+
+    Raises ``ValueError`` if ``path`` is not inside a git repo.
+    """
+    root = _find_git_root(path)
+    if root is None:
+        msg = f"{path} is not inside a git repository"
+        raise ValueError(msg)
+    return root
+
+
+def _find_git_root(path: Path) -> Path | None:
+    for p in [path, *path.parents]:
         if (p / ".git").exists():
             return p
-    return start
+    return None
 
 
 def git_short_hash(cwd: Path | None = None) -> str:

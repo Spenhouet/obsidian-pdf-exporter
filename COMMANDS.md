@@ -4,7 +4,7 @@ Run `obsidian-pdf-exporter --help` (or `ope --help`) for the same information fr
 
 ## `export ROOT`
 
-Build a single PDF from a vault folder.
+Build a single PDF from a vault folder. Git is **not** required — works on any folder. If the vault is in a git repo and `--version` is omitted, the short commit hash is used as the footer label; otherwise the label is empty.
 
 | Flag                        | Description                                                                                                              | Default                 |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------- |

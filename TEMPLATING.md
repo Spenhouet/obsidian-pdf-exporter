@@ -193,7 +193,7 @@ class ExportContext:
     subtitle: str = ""               # --subtitle
     version: str = ""                # --version (export only)
     date: str = ""                   # ISO date (--date or today)
-    label: str = ""                  # short label: version, git short hash, or "Redline: a -> b"
+    label: str = ""                  # short label: version, git short hash (if in git repo), "Redline: a -> b", or empty
     output_path: Path                # final PDF path
     build_dir: Path                  # working directory; assets are written here
     options: dict[str, str]          # --option key=value pairs
