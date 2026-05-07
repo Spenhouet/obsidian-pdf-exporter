@@ -50,7 +50,7 @@ powershell -ExecutionPolicy ByPass -c "irm https://uvx.sh/obsidian-pdf-exporter/
 A specific version:
 
 ```bash
-curl -LsSf uvx.sh/obsidian-pdf-exporter/0.1.0/install.sh | sh
+curl -LsSf uvx.sh/obsidian-pdf-exporter/0.0.1/install.sh | sh
 ```
 
 ### 2. System dependencies
