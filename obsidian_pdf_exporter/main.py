@@ -14,6 +14,7 @@ from obsidian_pdf_exporter.core.exporter import ExportRequest
 from obsidian_pdf_exporter.core.exporter import RedlineRequest
 from obsidian_pdf_exporter.core.exporter import export_pdf
 from obsidian_pdf_exporter.core.exporter import export_redline
+from obsidian_pdf_exporter.core.util import is_git_repo
 from obsidian_pdf_exporter.core.util import safe_filename
 
 if TYPE_CHECKING:
@@ -282,6 +283,13 @@ def redline(
     ),
 ) -> None:
     """Generate a redline (tracked-changes) PDF between two git commits."""
+    if not is_git_repo(Path.cwd()):
+        _console.print(
+            "[red]ERROR:[/red] redline requires the vault to be in a git repository. "
+            "Run `git init` and commit your vault, or use `export` instead."
+        )
+        raise typer.Exit(code=1)
+
     options = _parse_options(option)
     chosen_title = title or root.name
     output_path = output or _default_output(chosen_title, suffix="_redline")
