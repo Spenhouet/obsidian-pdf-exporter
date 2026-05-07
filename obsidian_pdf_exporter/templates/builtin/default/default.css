@@ -1,0 +1,319 @@
+/* ============================================================
+   Default Template — generic documentation styling
+   ============================================================ */
+
+:root {
+  --color-accent: #2c5282;
+  --color-grey: #606872;
+  --color-light-grey: #f5f5f5;
+  --color-mid-grey: #e0e2e4;
+  --color-dark: #1a1a1a;
+  --color-link: var(--color-accent);
+  --font-sans: 'Arial', 'Helvetica', sans-serif;
+  --font-mono: 'Courier New', monospace;
+  --page-margin: 20mm;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html { font-size: 12pt; }
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-dark);
+  line-height: 1.5;
+  background: white;
+}
+
+@page {
+  size: A4 portrait;
+  margin: 25mm 20mm 22mm 20mm;
+}
+
+/* ---- Headings ---- */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-sans);
+  color: var(--color-dark);
+  margin-top: 1.4em;
+  margin-bottom: 0.4em;
+  line-height: 1.25;
+  page-break-after: avoid;
+}
+h1 { font-size: 1.6em; margin-top: 0; }
+h2 { font-size: 1.3em; }
+h3 { font-size: 1.1em; }
+h4 { font-size: 1em; font-style: italic; }
+h5, h6 { font-size: 0.95em; color: var(--color-grey); }
+
+p {
+  margin-bottom: 0.7em;
+  orphans: 3;
+  widows: 3;
+}
+
+/* ---- Pandoc title block ---- */
+header#title-block-header { margin-bottom: 2em; }
+header#title-block-header .title {
+  font-size: 2em;
+  font-weight: bold;
+  color: var(--color-dark);
+  line-height: 1.2;
+}
+header#title-block-header .subtitle {
+  font-size: 1.2em;
+  color: var(--color-grey);
+  margin-top: 0.3em;
+}
+header#title-block-header .date,
+header#title-block-header .author {
+  font-size: 0.9em;
+  color: var(--color-grey);
+  margin-top: 0.2em;
+}
+
+/* ---- Table of contents ---- */
+nav#TOC { margin-bottom: 2.5em; }
+nav#TOC::before {
+  content: "Table of Contents";
+  display: block;
+  font-weight: bold;
+  font-size: 0.85em;
+  color: var(--color-grey);
+  margin-bottom: 0.6em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+nav#TOC a { color: var(--color-dark); text-decoration: none; }
+nav#TOC a:hover { color: var(--color-accent); }
+nav#TOC ul { list-style: none; padding-left: 0; margin: 0; }
+nav#TOC li { margin: 0.25em 0; font-size: 0.9em; }
+nav#TOC ul ul { padding-left: 0.9em; }
+nav#TOC ul ul li { font-size: 0.875em; color: var(--color-grey); }
+nav#TOC ul ul ul li { font-size: 0.85em; }
+
+/* ---- Lists ---- */
+ul, ol { margin: 0.4em 0 0.7em 1.5em; padding: 0; }
+li { margin-bottom: 0.2em; }
+li > p { margin-bottom: 0.3em; }
+
+/* ---- Tables ---- */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.8em 0;
+  font-size: 0.9em;
+  page-break-inside: auto;
+  table-layout: auto;
+}
+table col { width: auto !important; }
+
+thead tr {
+  background-color: var(--color-grey);
+  color: white;
+}
+
+th {
+  padding: 0.5em 0.7em;
+  text-align: left;
+  font-weight: 600;
+  border: 1px solid var(--color-mid-grey);
+}
+
+td {
+  padding: 0.4em 0.7em;
+  border: 1px solid var(--color-mid-grey);
+  vertical-align: top;
+}
+
+tr:nth-child(even) { background-color: var(--color-light-grey); }
+tr { page-break-inside: avoid; }
+
+/* ---- Wide-table landscape orientation ---- */
+@page landscape-page {
+  size: A4 landscape;
+  margin: 25mm 20mm 22mm 20mm;
+}
+.wide-table-section {
+  page: landscape-page;
+  break-before: page;
+  break-after: page;
+}
+.wide-table-section table {
+  font-size: 0.75em;
+  table-layout: fixed;
+}
+.wide-table-section th,
+.wide-table-section td {
+  padding: 0.3em 0.45em;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
+
+/* ---- Code blocks ---- */
+pre, code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+}
+pre {
+  background: var(--color-light-grey);
+  border: 1px solid var(--color-mid-grey);
+  border-left: 3px solid var(--color-grey);
+  padding: 0.8em 1em;
+  overflow-x: auto;
+  margin: 0.7em 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  page-break-inside: avoid;
+}
+code {
+  background: var(--color-light-grey);
+  padding: 0.1em 0.3em;
+  border-radius: 2px;
+  color: #444;
+}
+pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  color: inherit;
+}
+
+/* ---- Blockquotes ---- */
+blockquote {
+  border-left: 4px solid var(--color-mid-grey);
+  margin: 0.7em 0;
+  padding: 0.3em 1em;
+  color: var(--color-grey);
+  font-style: italic;
+}
+
+/* ---- Callouts ---- */
+.callout {
+  display: block;
+  border-radius: 4px;
+  padding: 0.7em 1em;
+  margin: 0.8em 0;
+  page-break-inside: avoid;
+  border-left: 4px solid;
+}
+.callout > *:first-child { margin-top: 0; }
+.callout > *:last-child { margin-bottom: 0; }
+
+.callout-note,
+.callout-info {
+  background: #e8f4fd;
+  border-color: #3498db;
+  color: #1a5276;
+}
+.callout-tip,
+.callout-success,
+.callout-check,
+.callout-done {
+  background: #eafaf1;
+  border-color: #27ae60;
+  color: #1e8449;
+}
+.callout-warning,
+.callout-caution {
+  background: #fef9e7;
+  border-color: #f39c12;
+  color: #7d6608;
+}
+.callout-danger,
+.callout-failure,
+.callout-bug {
+  background: #fdedec;
+  border-color: #c0392b;
+  color: #922b21;
+}
+.callout-important {
+  background: #fdf2f8;
+  border-color: #8e44ad;
+  color: #6c3483;
+}
+.callout-example {
+  background: #fdfefe;
+  border-color: var(--color-grey);
+  color: var(--color-dark);
+}
+.callout-abstract {
+  background: #e8f8f5;
+  border-color: #1abc9c;
+  color: #0e6655;
+}
+.callout-quote {
+  background: var(--color-light-grey);
+  border-color: var(--color-grey);
+  color: var(--color-grey);
+  font-style: italic;
+}
+.callout-todo {
+  background: #fef9e7;
+  border-color: #e67e22;
+  color: #6e2f1a;
+}
+
+/* ---- Links ---- */
+a {
+  color: var(--color-link);
+  text-decoration: none;
+}
+a:hover { text-decoration: underline; }
+
+/* ---- Images ---- */
+img.doc-image {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0.8em auto;
+  page-break-inside: avoid;
+}
+td img.doc-image { width: 100%; margin: 0; }
+
+/* ---- Horizontal rules ---- */
+hr {
+  border: none;
+  border-top: 1px solid var(--color-mid-grey);
+  margin: 1.5em 0;
+}
+
+/* ---- Section numbers ---- */
+.header-section-number {
+  color: var(--color-grey);
+  margin-right: 0.4em;
+}
+nav#TOC .toc-section-number {
+  display: inline-block;
+  min-width: 1.8em;
+}
+nav#TOC ul ul .toc-section-number { min-width: 2.8em; }
+nav#TOC ul ul ul .toc-section-number { min-width: 3.4em; }
+
+/* ---- Definition lists ---- */
+dl { margin: 0.7em 0; }
+dt { font-weight: bold; margin-top: 0.5em; }
+dd { margin-left: 1.5em; margin-bottom: 0.3em; }
+
+/* ---- Figures ---- */
+figure {
+  margin: 1em 0;
+  text-align: center;
+  page-break-inside: avoid;
+}
+figcaption {
+  font-size: 0.85em;
+  color: var(--color-grey);
+  font-style: italic;
+  margin-top: 0.3em;
+}
+
+@media print {
+  h2, h3 { page-break-after: avoid; }
+  table, figure, pre, .callout { page-break-inside: avoid; }
+  a { color: var(--color-dark); }
+}
