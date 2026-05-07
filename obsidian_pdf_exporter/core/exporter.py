@@ -125,14 +125,15 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
             plugin_options=request.options,
             vault_index=vault_index,
         )
-        markdown = _prepend_metadata(markdown, title, request.subtitle, request.version, date)
+        label = request.version or git_short_hash(root_folder)
+        markdown = _prepend_metadata(markdown, title, request.subtitle, label, date)
 
         ctx = ExportContext(
             title=title,
             subtitle=request.subtitle,
             version=request.version,
             date=date,
-            label=request.version or git_short_hash(root_folder),
+            label=label,
             output_path=output_path,
             build_dir=build_dir,
             options=dict(request.options),
@@ -250,7 +251,7 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
             diff_body = diff_markdown(old_md, new_md)
 
             label = f"Redline: {from_hash} -> {to_hash}"
-            markdown = _prepend_metadata(diff_body, title, request.subtitle or label, "", date)
+            markdown = _prepend_metadata(diff_body, title, request.subtitle or label, label, date)
 
             ctx = ExportContext(
                 title=title,
@@ -300,14 +301,16 @@ def _prepend_metadata(
     body: str,
     title: str,
     subtitle: str,
-    version: str,
+    label: str,
     date: str,
 ) -> str:
     lines = [f"% {title}"]
     if subtitle:
         lines.append(f"% {subtitle}")
-    if version:
-        lines.append(f"% Version {version} | {date}")
+    if label and date:
+        lines.append(f"% {label} | {date}")
+    elif label:
+        lines.append(f"% {label}")
     elif date:
         lines.append(f"% {date}")
     return "\n".join(lines) + "\n\n" + body
