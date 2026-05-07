@@ -102,6 +102,46 @@ def test_load_directory_with_manifest(tmp_path: Path) -> None:
     assert "@page" in decs.page_css
 
 
+def test_running_html_inlines_declared_assets(tmp_path: Path) -> None:
+    (tmp_path / "main.css").write_text("body{}", encoding="utf-8")
+    (tmp_path / "header.html").write_text(
+        '<div><img src="logo.svg" alt="L"><img src="https://x/y.png"></div>',
+        encoding="utf-8",
+    )
+    (tmp_path / "logo.svg").write_bytes(b"<svg/>")
+    (tmp_path / "template.yaml").write_text(
+        "css: main.css\nassets: [logo.svg]\nrunning_html: header.html\n",
+        encoding="utf-8",
+    )
+
+    tpl = load_from_path(tmp_path)
+    decs = tpl.decorations(_ctx())
+    assert decs is not None
+    assert 'src="logo.svg"' not in decs.running_html
+    assert "data:image/svg+xml;base64,PHN2Zy8+" in decs.running_html
+    # Non-asset external URL must pass through untouched.
+    assert 'src="https://x/y.png"' in decs.running_html
+
+
+def test_page_css_inlines_url_refs(tmp_path: Path) -> None:
+    (tmp_path / "main.css").write_text("body{}", encoding="utf-8")
+    (tmp_path / "page.css").write_text(
+        "@page { background: url(logo.svg); }",
+        encoding="utf-8",
+    )
+    (tmp_path / "logo.svg").write_bytes(b"<svg/>")
+    (tmp_path / "template.yaml").write_text(
+        "css: main.css\nassets: [logo.svg]\npage_css: page.css\n",
+        encoding="utf-8",
+    )
+
+    tpl = load_from_path(tmp_path)
+    decs = tpl.decorations(_ctx())
+    assert decs is not None
+    assert "url(logo.svg)" not in decs.page_css
+    assert "data:image/svg+xml;base64,PHN2Zy8+" in decs.page_css
+
+
 def test_load_directory_without_manifest_auto_discovers(tmp_path: Path) -> None:
     (tmp_path / "template.css").write_text("body{}", encoding="utf-8")
     (tmp_path / "logo.svg").write_bytes(b"<svg/>")
