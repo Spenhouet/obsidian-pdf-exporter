@@ -44,9 +44,7 @@ def register_native_dependencies() -> None:
     Set ``OBSIDIAN_PDF_GTK_PATH`` (``os.pathsep``-separated) to add custom
     directories on any OS. Custom dirs take precedence over fallbacks.
     """
-    custom = _env_dirs()
-    fallbacks = [Path(p) for p in _PLATFORM_FALLBACKS.get(sys.platform, ())]
-    candidates = [p for p in (*custom, *fallbacks) if p.is_dir()]
+    candidates = candidate_native_dirs()
 
     if sys.platform == "win32":
         _register_windows_dll_dirs(candidates)
@@ -54,6 +52,16 @@ def register_native_dependencies() -> None:
         if ctypes.util.find_library(_PROBE_LIB) is None:
             _preload_dylibs(candidates)
     # Linux: rely on system loader / ldconfig.
+
+
+def candidate_native_dirs() -> list[Path]:
+    """Existing directories to probe for GTK/Pango/Cairo libs on this platform.
+
+    Custom dirs from ``OBSIDIAN_PDF_GTK_PATH`` come first, then platform fallbacks.
+    """
+    custom = _env_dirs()
+    fallbacks = [Path(p) for p in _PLATFORM_FALLBACKS.get(sys.platform, ())]
+    return [p for p in (*custom, *fallbacks) if p.is_dir()]
 
 
 def ensure_pandoc() -> None:
