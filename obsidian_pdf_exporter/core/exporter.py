@@ -22,9 +22,11 @@ from obsidian_pdf_exporter.core.redline import extract_commit
 from obsidian_pdf_exporter.core.redline import resolve_short_hash
 from obsidian_pdf_exporter.core.tree import build_space_tree
 from obsidian_pdf_exporter.core.tree import collect_page_index
+from obsidian_pdf_exporter.core.util import git_root
 from obsidian_pdf_exporter.core.util import git_short_hash
-from obsidian_pdf_exporter.core.util import repo_root
+from obsidian_pdf_exporter.core.util import is_git_repo
 from obsidian_pdf_exporter.core.util import today_iso
+from obsidian_pdf_exporter.core.util import vault_root as find_vault_root
 from obsidian_pdf_exporter.core.vault_index import VaultIndex
 from obsidian_pdf_exporter.plugins import active_plugins
 from obsidian_pdf_exporter.runtime import ensure_pandoc
@@ -94,9 +96,9 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
         if plugins:
             log(f"  Active Obsidian plugins: {', '.join(p.name for p in plugins)}")
 
-        vault_root = repo_root(root_folder)
-        log(f"  Indexing vault at {vault_root}...")
-        vault_index = VaultIndex(vault_root)
+        vault_root_path = find_vault_root(root_folder)
+        log(f"  Indexing vault at {vault_root_path}...")
+        vault_index = VaultIndex(vault_root_path)
         log(f"  Indexed {len(vault_index.md_files())} markdown files")
 
         log("  Building page tree...")
@@ -118,7 +120,7 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
             tree,
             page_index,
             build_dir,
-            vault_root,
+            vault_root_path,
             plugins=plugins,
             plugin_options=request.options,
             vault_index=vault_index,
@@ -178,7 +180,13 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
     ensure_pandoc()
 
     root_folder = _resolve_root(request.root)
-    repo = repo_root(Path.cwd())
+    if not is_git_repo(Path.cwd()):
+        msg = (
+            "redline requires the vault to be in a git repository. "
+            "Run `git init` and commit your vault, or use `export` instead."
+        )
+        raise RuntimeError(msg)
+    repo = git_root(Path.cwd())
     output_path = request.output.resolve()
 
     from_hash = resolve_short_hash(request.from_commit, repo)

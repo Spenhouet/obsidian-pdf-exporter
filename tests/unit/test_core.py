@@ -2,13 +2,21 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from obsidian_pdf_exporter.core.callouts import convert_callouts
 from obsidian_pdf_exporter.core.frontmatter import parse_frontmatter
 from obsidian_pdf_exporter.core.frontmatter import strip_frontmatter
 from obsidian_pdf_exporter.core.headings import offset_headings
 from obsidian_pdf_exporter.core.headings import strip_title_heading
+from obsidian_pdf_exporter.core.util import git_root
+from obsidian_pdf_exporter.core.util import is_git_repo
 from obsidian_pdf_exporter.core.util import safe_filename
 from obsidian_pdf_exporter.core.util import slugify
+from obsidian_pdf_exporter.core.util import vault_root
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_slugify_basic() -> None:
@@ -54,3 +62,68 @@ def test_convert_callouts_emits_fenced_div() -> None:
     assert ".callout-note" in out
     assert "Heads up" in out
     assert "Body line." in out
+
+
+def test_vault_root_prefers_obsidian_marker(tmp_path: Path) -> None:
+    vault = tmp_path / "MyVault"
+    space = vault / "Space"
+    space.mkdir(parents=True)
+    (vault / ".obsidian").mkdir()
+    assert vault_root(space) == vault
+
+
+def test_vault_root_falls_back_to_git(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    space = repo / "Space"
+    space.mkdir(parents=True)
+    (repo / ".git").mkdir()
+    assert vault_root(space) == repo
+
+
+def test_vault_root_obsidian_wins_over_git(tmp_path: Path) -> None:
+    outer = tmp_path / "outer"
+    vault = outer / "vault"
+    space = vault / "Space"
+    space.mkdir(parents=True)
+    (outer / ".git").mkdir()
+    (vault / ".obsidian").mkdir()
+    assert vault_root(space) == vault
+
+
+def test_vault_root_no_markers_returns_start(tmp_path: Path) -> None:
+    space = tmp_path / "loose"
+    space.mkdir()
+    assert vault_root(space) == space
+
+
+def test_is_git_repo_true_when_git_dir_present(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    nested = repo / "a" / "b"
+    nested.mkdir(parents=True)
+    (repo / ".git").mkdir()
+    assert is_git_repo(nested)
+
+
+def test_is_git_repo_false_without_git_dir(tmp_path: Path) -> None:
+    folder = tmp_path / "loose"
+    folder.mkdir()
+    assert not is_git_repo(folder)
+
+
+def test_git_root_raises_outside_repo(tmp_path: Path) -> None:
+    folder = tmp_path / "loose"
+    folder.mkdir()
+    try:
+        git_root(folder)
+    except ValueError:
+        return
+    msg = "git_root should raise ValueError outside a git repo"
+    raise AssertionError(msg)
+
+
+def test_git_root_returns_repo_root(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    nested = repo / "a" / "b"
+    nested.mkdir(parents=True)
+    (repo / ".git").mkdir()
+    assert git_root(nested) == repo
