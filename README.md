@@ -1,5 +1,6 @@
-![logo](logo.png)
-
+<p align="center">
+  <a href="https://github.com/Spenhouet/obsidian-pdf-exporter"><img src="https://raw.githubusercontent.com/Spenhouet/obsidian-pdf-exporter/9cd947d57a49e7d5eb6d4ee519bc4fa9a764a95e/logo.png" alt="confluence-markdown-exporter"></a>
+</p>
 <p align="center">
   <em>Export Obsidian vaults to PDF with plugin support. Runs locally or in CI.</em>
 </p>
