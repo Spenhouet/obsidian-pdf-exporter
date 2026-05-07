@@ -1,0 +1,44 @@
+name: Bug report
+description: Report an error or unexpected behavior
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report an issue! We're glad to have you involved with obsidian-pdf-exporter.
+
+        **Before reporting, please make sure to search through [existing issues](https://github.com/Spenhouet/obsidian-pdf-exporter/issues?q=is:issue+is:open+label:bug) (including [closed](https://github.com/Spenhouet/obsidian-pdf-exporter/issues?q=is:issue%20state:closed%20label:bug)).**
+
+  - type: textarea
+    attributes:
+      label: Description
+      description: |
+        A clear and concise description of the bug, including a minimal reproducible example.
+
+        Be sure to include the command you invoked and any relevant input files.
+    validations:
+      required: true
+
+  - type: input
+    attributes:
+      label: Version
+      description: What version of obsidian-pdf-exporter are you using?
+      placeholder: e.g., obsidian-pdf-exporter 0.1.0
+    validations:
+      required: false
+
+  - type: input
+    attributes:
+      label: Obsidian Version
+      description: What Obsidian version are you using?
+      placeholder: e.g., Obsidian 1.5.11
+    validations:
+      required: false
+
+  - type: input
+    attributes:
+      label: Operating System
+      description: What OS and version are you running on?
+      placeholder: e.g., Ubuntu 24.04, macOS 14.4, Windows 11
+    validations:
+      required: false

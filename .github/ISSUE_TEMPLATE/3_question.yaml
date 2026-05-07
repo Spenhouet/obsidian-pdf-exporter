@@ -1,0 +1,26 @@
+name: Question
+description: Ask a question about obsidian-pdf-exporter
+labels: ["question"]
+body:
+  - type: textarea
+    attributes:
+      label: Question
+      description: Describe your question in detail.
+    validations:
+      required: true
+
+  - type: input
+    attributes:
+      label: Version
+      description: What version of obsidian-pdf-exporter are you using? (see `obsidian-pdf-exporter version`)
+      placeholder: e.g., obsidian-pdf-exporter 0.1.0
+    validations:
+      required: false
+
+  - type: input
+    attributes:
+      label: Obsidian Version
+      description: What Obsidian version are you using?
+      placeholder: e.g., Obsidian 1.5.11
+    validations:
+      required: false
