@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from obsidian_pdf_exporter.core.callouts import convert_callouts
+from obsidian_pdf_exporter.core.exporter import _prepend_metadata
 from obsidian_pdf_exporter.core.frontmatter import parse_frontmatter
 from obsidian_pdf_exporter.core.frontmatter import strip_frontmatter
 from obsidian_pdf_exporter.core.headings import offset_headings
@@ -127,3 +128,28 @@ def test_git_root_returns_repo_root(tmp_path: Path) -> None:
     nested.mkdir(parents=True)
     (repo / ".git").mkdir()
     assert git_root(nested) == repo
+
+
+def test_prepend_metadata_label_with_date() -> None:
+    out = _prepend_metadata("body\n", "T", "", "abc1234", "2026-05-07")
+    assert out.startswith("% T\n% abc1234 | 2026-05-07\n\n")
+
+
+def test_prepend_metadata_label_with_subtitle_and_date() -> None:
+    out = _prepend_metadata("body\n", "T", "Sub", "v1", "2026-05-07")
+    assert out.startswith("% T\n% Sub\n% v1 | 2026-05-07\n\n")
+
+
+def test_prepend_metadata_no_label_falls_back_to_date() -> None:
+    out = _prepend_metadata("body\n", "T", "", "", "2026-05-07")
+    assert out.startswith("% T\n% 2026-05-07\n\n")
+
+
+def test_prepend_metadata_label_without_date() -> None:
+    out = _prepend_metadata("body\n", "T", "", "abc1234", "")
+    assert out.startswith("% T\n% abc1234\n\n")
+
+
+def test_prepend_metadata_only_title() -> None:
+    out = _prepend_metadata("body\n", "T", "", "", "")
+    assert out.startswith("% T\n\n")
