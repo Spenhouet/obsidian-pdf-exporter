@@ -16,6 +16,9 @@ requires-python = ">= 3.10"
 dependencies = [
     "typer",
     "rich",
+    "weasyprint",
+    "pypandoc",
+    "pyyaml",
 ]
 
 
@@ -35,8 +38,33 @@ Tracker = "https://github.com/Spenhouet/obsidian-pdf-exporter/issues"
 obsidian-pdf-exporter = "obsidian_pdf_exporter.main:app"
 ope = "obsidian_pdf_exporter.main:app"
 
+# Template discovery: third-party packages register additional PDF templates
+# under this group. Each entry must point to a Template subclass.
+[project.entry-points."obsidian_pdf_exporter.templates"]
+default = "obsidian_pdf_exporter.templates.builtin.default:DefaultTemplate"
+redline = "obsidian_pdf_exporter.templates.builtin.redline:RedlineTemplate"
+
+# Obsidian-plugin discovery: third-party packages add support for additional
+# Obsidian plugins (Tasks, Templater, Excalidraw, …) under this group.
+# Each entry must point to an ObsidianPlugin subclass.
+[project.entry-points."obsidian_pdf_exporter.obsidian_plugins"]
+folder_notes = "obsidian_pdf_exporter.plugins.folder_notes:FolderNotesPlugin"
+dataview = "obsidian_pdf_exporter.plugins.dataview:DataviewPlugin"
+meta_bind = "obsidian_pdf_exporter.plugins.meta_bind:MetaBindPlugin"
+
 [tool.hatch.build.targets.wheel]
 packages = ["obsidian_pdf_exporter"]
+
+# Hatchling defaults to packaging only Python sources; explicitly include CSS
+# (and any future template assets) so installed wheels carry them.
+[tool.hatch.build.targets.wheel.shared-data]
+
+[tool.hatch.build]
+include = [
+  "obsidian_pdf_exporter/**/*.py",
+  "obsidian_pdf_exporter/**/*.css",
+  "obsidian_pdf_exporter/**/*.svg",
+]
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories. This means Ruff will not lint or format files with these names
@@ -151,6 +179,9 @@ pylint.max-args = 10 # max no of args in a function
 known-first-party = ["obsidian_pdf_exporter", "main"]
 force-single-line = true # force each import to be in its own line
 
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all" # enforce absolute imports project-wide
+
 [tool.ruff.format]
 docstring-code-format = true # Enable auto-formatting of code examples in docstrings. Markdown, reStructuredText code/literal blocks and doctests are all supported
 docstring-code-line-length = "dynamic" # Set line length limit used when formatting code snippets in docstrings. This only has an effect when the `docstring-code-format` setting is enabled
@@ -166,4 +197,11 @@ skip-magic-trailing-comma = false # respects magic trailing commas
   "S110",    # try-except-pass detected
   "FBT001",  # Often conflicts in tests
   "PLR2004", # Magic numbers are acceptable in tests
+]
+# Typer's option-as-default pattern is idiomatic; lint rules that fight it
+# only add noise in the CLI module.
+"obsidian_pdf_exporter/main.py" = [
+  "B008",    # function call in argument defaults — required by Typer
+  "FBT001",  # boolean positional — driven by Typer flag conventions
+  "FBT003",  # boolean positional in call site — same as above
 ]
