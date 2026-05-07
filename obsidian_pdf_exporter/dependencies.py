@@ -20,14 +20,17 @@ from dataclasses import field
 
 from obsidian_pdf_exporter.runtime import register_native_dependencies
 
-# Libs WeasyPrint links against at runtime. Names match what
-# ``ctypes.util.find_library`` accepts (it strips lib*/.so.N per platform).
+# Libs WeasyPrint links against at runtime, per its official install docs
+# (https://doc.courtbouillon.org/weasyprint/stable/first_steps.html). Cairo
+# was dropped in WeasyPrint 53; pdf generation goes through pydyf.
+# Names match what ``ctypes.util.find_library`` accepts.
 _REQUIRED_LIBS: tuple[str, ...] = (
     "gobject-2.0",
     "pango-1.0",
     "pangoft2-1.0",
-    "cairo",
     "harfbuzz",
+    "harfbuzz-subset",
+    "fontconfig",
 )
 
 
@@ -44,8 +47,8 @@ class Diagnosis:
 
     @property
     def ok(self) -> bool:
-        """True iff nothing needs fixing (pandoc may auto-download lazily)."""
-        return not self.missing_libs
+        """True iff nothing needs fixing."""
+        return not self.missing_libs and self.pandoc_present
 
 
 def diagnose() -> Diagnosis:
@@ -69,17 +72,28 @@ def apply_fix(d: Diagnosis, *, assume_yes: bool = False) -> int:
     """Run the fix plan. Returns process exit code (0 = success, 130 = aborted)."""
     if d.ok:
         return 0
-    if d.fix_command is None:
-        return 1
 
-    if not assume_yes:
-        print(f"Will run: {d.fix_command}")  # noqa: T201
-        if input("Proceed? [y/N] ").strip().lower() not in {"y", "yes"}:
-            return 130
+    if d.missing_libs:
+        if d.fix_command is None:
+            return 1
+        if not assume_yes:
+            print(f"Will run: {d.fix_command}")  # noqa: T201
+            if input("Proceed? [y/N] ").strip().lower() not in {"y", "yes"}:
+                return 130
+        rc = (
+            subprocess.call(["cmd.exe", "/c", d.fix_command])  # noqa: S603,S607
+            if d.platform == "win32"
+            else subprocess.call(["/bin/sh", "-c", d.fix_command])  # noqa: S603
+        )
+        if rc != 0:
+            return rc
 
-    if d.platform == "win32":
-        return subprocess.call(["cmd.exe", "/c", d.fix_command])  # noqa: S603,S607
-    return subprocess.call(["/bin/sh", "-c", d.fix_command])  # noqa: S603
+    if not d.pandoc_present:
+        # pypandoc downloads from the upstream JohnMacFarlane/pandoc release.
+        import pypandoc
+
+        pypandoc.download_pandoc()
+    return 0
 
 
 # --- Linux -----------------------------------------------------------------
@@ -93,25 +107,32 @@ _LINUX_PKG_MAP: dict[str, tuple[str, dict[str, str]]] = {
             "gobject-2.0": "libglib2.0-0",
             "pango-1.0": "libpango-1.0-0",
             "pangoft2-1.0": "libpangoft2-1.0-0",
-            "cairo": "libcairo2",
             "harfbuzz": "libharfbuzz0b",
+            "harfbuzz-subset": "libharfbuzz-subset0",
+            "fontconfig": "libfontconfig1",
         },
     ),
-    "dnf": (
-        "sudo dnf install -y {pkgs}",
-        {"gobject-2.0": "glib2", "pango-1.0": "pango", "pangoft2-1.0": "pango"},
-    ),
+    # Fedora/Arch/openSUSE: `pango` pulls glib2, harfbuzz, fontconfig and
+    # pangoft2 transitively, so installing it is enough.
+    "dnf": ("sudo dnf install -y {pkgs}", dict.fromkeys(_REQUIRED_LIBS, "pango")),
     "pacman": (
         "sudo pacman -S --needed --noconfirm {pkgs}",
-        {"gobject-2.0": "glib2", "pango-1.0": "pango", "pangoft2-1.0": "pango"},
+        dict.fromkeys(_REQUIRED_LIBS, "pango"),
     ),
-    "zypper": (
-        "sudo zypper install -y {pkgs}",
-        {"gobject-2.0": "glib2", "pango-1.0": "pango", "pangoft2-1.0": "pango"},
-    ),
+    "zypper": ("sudo zypper install -y {pkgs}", dict.fromkeys(_REQUIRED_LIBS, "pango")),
+    # Alpine: WeasyPrint docs use so:* package names. Installing `pango` and
+    # `fontconfig` covers libgobject, libpango, libpangoft2, libharfbuzz,
+    # libharfbuzz-subset, libfontconfig.
     "apk": (
         "sudo apk add {pkgs}",
-        {"gobject-2.0": "glib", "pango-1.0": "pango", "pangoft2-1.0": "pango"},
+        {
+            "gobject-2.0": "pango",
+            "pango-1.0": "pango",
+            "pangoft2-1.0": "pango",
+            "harfbuzz": "pango",
+            "harfbuzz-subset": "pango",
+            "fontconfig": "fontconfig",
+        },
     ),
 }
 
@@ -171,9 +192,13 @@ def _windows_plan(missing: list[str]) -> tuple[str | None, str | None, list[str]
                 "or install Inkscape (https://inkscape.org), which bundles GTK.",
             ],
         )
+    cmd = (
+        "winget install --id tschoonj.GTKForWindows "
+        "--accept-source-agreements --accept-package-agreements"
+    )
     return (
         "winget",
-        "winget install --id tschoonj.GTK3 --accept-source-agreements --accept-package-agreements",
+        cmd,
         [
             "Installs the GTK3 runtime from the upstream GitHub release via winget.",
             "Default install path C:\\Program Files\\GTK3-Runtime Win64\\bin is auto-discovered.",
