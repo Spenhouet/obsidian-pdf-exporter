@@ -18,6 +18,7 @@ import sys
 from dataclasses import dataclass
 from dataclasses import field
 
+from obsidian_pdf_exporter.runtime import candidate_native_dirs
 from obsidian_pdf_exporter.runtime import register_native_dependencies
 
 # Libs WeasyPrint links against at runtime, per its official install docs
@@ -32,6 +33,26 @@ _REQUIRED_LIBS: tuple[str, ...] = (
     "harfbuzz-subset",
     "fontconfig",
 )
+
+# Windows DLL filenames per logical lib. The recommended GTK3-Runtime-Win64
+# package (tschoonj.GTKForWindows) follows MinGW naming — lib<name>-<so>.dll —
+# which ``ctypes.util.find_library`` cannot match because it only probes
+# ``<name>.dll`` on PATH. We scan candidate dirs directly with these patterns.
+# ``harfbuzz-subset`` is not shipped as a separate DLL by tschoonj; WeasyPrint
+# runs successfully when ``libharfbuzz-0.dll`` is present, so we accept it.
+_WINDOWS_DLL_PATTERNS: dict[str, tuple[str, ...]] = {
+    "gobject-2.0": ("libgobject-2.0-0.dll", "libgobject-2.0.dll", "gobject-2.0.dll"),
+    "pango-1.0": ("libpango-1.0-0.dll", "libpango-1.0.dll", "pango-1.0.dll"),
+    "pangoft2-1.0": ("libpangoft2-1.0-0.dll", "libpangoft2-1.0.dll", "pangoft2-1.0.dll"),
+    "harfbuzz": ("libharfbuzz-0.dll", "libharfbuzz.dll", "harfbuzz.dll"),
+    "harfbuzz-subset": (
+        "libharfbuzz-subset-0.dll",
+        "libharfbuzz-subset.dll",
+        "harfbuzz-subset.dll",
+        "libharfbuzz-0.dll",
+    ),
+    "fontconfig": ("libfontconfig-1.dll", "libfontconfig.dll", "fontconfig.dll"),
+}
 
 
 @dataclass
@@ -56,7 +77,7 @@ def diagnose() -> Diagnosis:
     register_native_dependencies()
 
     d = Diagnosis(platform=sys.platform)
-    d.missing_libs = [lib for lib in _REQUIRED_LIBS if ctypes.util.find_library(lib) is None]
+    d.missing_libs = [lib for lib in _REQUIRED_LIBS if not _lib_present(lib)]
     d.pandoc_present = shutil.which("pandoc") is not None or _pypandoc_has_pandoc()
 
     if sys.platform.startswith("linux"):
@@ -207,6 +228,27 @@ def _windows_plan(missing: list[str]) -> tuple[str | None, str | None, list[str]
 
 
 # --- helpers ---------------------------------------------------------------
+
+
+def _lib_present(name: str) -> bool:
+    """Return True if the named GTK/Pango/Cairo lib is installed.
+
+    On Windows, ``ctypes.util.find_library`` only probes ``<name>.dll`` on
+    PATH and so misses MinGW-named DLLs (``lib<name>-<soversion>.dll``) used
+    by every recommended GTK3 installer. Scan candidate dirs directly there.
+    """
+    if sys.platform == "win32":
+        return _windows_lib_present(name)
+    return ctypes.util.find_library(name) is not None
+
+
+def _windows_lib_present(name: str) -> bool:
+    patterns = _WINDOWS_DLL_PATTERNS.get(name, (f"{name}.dll",))
+    return any(
+        (directory / variant).is_file()
+        for directory in candidate_native_dirs()
+        for variant in patterns
+    )
 
 
 def _pypandoc_has_pandoc() -> bool:
