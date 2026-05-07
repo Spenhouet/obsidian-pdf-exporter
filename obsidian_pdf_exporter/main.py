@@ -17,7 +17,7 @@ from obsidian_pdf_exporter.core.exporter import export_redline
 from obsidian_pdf_exporter.core.util import safe_filename
 
 if TYPE_CHECKING:
-    from obsidian_pdf_exporter.doctor import Diagnosis
+    from obsidian_pdf_exporter.dependencies import Diagnosis
 from obsidian_pdf_exporter.plugins import available_plugins
 from obsidian_pdf_exporter.templates import load_template
 from obsidian_pdf_exporter.templates import resolve_template
@@ -42,42 +42,64 @@ def version() -> None:
 
 
 @app.command()
-def doctor(
-    fix: bool = typer.Option(False, "--fix", help="Apply the recommended install command"),
+def setup(
+    check: bool = typer.Option(
+        False,
+        "--check",
+        help="Diagnose only — do not install anything (exit 1 if something is missing)",
+    ),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip the confirmation prompt"),
 ) -> None:
-    """Diagnose missing system dependencies (GTK/Pango/Cairo, pandoc)."""
-    from obsidian_pdf_exporter.doctor import apply_fix
-    from obsidian_pdf_exporter.doctor import diagnose
+    """Install missing system dependencies (Pango/HarfBuzz/Fontconfig, pandoc)."""
+    from obsidian_pdf_exporter.dependencies import apply_fix
+    from obsidian_pdf_exporter.dependencies import diagnose
 
     d = diagnose()
-    _print_diagnosis(d)
 
     if d.ok:
-        if not d.pandoc_present:
-            _console.print("[yellow]pandoc:[/yellow] will be downloaded on first export.")
+        _console.print("[green]All system dependencies are already installed.[/green]")
         return
 
-    if not fix:
+    _print_diagnosis(d)
+
+    if check:
         if d.fix_command:
-            _console.print(f"\n[bold]Fix:[/bold] {d.fix_command}")
-            _console.print("Run with [bold]--fix[/bold] to apply.")
+            _console.print(f"\n[bold]Would run:[/bold] {d.fix_command}")
+        if not d.pandoc_present:
+            _console.print(
+                "[bold]Would download pandoc[/bold] from the upstream pandoc GitHub release."
+            )
         raise typer.Exit(code=1)
 
+    installed = [*d.missing_libs]
+    if not d.pandoc_present:
+        installed.append("pandoc")
+
     code = apply_fix(d, assume_yes=yes)
+    if code == 0:
+        _console.print(
+            f"[green]Installed:[/green] {', '.join(installed)}.",
+        )
     raise typer.Exit(code=code)
 
 
 def _print_diagnosis(d: Diagnosis) -> None:
-    table = Table(title=f"obsidian-pdf-exporter doctor — {d.platform}")
+    table = Table(title=f"obsidian-pdf-exporter setup — {d.platform}")
     table.add_column("Check")
     table.add_column("Status")
-    for lib in ("gobject-2.0", "pango-1.0", "pangoft2-1.0", "cairo", "harfbuzz"):
+    for lib in (
+        "gobject-2.0",
+        "pango-1.0",
+        "pangoft2-1.0",
+        "harfbuzz",
+        "harfbuzz-subset",
+        "fontconfig",
+    ):
         ok = lib not in d.missing_libs
         table.add_row(lib, "[green]OK[/green]" if ok else "[red]MISSING[/red]")
     table.add_row(
         "pandoc",
-        "[green]OK[/green]" if d.pandoc_present else "[yellow]auto-download[/yellow]",
+        "[green]OK[/green]" if d.pandoc_present else "[red]MISSING[/red]",
     )
     _console.print(table)
     for note in d.notes:
@@ -106,14 +128,12 @@ def list_plugins() -> None:
     plugins = available_plugins()
     table = Table(title="Available Obsidian plugins")
     table.add_column("Name", style="bold")
-    table.add_column("Priority", justify="right")
     table.add_column("Description")
     table.add_column("Class")
     rows = sorted(plugins.items(), key=lambda kv: (getattr(kv[1], "priority", 100), kv[0]))
     for name, cls in rows:
-        priority = str(getattr(cls, "priority", 100))
         desc = getattr(cls, "description", "") or ""
-        table.add_row(name, priority, desc, f"{cls.__module__}.{cls.__name__}")
+        table.add_row(name, desc, f"{cls.__module__}.{cls.__name__}")
     _console.print(table)
 
 
