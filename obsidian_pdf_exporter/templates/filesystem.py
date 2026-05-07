@@ -25,6 +25,9 @@ Python code, so users who need them keep using the entry-point path.
 
 from __future__ import annotations
 
+import base64
+import mimetypes
+import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -134,6 +137,12 @@ def _load_directory(directory: Path) -> FilesystemTemplate:
     assets = {n: (directory / n).read_bytes() for n in asset_names}
     running_html = _read_optional(directory, manifest.running_html)
     page_css = _read_optional(directory, manifest.page_css)
+    if assets:
+        # WeasyPrint cannot resolve relative URLs from elements inside @page
+        # margin boxes, so inline declared assets as base64 data URIs — same
+        # workaround Python templates apply via base.asset_data_uri().
+        running_html = _inline_assets_html(running_html, assets)
+        page_css = _inline_assets_css(page_css, assets)
     return FilesystemTemplate(
         name=name,
         description=manifest.description,
@@ -143,6 +152,45 @@ def _load_directory(directory: Path) -> FilesystemTemplate:
         page_css=page_css,
         source_path=directory,
     )
+
+
+_SRC_RE = re.compile(r"""(\bsrc\s*=\s*)(['"])([^'"]+)\2""")
+_URL_RE = re.compile(r"""\burl\(\s*(?:'([^']*)'|"([^"]*)"|([^)\s]+))\s*\)""")
+
+
+def _asset_data_uri(name: str, data: bytes) -> str:
+    mime, _ = mimetypes.guess_type(name)
+    encoded = base64.b64encode(data).decode("ascii")
+    return f"data:{mime or 'application/octet-stream'};base64,{encoded}"
+
+
+def _inline_assets_html(html: str, assets: dict[str, bytes]) -> str:
+    if not html:
+        return html
+
+    def repl(m: re.Match[str]) -> str:
+        prefix, quote, target = m.group(1), m.group(2), m.group(3)
+        if target in assets:
+            return f"{prefix}{quote}{_asset_data_uri(target, assets[target])}{quote}"
+        return m.group(0)
+
+    return _SRC_RE.sub(repl, _inline_url_refs(html, assets))
+
+
+def _inline_assets_css(css: str, assets: dict[str, bytes]) -> str:
+    if not css:
+        return css
+    return _inline_url_refs(css, assets)
+
+
+def _inline_url_refs(text: str, assets: dict[str, bytes]) -> str:
+    def repl(m: re.Match[str]) -> str:
+        target = m.group(1) or m.group(2) or m.group(3) or ""
+        if target in assets:
+            return f'url("{_asset_data_uri(target, assets[target])}")'
+        return m.group(0)
+
+    return _URL_RE.sub(repl, text)
 
 
 def _read_manifest(directory: Path) -> _Manifest:
