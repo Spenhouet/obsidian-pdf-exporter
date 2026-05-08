@@ -319,8 +319,11 @@ def _prepend_metadata(
 def _write_template_assets(template: Template, build_dir: Path) -> str:
     css_filename = f"{template.name}.css"
     (build_dir / css_filename).write_text(template.get_css(), encoding="utf-8")
+    build_dir_resolved = build_dir.resolve()
     for name, content in template.assets().items():
-        (build_dir / name).write_bytes(content)
+        dest = (build_dir / name).resolve()
+        if dest.is_relative_to(build_dir_resolved):
+            dest.write_bytes(content)
     return css_filename
 
 
