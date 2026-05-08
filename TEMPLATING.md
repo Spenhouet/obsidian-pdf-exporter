@@ -81,6 +81,22 @@ page_css: page.css # @page rules etc.
 obsidian-pdf-exporter export ./vault --template ./my-template/
 ```
 
+#### Sharing assets across templates
+
+A sibling `assets/` directory next to your template directory is auto-discovered. Files in it are inlined exactly like template-local assets, but the key is stored as `../assets/<name>` so the `src` / `url(...)` value in your HTML/CSS must match:
+
+```text
+my-templates/
+├── assets/                       # shared logos, icons, fonts
+│   └── logo.svg
+└── legal-pack/
+    ├── template.yaml
+    ├── main.css
+    └── header.html               # uses src="../assets/logo.svg"
+```
+
+The same path also works in an explicit manifest list: `assets: ['../assets/logo.svg']`. External URLs (`https://…`) and unknown names still pass through untouched.
+
 ### C. Named user-config template
 
 Drop the directory into your user-config folder so it appears in `list-templates` and works by short name from any vault:
@@ -297,7 +313,7 @@ running_html = f'<img class="brand-logo" src="{logo_uri}" />'
 
 That sidesteps WeasyPrint's relative-URL resolution rules, which can be finicky for elements inside page margin boxes.
 
-Filesystem templates (directory + `template.yaml`) get the same treatment automatically: any `src="<asset>"` in `running_html` and any `url(<asset>)` in `page_css` is rewritten to a base64 data URI at load time, as long as `<asset>` is listed in (or auto-discovered for) `assets:`. External URLs and unknown names pass through untouched.
+Filesystem templates (directory + `template.yaml`) get the same treatment automatically: any `src="<asset>"` in `running_html` and any `url(<asset>)` in `page_css` is rewritten to a base64 data URI at load time, as long as `<asset>` is listed in (or auto-discovered for) `assets:`. Auto-discovery covers both the template directory itself and a sibling `assets/` directory (referenced as `../assets/<name>`). External URLs and unknown names pass through untouched.
 
 ## Markdown / HTML hooks
 
