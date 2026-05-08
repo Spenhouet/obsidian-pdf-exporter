@@ -134,7 +134,7 @@ def _load_directory(directory: Path) -> FilesystemTemplate:
     css_path = _resolve_css(directory, manifest)
     name = manifest.name or directory.name
     asset_names = _resolve_assets(directory, manifest, css_path)
-    assets = {n: (directory / n).read_bytes() for n in asset_names}
+    assets = {n: (directory / n).resolve().read_bytes() for n in asset_names}
     running_html = _read_optional(directory, manifest.running_html)
     page_css = _read_optional(directory, manifest.page_css)
     if assets:
@@ -264,7 +264,24 @@ def _resolve_assets(
         if entry.suffix.lower() in _RESERVED_SUFFIXES:
             continue
         out.append(entry.name)
+    out.extend(_discover_shared_assets(directory))
     return out
+
+
+def _discover_shared_assets(directory: Path) -> list[str]:
+    """Auto-discover a sibling ``assets/`` dir shared across templates.
+
+    Keys are stored as ``../assets/<name>`` so the dict key matches the
+    ``src`` / ``url(...)`` value authored in the template HTML/CSS.
+    """
+    shared = directory.parent / "assets"
+    if not shared.is_dir():
+        return []
+    return [
+        f"../assets/{entry.name}"
+        for entry in sorted(shared.iterdir())
+        if entry.is_file() and entry.suffix.lower() not in _RESERVED_SUFFIXES
+    ]
 
 
 def _read_optional(directory: Path, rel: str | None) -> str:
