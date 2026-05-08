@@ -167,6 +167,59 @@ def test_load_directory_multiple_css_without_manifest_errors(tmp_path: Path) -> 
         load_from_path(tmp_path)
 
 
+def test_load_directory_auto_discovers_sibling_assets(tmp_path: Path) -> None:
+    template_dir = tmp_path / "brand"
+    template_dir.mkdir()
+    shared = tmp_path / "assets"
+    shared.mkdir()
+    (template_dir / "main.css").write_text("body{}", encoding="utf-8")
+    (template_dir / "header.html").write_text(
+        '<img src="../assets/logo.svg">',
+        encoding="utf-8",
+    )
+    (template_dir / "page.css").write_text(
+        "@page { background: url(../assets/logo.svg); }",
+        encoding="utf-8",
+    )
+    (template_dir / "template.yaml").write_text(
+        "css: main.css\nrunning_html: header.html\npage_css: page.css\n",
+        encoding="utf-8",
+    )
+    (shared / "logo.svg").write_bytes(b"<svg/>")
+
+    tpl = load_from_path(template_dir)
+    assert tpl.assets() == {"../assets/logo.svg": b"<svg/>"}
+    decs = tpl.decorations(_ctx())
+    assert decs is not None
+    assert 'src="../assets/logo.svg"' not in decs.running_html
+    assert "data:image/svg+xml;base64,PHN2Zy8+" in decs.running_html
+    assert "url(../assets/logo.svg)" not in decs.page_css
+    assert "data:image/svg+xml;base64,PHN2Zy8+" in decs.page_css
+
+
+def test_manifest_assets_accepts_relative_traversal(tmp_path: Path) -> None:
+    template_dir = tmp_path / "brand"
+    template_dir.mkdir()
+    shared = tmp_path / "assets"
+    shared.mkdir()
+    (template_dir / "main.css").write_text("body{}", encoding="utf-8")
+    (template_dir / "header.html").write_text(
+        '<img src="../assets/logo.svg">',
+        encoding="utf-8",
+    )
+    (template_dir / "template.yaml").write_text(
+        "css: main.css\nassets: ['../assets/logo.svg']\nrunning_html: header.html\n",
+        encoding="utf-8",
+    )
+    (shared / "logo.svg").write_bytes(b"<svg/>")
+
+    tpl = load_from_path(template_dir)
+    assert tpl.assets() == {"../assets/logo.svg": b"<svg/>"}
+    decs = tpl.decorations(_ctx())
+    assert decs is not None
+    assert "data:image/svg+xml;base64,PHN2Zy8+" in decs.running_html
+
+
 def test_load_missing_path_errors(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         load_from_path(tmp_path / "nope")
