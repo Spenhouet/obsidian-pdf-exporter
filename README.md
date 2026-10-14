@@ -21,6 +21,7 @@
 - **Redline** PDFs: tracked-changes diff between two git commits.
 - Pluggable PDF templates (CSS + running header/footer + paged-media `@page` rules). Two ship in the box: `default` and `redline`. See [TEMPLATING.md](TEMPLATING.md).
 - Wide tables auto-rotated to landscape pages.
+- Mermaid diagrams rendered to SVG or PNG with mermaid-cli. See [MARKDOWN.md](MARKDOWN.md#mermaid-diagrams).
 
 ## Install
 
