@@ -152,11 +152,29 @@ def inline_svg_images(html: str, build_dir: Path) -> str:  # noqa: C901 - small 
         svg_text = svg_text.strip()
         cls_m = re.search(r'\bclass=["\']([^"\']*)["\']', tag, re.IGNORECASE)
         cls = cls_m.group(1) if cls_m else "doc-image"
+        style_m = re.search(r'\bstyle=["\']([^"\']*)["\']', tag, re.IGNORECASE)
+        size = style_m.group(1) if style_m else ""
+        if size:
+            svg_text = _drop_svg_size(svg_text)
+        # No ``height: auto`` here: WeasyPrint then sizes inline SVGs as squares.
         return re.sub(
             r"<svg\b",
-            f'<svg class="{cls}" style="max-width:100%;height:auto;"',
+            f'<svg class="{cls}" style="max-width:100%;{size}"',
             svg_text,
             count=1,
         )
 
     return re.sub(r"<img\b[^>]*/?>", replace, html, flags=re.IGNORECASE)
+
+
+def _drop_svg_size(svg_text: str) -> str:
+    """Remove ``width``/``height`` from the root ``<svg>`` if it has a ``viewBox``.
+
+    Used when the author sets a size on the embed, so the SVG scales to it
+    with its own aspect ratio instead of keeping its original height.
+    """
+    root = re.search(r"<svg\b[^>]*>", svg_text)
+    if not root or "viewBox" not in root.group(0):
+        return svg_text
+    tag = re.sub(r'\s(?:width|height)=["\'][^"\']*["\']', "", root.group(0))
+    return svg_text.replace(root.group(0), tag, 1)
