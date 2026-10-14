@@ -262,3 +262,36 @@ def test_user_config_dir_discovery(tmp_path: Path, monkeypatch: pytest.MonkeyPat
 
 def _ctx() -> ExportContext:
     return ExportContext(title="t")
+
+
+def _render_pages(html: str) -> list[str]:
+    try:
+        from weasyprint import HTML
+    except OSError as e:  # native Pango libs missing
+        pytest.skip(f"WeasyPrint not usable: {e}")
+    pages = HTML(string=html).render().pages
+
+    def texts(box: object) -> list[str]:
+        out = [box.text] if getattr(box, "text", None) else []
+        for child in getattr(box, "children", None) or []:
+            out += texts(child)
+        return out
+
+    return [" ".join(texts(page._page_box)) for page in pages]
+
+
+@pytest.mark.parametrize("name", ["default", "redline"])
+def test_builtin_template_lets_tables_break_between_rows(name: str) -> None:
+    """A table that does not fit below a tall block splits instead of moving as a whole."""
+    css = load_template(name).get_css()
+    rows = "".join(f"<tr><td>row{i}</td><td>{i}</td></tr>" for i in range(30))
+    html = (
+        f"<html><head><style>{css}</style></head><body>"
+        '<div style="height: 18cm"></div>'
+        f"<table><thead><tr><th>Key</th><th>Value</th></tr></thead><tbody>{rows}</tbody></table>"
+        "</body></html>"
+    )
+    pages = _render_pages(html)
+    assert "row0" in pages[0]
+    assert "row29" in pages[1]
+    assert "Key" in pages[1]  # header row repeats on the next page
