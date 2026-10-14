@@ -59,7 +59,48 @@ def test_convert_wiki_links_image_size(page: tuple[Path, Path], source: str, exp
 
 
 def test_inline_svg_keeps_image_size(tmp_path: Path) -> None:
-    (tmp_path / "d.svg").write_text('<svg viewBox="0 0 10 10"></svg>', encoding="utf-8")
+    (tmp_path / "d.svg").write_text(
+        '<svg width="800" height="200" viewBox="0 0 800 200"></svg>', encoding="utf-8"
+    )
     html = '<img src="d.svg" class="doc-image" style="width:430px" />'
     out = inline_svg_images(html, tmp_path)
-    assert 'style="max-width:100%;height:auto;width:430px"' in out
+    assert out == (
+        '<svg class="doc-image" style="max-width:100%;width:430px" viewBox="0 0 800 200"></svg>'
+    )
+
+
+def test_inline_svg_without_size_keeps_svg_attributes(tmp_path: Path) -> None:
+    (tmp_path / "d.svg").write_text(
+        '<svg width="800" height="200" viewBox="0 0 800 200"></svg>', encoding="utf-8"
+    )
+    out = inline_svg_images('<img src="d.svg" class="doc-image" />', tmp_path)
+    assert out == (
+        '<svg class="doc-image" style="max-width:100%;" width="800" height="200" '
+        'viewBox="0 0 800 200"></svg>'
+    )
+
+
+@pytest.mark.parametrize(
+    ("size", "expected"),
+    [("", (640, 160)), ("width:400px", (400, 100))],
+)
+def test_inline_svg_keeps_aspect_ratio_in_weasyprint(
+    tmp_path: Path, size: str, expected: tuple[int, int]
+) -> None:
+    """Inlined SVGs keep their aspect ratio when scaled to the page or a set width."""
+    try:
+        from weasyprint import HTML
+    except OSError as e:  # native Pango libs missing
+        pytest.skip(f"WeasyPrint not usable: {e}")
+    (tmp_path / "d.svg").write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="200" '
+        'viewBox="0 0 800 200"><rect width="800" height="200"/></svg>',
+        encoding="utf-8",
+    )
+    style = f' style="{size}"' if size else ""
+    body = inline_svg_images(f'<p><img src="d.svg" class="doc-image"{style} /></p>', tmp_path)
+    html = f"<style>@page {{ size: 640px 1000px; margin: 0 }} body {{ margin: 0 }}</style>{body}"
+    page = HTML(string=html).render().pages[0]._page_box
+    p = page.children[0].children[0].children[0]
+    svg = p.children[0].children[0]
+    assert (round(svg.width), round(svg.height)) == expected
