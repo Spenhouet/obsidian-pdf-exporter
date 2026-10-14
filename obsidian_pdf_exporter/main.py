@@ -34,12 +34,35 @@ app = typer.Typer(
 _console = Console()
 
 
-@app.command()
-def version() -> None:
-    """Print the installed version."""
+def _print_version() -> None:
     from obsidian_pdf_exporter import __version__
 
     typer.echo(f"obsidian-pdf-exporter {__version__}")
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        _print_version()
+        raise typer.Exit
+
+
+@app.callback()
+def main(
+    _version: bool = typer.Option(
+        False,
+        "--version",
+        help="Print the installed version and exit.",
+        callback=_version_callback,
+        is_eager=True,
+    ),
+) -> None:
+    """Export Obsidian vaults to PDF with plugin support. Runs locally or in CI."""
+
+
+@app.command()
+def version() -> None:
+    """Print the installed version."""
+    _print_version()
 
 
 @app.command()
