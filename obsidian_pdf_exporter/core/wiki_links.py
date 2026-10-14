@@ -20,6 +20,26 @@ RE_WIKI_LINK = re.compile(r"\[\[([^\]#|]+?)(?:#([^\]|]*))?(?:\|([^\]]*))?\]\]")
 RE_BRACKET_LINK = re.compile(r"\[\[([^\]\n]+)\]([^\]\n]*)\]\(([^)\n]+)\)")
 
 _IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"}
+# Obsidian image size suffix: ``|300`` (width) or ``|300x200`` (width x height).
+RE_IMAGE_SIZE = re.compile(r"^(\d+)(?:x(\d+))?$")
+RE_EMBED_PIPE = re.compile(r"\\?\|")
+
+
+def split_image_size(alt: str) -> tuple[str, str]:
+    """Split Obsidian ``caption|300x200`` embed text into caption and pandoc attributes.
+
+    Returns the caption (possibly empty) and the attribute list to put inside
+    ``{...}`` after the image, e.g. ``.doc-image style="width:300px"``.
+    """
+    parts = RE_EMBED_PIPE.split(alt)
+    size = RE_IMAGE_SIZE.match(parts[-1].strip())
+    if not size:
+        return alt, ".doc-image"
+    caption = "|".join(parts[:-1]).strip()
+    style = f"width:{size.group(1)}px"
+    if size.group(2):
+        style += f";height:{size.group(2)}px"
+    return caption, f'.doc-image style="{style}"'
 
 
 def resolve_image(
@@ -80,7 +100,8 @@ def convert_wiki_links(
         if ext in _IMAGE_EXTENSIONS:
             resolved = resolve_image(target, page_folder, build_dir, vault_index)
             if resolved:
-                return f"![{alt}]({resolved}){{.doc-image}}"
+                caption, attrs = split_image_size(alt)
+                return f"![{caption}]({resolved}){{{attrs}}}"
             return f"*[Image: {target}]*"
 
         page_name = Path(target).stem
