@@ -14,6 +14,8 @@ from obsidian_pdf_exporter.core.html_postprocess import inline_svg_images
 from obsidian_pdf_exporter.core.html_postprocess import normalize_colgroups
 from obsidian_pdf_exporter.core.html_postprocess import remove_empty_table_headers
 from obsidian_pdf_exporter.core.html_postprocess import wrap_wide_tables
+from obsidian_pdf_exporter.core.mermaid import mermaid_settings
+from obsidian_pdf_exporter.core.mermaid import render_mermaid_blocks
 from obsidian_pdf_exporter.core.pandoc import render_html
 from obsidian_pdf_exporter.core.pdf import apply_decorations
 from obsidian_pdf_exporter.core.pdf import html_to_pdf
@@ -139,6 +141,7 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
             options=dict(request.options),
         )
 
+        markdown = _render_mermaid(markdown, request.template, ctx, log)
         markdown = request.template.process_markdown(markdown, ctx)
         (build_dir / "assembled.md").write_text(markdown, encoding="utf-8")
 
@@ -263,6 +266,7 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
                 options=dict(request.options),
             )
 
+            markdown = _render_mermaid(markdown, request.template, ctx, log)
             markdown = request.template.process_markdown(markdown, ctx)
             (build_dir / "redline_assembled.md").write_text(markdown, encoding="utf-8")
 
@@ -314,6 +318,16 @@ def _prepend_metadata(
     elif date:
         lines.append(f"% {date}")
     return "\n".join(lines) + "\n\n" + body
+
+
+def _render_mermaid(
+    markdown: str,
+    template: Template,
+    ctx: ExportContext,
+    log,  # noqa: ANN001 - log is any callable(str)
+) -> str:
+    settings = mermaid_settings(ctx.options, template.mermaid_config(ctx))
+    return render_mermaid_blocks(markdown, ctx.build_dir, settings, log=log)
 
 
 def _write_template_assets(template: Template, build_dir: Path) -> str:

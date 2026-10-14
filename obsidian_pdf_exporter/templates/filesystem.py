@@ -18,6 +18,8 @@ Manifest schema (all keys optional)::
     assets: [logo.svg]            # default: every non-css/yaml/html sibling
     running_html: header.html     # appended after <body> at render time
     page_css: page.css            # ``@page`` rules etc.
+    mermaid:                      # Mermaid config for diagrams
+      theme: neutral
 
 Markdown / HTML hooks are deliberately not exposed here — they require
 Python code, so users who need them keep using the entry-point path.
@@ -54,6 +56,7 @@ class _Manifest:
     assets: tuple[str, ...] | None = None
     running_html: str | None = None
     page_css: str | None = None
+    mermaid: dict | None = None
 
 
 class FilesystemTemplate(Template):
@@ -69,6 +72,7 @@ class FilesystemTemplate(Template):
         running_html: str,
         page_css: str,
         source_path: Path,
+        mermaid: dict | None = None,
     ) -> None:
         self.name = name
         self.description = description
@@ -76,6 +80,7 @@ class FilesystemTemplate(Template):
         self._assets = assets
         self._running_html = running_html
         self._page_css = page_css
+        self._mermaid = dict(mermaid or {})
         self.source_path = source_path
 
     def get_css(self) -> str:
@@ -83,6 +88,9 @@ class FilesystemTemplate(Template):
 
     def assets(self) -> dict[str, bytes]:
         return dict(self._assets)
+
+    def mermaid_config(self, context: ExportContext) -> dict[str, object]:
+        return dict(self._mermaid)
 
     def decorations(self, context: ExportContext) -> Decorations | None:
         if not self._running_html and not self._page_css:
@@ -151,6 +159,7 @@ def _load_directory(directory: Path) -> FilesystemTemplate:
         running_html=running_html,
         page_css=page_css,
         source_path=directory,
+        mermaid=manifest.mermaid,
     )
 
 
@@ -205,6 +214,10 @@ def _read_manifest(directory: Path) -> _Manifest:
             if assets is not None and not isinstance(assets, list):
                 msg = f"Manifest 'assets' must be a list, got {type(assets).__name__}"
                 raise ValueError(msg)
+            mermaid = data.get("mermaid")
+            if mermaid is not None and not isinstance(mermaid, dict):
+                msg = f"Manifest 'mermaid' must be a mapping, got {type(mermaid).__name__}"
+                raise ValueError(msg)
             return _Manifest(
                 name=_str_or_none(data.get("name")),
                 description=str(data.get("description") or ""),
@@ -212,6 +225,7 @@ def _read_manifest(directory: Path) -> _Manifest:
                 assets=tuple(str(a) for a in assets) if assets is not None else None,
                 running_html=_str_or_none(data.get("running_html")),
                 page_css=_str_or_none(data.get("page_css")),
+                mermaid=mermaid,
             )
     return _Manifest()
 

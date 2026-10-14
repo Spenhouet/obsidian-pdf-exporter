@@ -88,6 +88,14 @@ class Template:
         """Return per-page header/footer HTML + ``@page`` CSS, or None to skip."""
         return None
 
+    def mermaid_config(self, context: ExportContext) -> dict[str, object]:
+        """Return a Mermaid config (``theme``, ``themeVariables``, ...) for diagrams.
+
+        The user's ``--option mermaid.config=PATH`` and ``mermaid.theme=NAME``
+        are merged over it.
+        """
+        return {}
+
     def process_markdown(self, content: str, context: ExportContext) -> str:
         """Hook called on the assembled markdown immediately before pandoc runs."""
         return content

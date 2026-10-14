@@ -75,6 +75,10 @@ css: main.css # default: template.css or sole *.css
 assets: [logo.svg] # default: every non-css/yaml/html sibling
 running_html: header.html # appended after <body>
 page_css: page.css # @page rules etc.
+mermaid: # Mermaid config for diagrams, see MARKDOWN.md
+  theme: base
+  themeVariables:
+    primaryColor: "#e8eef5"
 ```
 
 ```bash
@@ -179,6 +183,9 @@ class MyTemplate(Template):
     def decorations(self, context: ExportContext) -> Decorations | None:
         return None                   # or Decorations(running_html=..., page_css=...)
 
+    def mermaid_config(self, context: ExportContext) -> dict[str, object]:
+        return {}                     # Mermaid config: theme, themeVariables, ...
+
     def process_markdown(self, content: str, context: ExportContext) -> str:
         return content                # called right before pandoc
 
@@ -193,6 +200,7 @@ class MyTemplate(Template):
 | `get_css() -> str` | yes (in practice) | Returns the CSS source as a string. The exporter writes it to `<build>/<name>.css`. |
 | `assets() -> dict[str, bytes]` | no | Each entry is written to `<build>/<key>` as bytes. Reference the file by relative path from the CSS. |
 | `decorations(ctx) -> Decorations \| None` | no | Return `None` to skip decorations. |
+| `mermaid_config(ctx) -> dict` | no | Mermaid config used for diagrams. The user's `mermaid.config` and `mermaid.theme` options are merged over it. See [MARKDOWN.md](MARKDOWN.md#mermaid-diagrams). |
 | `process_markdown(content, ctx) -> str` | no | Mutate the assembled markdown before pandoc runs. |
 | `process_html(html, ctx) -> str` | no | Mutate the HTML after pandoc + post-processing, before decorations and PDF rendering. |
 
