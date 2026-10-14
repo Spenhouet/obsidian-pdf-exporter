@@ -219,6 +219,11 @@ def export(  # noqa: PLR0913 - typer commands enumerate every CLI flag
         "--disable-plugin",
         help="Skip the named Obsidian plugin (repeatable; see `list-plugins`)",
     ),
+    toc: bool = typer.Option(
+        True,
+        "--toc/--no-toc",
+        help="Include a table of contents at the start of the document",
+    ),
     debug: bool = typer.Option(
         False,
         "--debug",
@@ -249,12 +254,13 @@ def export(  # noqa: PLR0913 - typer commands enumerate every CLI flag
         options=options,
         disabled_plugins=set(disable_plugin),
         debug=debug,
+        toc=toc,
     )
     _run(lambda: export_pdf(request, log=_log))
 
 
 @app.command()
-def redline(
+def redline(  # noqa: PLR0913 - typer commands enumerate every CLI flag
     root: Path = typer.Argument(..., help="Path to the vault folder to export"),
     from_commit: str = typer.Option(
         ...,
@@ -299,6 +305,11 @@ def redline(
         "--disable-plugin",
         help="Skip the named Obsidian plugin (repeatable; see `list-plugins`)",
     ),
+    toc: bool = typer.Option(
+        True,
+        "--toc/--no-toc",
+        help="Include a table of contents at the start of the document",
+    ),
     debug: bool = typer.Option(
         False,
         "--debug",
@@ -334,6 +345,7 @@ def redline(
         options=options,
         disabled_plugins=set(disable_plugin),
         debug=debug,
+        toc=toc,
     )
     _run(lambda: export_redline(request, log=_log))
 

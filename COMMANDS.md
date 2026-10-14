@@ -19,6 +19,7 @@ Build a single PDF from a vault folder. Git is **not** required — works on any
 | `--exclude NAME`            | Skip these top-level subfolders. Repeatable.                                                                             | none                    |
 | `-O, --option key=value`    | Free-form option forwarded to plugins / template. Repeatable.                                                            | —                       |
 | `--disable-plugin NAME`     | Skip a plugin (see `list-plugins`). Repeatable.                                                                          | none                    |
+| `--toc / --no-toc`          | Include or leave out the table of contents.                                                                              | `--toc`                 |
 | `--debug`                   | Keep the intermediate build directory next to the PDF.                                                                   | off                     |
 
 Example:
@@ -48,6 +49,7 @@ Generate a tracked-changes PDF between two git commits. Must run inside the git 
 | `--subtitle TEXT`           | Document subtitle.                           | computed from hashes            |
 | `-O, --option key=value`    | Forwarded to plugins / template. Repeatable. | —                               |
 | `--disable-plugin NAME`     | Skip a plugin. Repeatable.                   | none                            |
+| `--toc / --no-toc`          | Include or leave out the table of contents.  | `--toc`                         |
 | `--debug`                   | Keep intermediates.                          | off                             |
 
 Markup conventions in the rendered PDF:

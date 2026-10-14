@@ -8,11 +8,10 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pathlib import Path
 
+_TOC_ARGS: tuple[str, ...] = ("--toc", "--toc-depth=4")
 _BASE_ARGS: tuple[str, ...] = (
     "--standalone",
     "--embed-resources",
-    "--toc",
-    "--toc-depth=4",
     "--number-sections",
     "--from",
     "markdown+raw_html+fenced_divs+bracketed_spans",
@@ -26,11 +25,17 @@ def render_html(
     build_dir: Path,
     *,
     extra_metadata: dict[str, str] | None = None,
+    toc: bool = True,
 ) -> str:
-    """Run pandoc on ``markdown`` and return the resulting standalone HTML."""
+    """Run pandoc on ``markdown`` and return the resulting standalone HTML.
+
+    Set ``toc=False`` to leave out the table of contents.
+    """
     import pypandoc
 
     extras = list(_BASE_ARGS)
+    if toc:
+        extras += _TOC_ARGS
     extras += [f"--css={css_filename}", "--metadata", f"title={title}"]
     if extra_metadata:
         for key, value in extra_metadata.items():

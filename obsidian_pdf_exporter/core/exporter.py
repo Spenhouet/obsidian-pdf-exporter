@@ -51,6 +51,7 @@ class ExportRequest:
     options: dict[str, str] = field(default_factory=dict)
     disabled_plugins: set[str] = field(default_factory=set)
     debug: bool = False
+    toc: bool = True
 
 
 @dataclass
@@ -67,6 +68,7 @@ class RedlineRequest:
     options: dict[str, str] = field(default_factory=dict)
     disabled_plugins: set[str] = field(default_factory=set)
     debug: bool = False
+    toc: bool = True
 
 
 def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
@@ -149,7 +151,14 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
         if request.version:
             extra_meta["pagetitle"] = f"{title} v{request.version}"
 
-        html = render_html(markdown, css_filename, title, build_dir, extra_metadata=extra_meta)
+        html = render_html(
+            markdown,
+            css_filename,
+            title,
+            build_dir,
+            extra_metadata=extra_meta,
+            toc=request.toc,
+        )
         html = remove_empty_table_headers(html)
         html = normalize_colgroups(html)
         html = inline_svg_images(html, build_dir)
@@ -269,7 +278,7 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
             log("  Converting to HTML...")
             css_filename = _write_template_assets(request.template, build_dir)
 
-            html = render_html(markdown, css_filename, title, build_dir)
+            html = render_html(markdown, css_filename, title, build_dir, toc=request.toc)
             html = remove_empty_table_headers(html)
             html = normalize_colgroups(html)
             html = inline_svg_images(html, build_dir)
