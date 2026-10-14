@@ -75,7 +75,7 @@ Print every installed Obsidian-plugin support module, sorted by priority.
 
 ## `version`
 
-Print the installed version.
+Print the installed version. `ope --version` does the same.
 
 ## Environment variables
 
