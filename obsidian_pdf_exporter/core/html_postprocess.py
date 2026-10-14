@@ -152,9 +152,11 @@ def inline_svg_images(html: str, build_dir: Path) -> str:  # noqa: C901 - small 
         svg_text = svg_text.strip()
         cls_m = re.search(r'\bclass=["\']([^"\']*)["\']', tag, re.IGNORECASE)
         cls = cls_m.group(1) if cls_m else "doc-image"
+        style_m = re.search(r'\bstyle=["\']([^"\']*)["\']', tag, re.IGNORECASE)
+        style = "max-width:100%;height:auto;" + (style_m.group(1) if style_m else "")
         return re.sub(
             r"<svg\b",
-            f'<svg class="{cls}" style="max-width:100%;height:auto;"',
+            f'<svg class="{cls}" style="{style}"',
             svg_text,
             count=1,
         )
