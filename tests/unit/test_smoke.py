@@ -19,6 +19,22 @@ def test_cli_help() -> None:
     assert result.exit_code == 0
 
 
+def test_cli_version_flag() -> None:
+    """`--version` prints the same line as the `version` command."""
+    flag = CliRunner().invoke(app, ["--version"])
+    command = CliRunner().invoke(app, ["version"])
+    assert flag.exit_code == 0
+    assert flag.output == command.output
+    assert __version__ in flag.output
+
+
+def test_export_version_option_still_sets_document_version() -> None:
+    """`export --version` keeps meaning the document version."""
+    result = CliRunner().invoke(app, ["export", "--help"])
+    assert result.exit_code == 0
+    assert "Document version" in result.output
+
+
 def test_redline_outside_git_repo_fails_cleanly(
     tmp_path: Path, monkeypatch: object
 ) -> None:
