@@ -1,0 +1,4011 @@
+# obsidian-pdf-exporter
+
+> obsidian-pdf-exporter (`ope`) is a command-line tool that exports a folder of an Obsidian vault to one PDF. It handles wiki links, embeds, callouts, Mermaid, math, footnotes, Bases and community plugin syntax (Dataview, Meta Bind, Excalidraw, draw.io, citations), makes redline PDFs between two git commits, and styles the PDF with CSS templates. Install with `uv tool install obsidian-pdf-exporter && ope setup --yes`.
+
+- `ope` and `obsidian-pdf-exporter` are the same command. `ope <command> --help` is authoritative.
+- The PDF is laid out by WeasyPrint from HTML written by pandoc. Templates are CSS Paged Media.
+- A Claude Code plugin with an agent skill lives in the repository: `/plugin marketplace add Spenhouet/obsidian-pdf-exporter`.
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/
+
+# obsidian-pdf-exporter
+
+![obsidian-pdf-exporter](img/banner.png)
+
+<p class="ope-tagline">Export a folder of Obsidian notes to one PDF, with wiki links, embeds, callouts, Mermaid, math and community plugin syntax. Runs locally or in CI.</p>
+
+[Get started](getting-started/installation.md){ .md-button .md-button--primary }
+[View on GitHub](https://github.com/Spenhouet/obsidian-pdf-exporter){ .md-button }
+
+## What it does
+
+-   :material-folder-file-outline: __A folder becomes a document__
+
+    Every folder is a section, every folder note its text. Headings are numbered and listed in a table of contents.
+
+    [:octicons-arrow-right-24: Folder structure](obsidian/structure.md)
+
+-   :simple-obsidian: __Obsidian syntax__
+
+    Wiki links, embeds of notes, headings and blocks, callouts, highlights, comments, tasks, footnotes, Mermaid, math and Bases.
+
+    [:octicons-arrow-right-24: Obsidian features](obsidian/index.md)
+
+-   :material-puzzle-outline: __Community plugins__
+
+    Dataview queries, Meta Bind views, Excalidraw drawings, citations, Block Link Plus ranges and draw.io diagrams render to static content.
+
+    [:octicons-arrow-right-24: Plugins](plugins/index.md)
+
+-   :material-file-compare: __Redline__
+
+    A tracked-changes PDF between two git commits, for reviews and audits.
+
+    [:octicons-arrow-right-24: Redline](redline.md)
+
+-   :material-palette-outline: __Templates__
+
+    CSS, running header and footer and page rules. A letterhead or a new footer is a folder with a few files.
+
+    [:octicons-arrow-right-24: Templates and styling](templating/index.md)
+
+-   :material-robot-outline: __Ready for AI agents__
+
+    A Claude Code plugin with a skill, plus `llms.txt` for any other agent.
+
+    [:octicons-arrow-right-24: Use with AI agents](agents.md)
+
+## From note to PDF
+
+Each feature page shows the Markdown next to the rendered PDF. For example a callout:
+
+Markdown:
+
+````markdown
+> [!tip] A custom title
+> The title replaces the type name.
+
+> [!faq]- Foldable callouts are always shown open
+> The `+` and `-` markers are accepted.
+
+> [!warning] Nested callouts
+> Outer text.
+>
+> > [!info] Inner callout
+> > Inner text.
+
+> [!note] Lazy continuation
+A line without `>` still belongs to the callout,
+as in Obsidian.
+
+| Status | Note |
+| ------ | ---- |
+| Done   | > [!success] Inline callout in a cell |
+````
+
+PDF:
+
+![Callouts in the PDF](img/features/callouts.png)
+
+## Get going in a minute
+
+=== "Linux / macOS"
+
+    ```bash
+    curl -LsSf uvx.sh/obsidian-pdf-exporter/install.sh | sh && ope setup --yes
+    ```
+
+=== "Windows"
+
+    ```powershell
+    powershell -ExecutionPolicy ByPass -c "irm https://uvx.sh/obsidian-pdf-exporter/install.ps1 | iex; ope setup --yes"
+    ```
+
+Then export a folder of your vault:
+
+```bash
+ope export ./MyVault/Handbook --title "Team handbook"
+```
+
+The PDF lands in `./.export/Team handbook.pdf`. Next: the [quick start](getting-started/quick-start.md).
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/intro/
+
+# Introduction
+
+obsidian-pdf-exporter (`ope`) turns a folder of an Obsidian vault into one PDF. It runs on the command line, so the same export works on a laptop and in a CI pipeline. It does not need Obsidian itself.
+
+## Who it is for
+
+- Teams who write handbooks, specifications or procedures in Obsidian and hand out PDFs.
+- Projects that keep their docs in git and want a PDF per release, built by CI.
+- Reviews that need a tracked-changes PDF between two versions of the docs.
+
+## How it works
+
+An export runs in three layers, the same layers the code is split into:
+
+1. Markdown dialect. Pandoc reads the notes as Markdown with a fixed set of extensions. See [Markdown](markdown/index.md).
+2. Obsidian core syntax. A list of small steps rewrites what Obsidian adds to Markdown: wiki links, embeds, callouts, comments and more. See [Obsidian](obsidian/index.md).
+3. Community plugins. Plugin support modules render syntax of community plugins such as Dataview, Meta Bind, Excalidraw or citations. See [Plugins](plugins/index.md).
+
+Pandoc then writes HTML, and [WeasyPrint](https://weasyprint.org/) lays out the PDF with the CSS of a [template](templating/index.md).
+
+```mermaid
+flowchart LR
+    A[Vault folder] --> B[Core steps and plugins]
+    B --> C[pandoc: HTML]
+    C --> D[Template CSS]
+    D --> E[WeasyPrint: PDF]
+```
+
+## What it is not
+
+- Not an Obsidian plugin. It runs outside Obsidian and reads the files on disk.
+- Not a pixel copy of the Obsidian reading view. The PDF is styled by its template, and some interactive features (folding, input fields, buttons) have no PDF form.
+- Not a full Dataview engine. It renders a subset of DQL, see [Dataview](plugins/dataview.md).
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/redline/
+
+# Redline
+
+`ope redline` builds a PDF that shows what changed in a folder between two git commits: inserted text in green, removed text in red and struck through. It is meant for reviews, approvals and audits of documents kept in git.
+
+```bash
+cd MyVault                     # must run inside the git repository
+ope redline ./Handbook --from-commit v3.0.0 --to-commit HEAD
+```
+
+The PDF is written to `./.export/<title>_redline.pdf`. All options are in the [CLI reference](reference/cli.md#redline).
+
+## Example
+
+Before (commit 1):
+
+````markdown
+## Scope
+
+This policy applies to all laptops.
+
+## Rules
+
+- Lock the screen when you leave the desk.
+- Install updates once a month.
+- Report a lost device within one day.
+
+## Old exceptions
+
+Test devices are exempt.
+````
+
+After (commit 2):
+
+````markdown
+## Scope
+
+This policy applies to all laptops and phones.
+
+## Rules
+
+- Lock the screen when you leave the desk.
+- Install updates once a week.
+- Report a lost device within one day.
+- Use the password manager for all accounts.
+````
+
+PDF:
+
+![Redline PDF with inserted and removed text](img/features/redline.png)
+
+## How changes are shown
+
+- A block that changed a little (similar enough to the old one) shows word-level changes inline, as `<ins>` and `<del>`.
+- A block that is new, or changed so much that the old and new text have little in common, is shown as a removed block followed by an inserted block (`.redline-del` and `.redline-ins`).
+- Removed headings are shown as bold text, so they do not go into the table of contents or the numbering.
+- Both commits are exported with the same steps and plugins, so embeds, Dataview tables and Meta Bind values are compared as they appear in the PDF.
+
+The subtitle and the version label show the two short hashes, such as `Redline: 1a2b3c4 -> 5d6e7f8`. `--subtitle` replaces the subtitle.
+
+## Template
+
+`redline` uses the built-in `redline` template. It looks like `default` and adds the styles for the changes. A custom template for redlines styles these selectors:
+
+| Selector | Marks |
+| -------- | ----- |
+| `ins`, `del` | Word-level insertions and removals. |
+| `.redline-ins`, `.redline-del` | Inserted and removed blocks. |
+
+See the [CSS reference](templating/css-reference.md#redline).
+
+## In CI
+
+The checkout needs the history of both commits:
+
+```yaml
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0
+- run: ope redline ./Handbook --from-commit "${{ github.event.pull_request.base.sha }}" -o redline.pdf
+```
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/agents/
+
+# Use with AI agents
+
+ope is a command-line tool with plain flags, real exit codes and text output, so coding agents can run it like any other CLI. Two things help them use it well: a skill that explains how, and a short index of these docs.
+
+## Claude Code plugin
+
+The repository is a Claude Code plugin marketplace with one plugin. The plugin holds the `obsidian-pdf-exporter` skill: how to install ope when it is missing, export, redline, templates, debugging, and how to check the PDF with `pdftotext` and `pdftoppm`.
+
+In Claude Code:
+
+```text
+/plugin marketplace add Spenhouet/obsidian-pdf-exporter
+/plugin install obsidian-pdf-exporter@obsidian-pdf-exporter
+```
+
+Claude Code 2.1.275 and later can do both in one step:
+
+```text
+/plugin install obsidian-pdf-exporter --marketplace Spenhouet/obsidian-pdf-exporter
+```
+
+From a shell:
+
+```bash
+claude plugin marketplace add Spenhouet/obsidian-pdf-exporter
+claude plugin install obsidian-pdf-exporter@obsidian-pdf-exporter
+claude plugin details obsidian-pdf-exporter   # shows the skill
+```
+
+Updates arrive with `/plugin marketplace update`. The skill loads when a task is about exporting notes to PDF. It can also be called directly as `/obsidian-pdf-exporter:obsidian-pdf-exporter`.
+
+## Copy the skill by hand
+
+The skill is a plain [Agent Skill](https://agentskills.io/) folder, [`skills/obsidian-pdf-exporter/`](https://github.com/Spenhouet/obsidian-pdf-exporter/tree/main/skills/obsidian-pdf-exporter). Copy it into the skills folder of your agent:
+
+```bash
+git clone --depth 1 https://github.com/Spenhouet/obsidian-pdf-exporter /tmp/ope
+
+# Claude Code, for all projects
+mkdir -p ~/.claude/skills && cp -r /tmp/ope/skills/obsidian-pdf-exporter ~/.claude/skills/
+
+# Claude Code, for one project (commit it to share with the team)
+mkdir -p .claude/skills && cp -r /tmp/ope/skills/obsidian-pdf-exporter .claude/skills/
+```
+
+Other agents that read Agent Skills use their own folder, such as `.github/skills/` or `.agents/skills/`. Tools like `npx skills add Spenhouet/obsidian-pdf-exporter` fetch the same folder.
+
+## Other agents: llms.txt
+
+These docs publish an index for language models, following [llmstxt.org](https://llmstxt.org/):
+
+- [`llms.txt`](https://spenhouet.com/obsidian-pdf-exporter/llms.txt): a short description and a link to every page.
+- [`llms-full.txt`](https://spenhouet.com/obsidian-pdf-exporter/llms-full.txt): the text of all pages in one file.
+
+Point an agent without skill support at one of them, for example in its rules file:
+
+```markdown
+## PDF export
+
+Export Obsidian notes to PDF with `ope` (obsidian-pdf-exporter). Install it with
+`uv tool install obsidian-pdf-exporter && ope setup --yes`. Docs for agents:
+https://spenhouet.com/obsidian-pdf-exporter/llms.txt
+```
+
+## Working on ope itself
+
+The repository has an [`AGENTS.md`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/AGENTS.md) for agents that change the code: setup, checks, the layers of the pipeline, where new syntax goes, and how to rebuild the docs and screenshots.
+
+## Example prompt
+
+```text
+Export the folder "Handbook" of my vault to PDF with the title "Team handbook"
+and version 2.0.0. Use a template with our logo (logo.svg in the repo root) at the
+top right of every page and "Page X of Y" in the footer. Check the PDF and tell me
+about any warnings or raw Obsidian syntax left in it.
+```
+
+With the skill, the agent installs ope if needed, builds a template folder from a copy of `default.css` with the logo as a running element, runs the export, and checks the result with `pdftotext` and the rendered pages.
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/contributing/
+
+# Contributing
+
+Any contribution is welcome! This document provides guidelines for contributing to the obsidian-pdf-exporter project.
+
+## Table of Contents
+
+- [Getting Started](#getting-started)
+- [Development Workflow](#development-workflow)
+- [Architecture](#architecture)
+- [Adding support for an Obsidian plugin](#adding-support-for-an-obsidian-plugin)
+- [Adding a PDF template](#adding-a-pdf-template)
+- [Testing](#testing)
+- [Code Quality](#code-quality)
+- [Documentation](#documentation)
+- [Release Process](#release-process)
+- [Pull Request Guidelines](#pull-request-guidelines)
+
+## Getting Started
+
+### Prerequisites
+
+- Python 3.10 or higher
+- Git
+- `uv` (Python package manager)
+- `jq` (for JSON processing)
+
+### Install jq
+
+```bash
+sudo apt-get install jq
+```
+
+### Install `uv`
+
+Following the [uv installation guide](https://docs.astral.sh/uv/getting-started/installation):
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Add shell completion (optional):
+
+```bash
+echo 'eval "$(uv generate-shell-completion bash)"' >> ~/.bashrc
+```
+
+### Project Setup
+
+1. **Fork and Clone the Repository**
+
+   ```bash
+   git clone https://github.com/Spenhouet/obsidian-pdf-exporter.git
+   cd obsidian-pdf-exporter
+   ```
+
+2. **Install Dependencies**
+
+   ```bash
+   uv sync --all-groups
+   ```
+
+   This will:
+   - Create a virtual environment
+   - Install all dependencies (including development dependencies via dependency groups)
+   - Install the project in editable mode
+
+3. **Verify Installation**
+
+   ```bash
+   uv run obsidian-pdf-exporter --help
+   uv run ope --help
+   ```
+
+## Development Workflow
+
+### Running the Application
+
+```bash
+# Run with uv (recommended)
+uv run obsidian-pdf-exporter [commands]
+uv run ope [commands]
+
+# Or activate the virtual environment
+source .venv/bin/activate
+obsidian-pdf-exporter [commands]
+```
+
+### Adding Dependencies
+
+```bash
+# Add runtime dependency
+uv add package-name
+
+# Add development dependency (to dev group)
+uv add --group dev package-name
+
+# Add to custom dependency group
+uv add --group group-name package-name
+```
+
+### Updating Dependencies
+
+```bash
+# Update all dependencies
+uv sync --upgrade
+
+# Update specific dependency
+uv sync --upgrade-package package-name
+```
+
+## Architecture
+
+An export reads a folder of notes and turns it into one PDF. The work is
+split into three layers. Each layer has one place where its parts are
+listed.
+
+1. Markdown dialect ([`core/dialect.py`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/obsidian_pdf_exporter/core/dialect.py)).
+   The pandoc reader extensions and pandoc arguments. The base is pandoc's
+   `markdown` reader with `raw_html` and `lists_without_preceding_blankline`
+   on and `raw_tex` off. Steps add what they need, for example `mark` for
+   highlights, `hard_line_breaks` for line breaks or `--mathml` for math.
+2. Obsidian core syntax ([`core/steps/`](https://github.com/Spenhouet/obsidian-pdf-exporter/tree/main/obsidian_pdf_exporter/core/steps/)).
+   Every piece of syntax that Obsidian itself supports is a small step:
+   frontmatter, comments, Bases, embeds, block IDs, callouts, heading links, wiki
+   links, image captions, headings, warnings about plugin code blocks,
+   highlights, line breaks, tasks, math, footnotes, Mermaid, landscape
+   diagrams, SVG images and table fixes. All steps are listed in
+   `CORE_STEPS` in [`core/steps/__init__.py`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/obsidian_pdf_exporter/core/steps/__init__.py).
+3. Community plugins ([`plugins/`](https://github.com/Spenhouet/obsidian-pdf-exporter/tree/main/obsidian_pdf_exporter/plugins/)).
+   Support for syntax from community Obsidian plugins and other tools:
+   Folder Notes, Dataview, Excalidraw, Meta Bind, Block Link Plus, draw.io
+   and pandoc citations. Plugins
+   are found through an entry point, listed by `list-plugins` and can be
+   turned off with `--disable-plugin`. They run inside the `plugins` step
+   of layer 2.
+
+```text
+obsidian_pdf_exporter/
+├── core/
+│   ├── exporter.py         # export and redline: tree → markdown → HTML → PDF
+│   ├── assemble.py         # runs the markdown hooks on every page
+│   ├── pipeline.py         # the loops over the steps, one per stage
+│   ├── dialect.py          # layer 1: pandoc reader extensions and arguments
+│   ├── pandoc.py           # runs pandoc with a dialect
+│   ├── steps/              # layer 2: one module per piece of core syntax
+│   │   ├── __init__.py     # CORE_STEPS, the ordered list of steps
+│   │   ├── base.py         # Step, PageContext, DocumentContext
+│   │   ├── frontmatter.py, plugins.py, comments.py, bases.py, embeds.py, block_ids.py,
+│   │   ├── callouts.py, heading_links.py, wiki_links.py, image_captions.py,
+│   │   ├── headings.py, code_blocks.py, highlights.py, line_breaks.py, tasks.py, math.py,
+│   │   ├── footnotes.py, landscape.py,
+│   │   └── mermaid.py, svg_images.py, tables.py, base_css.py
+│   ├── bases/              # Bases: expression parser, evaluator and views
+│   ├── code.py             # outside_code: keeps fenced and inline code as written
+│   └── embeds.py, callouts.py, wiki_links.py, mermaid.py, ...  # the work behind the steps
+├── plugins/                # layer 3
+│   ├── base.py             # ObsidianPlugin, PluginContext, DocumentContext
+│   ├── registry.py         # entry-point + runtime discovery
+│   ├── folder_notes/, dataview/, meta_bind/
+│   ├── excalidraw/         # Excalidraw drawings drawn as SVG
+│   ├── block_link_plus/    # ![[Note#^id-id]] ranges
+│   ├── drawio/             # draw.io SVG labels
+│   └── citations/          # [@key] citations with pandoc citeproc
+└── templates/              # PDF templates (CSS, header, footer)
+```
+
+### Stages
+
+A step overrides the hooks it needs:
+
+| Hook                       | Runs on                                  | Order            |
+|----------------------------|------------------------------------------|------------------|
+| `process_markdown`         | each page, and embedded notes if `embedded = True` | `priority`       |
+| `process_document`         | the assembled markdown of the whole document | `priority`   |
+| `reader_extensions`, `pandoc_args` | builds the dialect for pandoc    | `priority`       |
+| `process_html`             | the HTML that pandoc wrote               | `html_priority` (defaults to `priority`) |
+
+An export runs them in this order: the markdown hooks on every page, the
+document hooks, the template's `process_markdown`, pandoc, the HTML hooks,
+the template's `process_html`, and WeasyPrint. With `--debug`, the build
+folder keeps `assembled.md` (what pandoc reads) and `final.html` (what
+WeasyPrint reads).
+
+The order of the markdown steps matters. For example, `embeds` runs after
+`html_comments`, so an embed inside an HTML comment is not expanded. It
+runs before `block_ids`, so the block IDs in embedded text are removed
+too. `bracket_links` runs after `wiki_links`, so real wiki links are
+already resolved. The table in the docstring of
+[`core/steps/__init__.py`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/obsidian_pdf_exporter/core/steps/__init__.py)
+gives the reason for each position.
+
+Embedded notes (`![[Note]]`) run through the steps marked `embedded`
+(`plugins`, `html_comments`, `bases`, `embeds`, `footnotes` and `wiki_links`) with the context of
+the embedded note, so links and images resolve from its folder. The
+embedded text then becomes part of the page and passes the remaining steps.
+
+### Adding a core syntax step
+
+Add a step only for syntax that Obsidian supports without a community
+plugin. Everything else is a plugin (see below).
+
+1. Put the step in a new module under `core/steps/`. Keep it thin and
+   put larger parsing code in a module of its own under `core/`:
+
+   ```python
+   from obsidian_pdf_exporter.core.steps.base import PageContext
+   from obsidian_pdf_exporter.core.steps.base import Step
+
+   class SubscriptStep(Step):
+       name = "subscript"
+       description = "Render ~sub~ as subscript"
+       priority = 115  # after image_captions (110), before title_heading (120)
+
+       def reader_extensions(self, context):
+           return ("subscript",)
+
+       def process_markdown(self, content: str, context: PageContext) -> str:
+           return content
+   ```
+
+2. Add the class to `CORE_STEPS` in `core/steps/__init__.py`, at the
+   position of its priority, and to the table in the module docstring.
+3. Leave code alone. Obsidian shows fenced code blocks and inline code
+   as written, so wrap the rewrite in `outside_code` from
+   [`core/code.py`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/obsidian_pdf_exporter/core/code.py).
+4. Never drop content silently. When the step sees syntax it can not
+   render, it keeps it in a simple form and reports it with
+   `context.warn(...)`, which prints a line starting with `Warning:`.
+5. Add tests. [`test_steps.py`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/tests/unit/test_steps.py) checks the
+   order of all steps, so update the expected lists there.
+6. Describe the syntax in the docs (see [Documentation](#documentation)).
+
+## Adding support for an Obsidian plugin
+
+Obsidian plugins (Dataview, Meta Bind, Tasks, Templater, Excalidraw …)
+introduce non-core syntax into markdown notes. To make those notes export
+cleanly, the project carries one **plugin support module** per Obsidian
+plugin. They all live under [`obsidian_pdf_exporter/plugins/`](https://github.com/Spenhouet/obsidian-pdf-exporter/tree/main/obsidian_pdf_exporter/plugins/),
+one subpackage per plugin, so contributors have an obvious place to add a
+new one.
+
+### File layout
+
+```text
+obsidian_pdf_exporter/plugins/
+├── base.py          # ObsidianPlugin base class + PluginContext, DocumentContext
+├── registry.py      # entry-point + runtime discovery
+├── dataview/
+│   ├── __init__.py  # re-exports DataviewPlugin
+│   ├── plugin.py    # the plugin class (thin)
+│   └── engine.py    # DQL parser + renderer (heavy lifting)
+├── drawio/
+│   ├── __init__.py
+│   ├── plugin.py
+│   └── svg.py       # draw.io label conversion
+└── meta_bind/
+    ├── __init__.py
+    └── plugin.py
+```
+
+Keep the plugin class itself thin and put any non-trivial parsing,
+indexing or rendering in sibling modules so it stays easy to test in
+isolation. The Dataview package is the canonical example.
+
+The currently bundled plugins are:
+
+| Plugin         | What it covers                                           |
+|----------------|----------------------------------------------------------|
+| `folder_notes` | Map ``Folder/Folder.md`` onto its containing folder      |
+| `dataview`     | Render Dataview DQL ``TABLE`` / ``LIST`` queries         |
+| `excalidraw`   | Turn embedded Excalidraw drawings into images            |
+| `meta_bind`    | Resolve Meta Bind ``VIEW`` widgets, strip INPUT/BUTTON   |
+| `block_link_plus` | Resolve ``![[Note#^id-id]]`` range embeds             |
+| `drawio`       | Turn draw.io HTML labels in SVG images into SVG text     |
+| `citations`    | Render ``[@key]`` citations with ``pandoc --citeproc``   |
+
+### Walkthrough — adding a new plugin
+
+Suppose you want to add support for the **Tasks** plugin so its
+``- [ ] do thing 📅 2026-05-10`` syntax renders as a clean checkbox list.
+
+#### 1. Create the package
+
+```text
+obsidian_pdf_exporter/plugins/tasks/
+├── __init__.py
+└── plugin.py
+```
+
+`__init__.py`:
+
+```python
+"""Support for the Obsidian `Tasks` plugin."""
+
+from obsidian_pdf_exporter.plugins.tasks.plugin import TasksPlugin
+
+__all__ = ["TasksPlugin"]
+```
+
+#### 2. Implement the plugin class
+
+Every plugin subclasses
+[`ObsidianPlugin`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/obsidian_pdf_exporter/plugins/base.py) and overrides
+``process_markdown(content, context)``. ``context`` is a
+``PluginContext`` carrying the page's vault root, page folder,
+frontmatter, and the user's ``--option key=value`` settings.
+
+`plugin.py`:
+
+```python
+from __future__ import annotations
+
+import re
+
+from obsidian_pdf_exporter.plugins.base import ObsidianPlugin
+from obsidian_pdf_exporter.plugins.base import PluginContext
+
+_TASK_LINE = re.compile(r"^(\s*-\s\[)([ x/\-])(\]\s.+)$", re.MULTILINE)
+
+class TasksPlugin(ObsidianPlugin):
+    """Strip Tasks emoji-suffixes (📅, ⏫, …) and normalise checkbox state."""
+
+    name = "tasks"
+    description = "Render Tasks-plugin checkboxes without emoji metadata"
+    priority = 50  # runs after dataview (10) and meta_bind (20)
+
+    def process_markdown(self, content: str, context: PluginContext) -> str:
+        # Drop the trailing emoji-tagged metadata that Tasks renders.
+        content = re.sub(r"\s+[⏩-⏺✅❌\U0001F4C5][^\n]*", "", content)
+        return _TASK_LINE.sub(lambda m: m.group(1) + m.group(2).lower() + m.group(3), content)
+```
+
+The pipeline guarantees:
+
+- Frontmatter is already parsed and stripped before your plugin runs.
+- Plugins run **before** embeds, callouts, wiki link resolution and image
+  promotion, so anything your plugin produces flows through the rest of
+  the pipeline like authored markdown would.
+- Plugins also run on the content of embedded notes, with the context of
+  the embedded note.
+- ``context.vault_root`` may be ``None`` for ad-hoc exports outside a
+  git repository — gracefully no-op in that case if you need vault-wide
+  data (see the Dataview plugin for the pattern).
+
+#### 3. Register it via an entry point
+
+Add the new class to ``pyproject.toml``:
+
+```toml
+[project.entry-points."obsidian_pdf_exporter.obsidian_plugins"]
+dataview = "obsidian_pdf_exporter.plugins.dataview:DataviewPlugin"
+meta_bind = "obsidian_pdf_exporter.plugins.meta_bind:MetaBindPlugin"
+tasks = "obsidian_pdf_exporter.plugins.tasks:TasksPlugin"
+```
+
+Re-install the project in editable mode so the entry point is picked up:
+
+```bash
+uv pip install -e .
+```
+
+Verify:
+
+```bash
+uv run obsidian-pdf-exporter list-plugins
+```
+
+#### 4. Add unit tests
+
+Drop a file in `tests/unit/` that imports your plugin directly and feeds
+it a few representative markdown snippets. Mirror the style in
+[`test_plugins.py`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/tests/unit/test_plugins.py).
+
+#### 5. Document it
+
+Add a page under `docs/plugins/`, an example note under `examples/` and
+its screenshot (see [Documentation](#documentation)), and list the plugin
+in the table above.
+
+### Plugin priority
+
+`priority` is an integer — lower runs earlier. The built-ins use:
+
+| Plugin         | Priority |
+|----------------|----------|
+| `folder_notes` | 5        |
+| `dataview`     | 10       |
+| `excalidraw`   | 15       |
+| `meta_bind`    | 20       |
+| `block_link_plus` | 30    |
+| `drawio`       | 40       |
+| `citations`    | 50       |
+
+Pick a value that respects your dependencies (e.g. if your plugin
+substitutes frontmatter fields like Meta Bind, run after Dataview so any
+tables it generated are visible).
+
+### Hooks
+
+A plugin can override any of these methods on
+[`ObsidianPlugin`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/obsidian_pdf_exporter/plugins/base.py). All have
+no-op defaults so you only implement what you need. A plugin that only
+implements `process_markdown` keeps working:
+
+| Hook                 | Stage                                | Used by                        |
+|----------------------|--------------------------------------|--------------------------------|
+| `find_folder_note`   | Tree building                        | `folder_notes`                 |
+| `process_markdown`   | Per-page markdown rewrite            | `dataview`, `meta_bind`, `excalidraw` |
+| `extract_block`      | Resolving `![[Note#^id]]` embeds     | `block_link_plus`              |
+| `process_document`   | Assembled markdown of the whole document | `citations`                |
+| `reader_extensions`, `pandoc_args` | Building the pandoc call (after `process_document`) | `citations` |
+| `process_svg`        | Inlining SVG images into the HTML    | `drawio`                       |
+| `process_html`       | HTML of the whole document           | none yet                       |
+
+`find_folder_note(folder)` returns the markdown file that represents a
+folder (or ``None``). Plugins are consulted in priority order; the
+first non-None result wins. Use this when the Obsidian plugin you are
+mirroring affects which file is the "page" for a folder. Examples:
+
+- The bundled `folder_notes` plugin returns ``Folder/Folder.md``.
+- A `readme_folder_notes` plugin could return ``Folder/README.md``.
+- A frontmatter-driven plugin could return whichever file in the
+  folder has ``folder-note: true``.
+
+`process_markdown(content, context)` runs after frontmatter has been
+stripped and before callouts / wiki links / image promotion. The
+``context`` dataclass exposes ``vault_root``, ``page_folder``,
+``frontmatter`` and the user's ``--option key=value`` settings.
+
+`extract_block(body, block_id)` returns the text that `![[Note#^block_id]]`
+selects in the note body, or ``None``. Plugins are asked in priority
+order before core looks for a block marked ``^block_id``.
+
+`process_document(markdown, context)` gets the assembled markdown of the
+whole document, after the markdown hook ran on every page. The plugin can
+then return pandoc reader extensions and arguments from
+`reader_extensions(context)` and `pandoc_args(context)`, for example
+`--citeproc` when it found citations.
+
+`process_svg(svg, context)` rewrites each SVG image while it is inlined
+into the HTML. `process_html(html, context)` gets the HTML of the whole
+document after the core HTML steps and before the template. Both get a
+``DocumentContext`` with the build folder, the options, the export
+metadata and the template.
+
+### Disabling and configuring plugins
+
+Users can opt out of a single plugin per export with
+``--disable-plugin <name>`` (repeatable). Free-form configuration is
+forwarded through the existing ``--option key=value`` CLI flag and
+exposed to every hook via ``context.options``.
+
+### Third-party plugins
+
+Plugins are not required to live in this repository. Anyone can publish
+a separate Python distribution that registers a plugin under the same
+``obsidian_pdf_exporter.obsidian_plugins`` entry point group; installing
+it makes it instantly available to ``obsidian-pdf-exporter`` without
+code changes here. Only add a plugin to this repository if it covers a
+broadly used Obsidian plugin and is not better maintained as a separate
+package.
+
+## Adding a PDF template
+
+PDF appearance (layout, header, footer, colour palette) is provided by
+**templates**, a separate extension point that lives next to the plugin
+system but is not the same thing. Templates plug into rendering, plugins
+plug into markdown.
+
+End users do **not** need to touch this repository to ship a custom
+look. [Templates and styling](https://spenhouet.com/obsidian-pdf-exporter/templating/) in the docs covers the
+no-Python options — drop-in CSS file, template directory with a
+`template.yaml` manifest, or a named directory under
+`~/.config/obsidian-pdf-exporter/templates/`. Reach for the steps below
+only when your template needs to mutate markdown or HTML (i.e. requires
+Python code).
+
+Templates that ship inside this project live under
+[`obsidian_pdf_exporter/templates/builtin/`](https://github.com/Spenhouet/obsidian-pdf-exporter/tree/main/obsidian_pdf_exporter/templates/builtin/);
+each one ships a ``Template`` subclass plus its CSS file. To add one:
+
+1. Drop a new package next to ``default`` and ``redline``.
+2. Subclass
+   [`Template`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/obsidian_pdf_exporter/templates/base.py) and override
+   ``get_css()`` (return CSS source) and optionally ``decorations(ctx)``
+   to inject running header/footer HTML and ``@page`` rules.
+3. Register the class under the ``obsidian_pdf_exporter.templates``
+   entry point group in ``pyproject.toml`` and reinstall.
+
+Branded or company-specific templates should usually be published as a
+separate distribution rather than added here.
+
+## Testing
+
+We use `pytest` for testing. Tests are located in the `tests/` directory.
+
+### Running Tests
+
+```bash
+# Run all tests
+uv run pytest
+
+# Run tests with verbose output
+uv run pytest -v
+
+# Run specific test file
+uv run pytest tests/test_basic.py
+
+# Run specific test
+uv run pytest tests/test_basic.py::test_package_imports
+```
+
+### Writing Tests
+
+1. **Create test files** in the `tests/` directory with the prefix `test_`
+2. **Follow naming conventions**: `test_*.py` files, `test_*` functions
+3. **Use descriptive test names** that explain what is being tested
+4. **Add docstrings** to explain complex test scenarios
+
+Example test structure:
+
+```python
+def test_feature_description() -> None:
+    """Test that the feature works as expected."""
+    # Arrange
+    input_data = "test input"
+
+    # Act
+    result = function_under_test(input_data)
+
+    # Assert
+    assert result == expected_output
+```
+
+## Code Quality
+
+### Linting with Ruff
+
+We use `ruff` for Python linting and code formatting.
+
+```bash
+# Check code quality
+uv run ruff check
+
+# Auto-fix issues where possible
+uv run ruff check --fix
+
+# Check specific files or directories
+uv run ruff check obsidian_pdf_exporter/
+uv run ruff check tests/
+```
+
+### Code Style Guidelines
+
+- **Line length**: Maximum 100 characters
+- **Docstring style**: Google docstring convention
+- **Import formatting**: One import per line (enforced by ruff)
+- **Type hints**: Use type annotations for new code
+
+### Pre-commit Workflow
+
+Before committing:
+
+1. **Run linting**: `uv run ruff check`
+2. **Run tests**: `uv run pytest`
+3. **Fix any issues** before committing
+
+## Documentation
+
+The documentation site is built with [Zensical](https://zensical.org/)
+from `mkdocs.yml` and `docs/`, and published to GitHub Pages by
+`.github/workflows/docs.yml` on every push to `main`.
+
+```bash
+uv sync --group docs
+uv run zensical serve            # live preview on http://localhost:8000
+uv run zensical build --strict   # what CI runs
+```
+
+Generated content:
+
+- `docs/reference/cli.md` comes from the Typer app. Run
+  `uv run python scripts/gen_cli_docs.py` after changing a command or
+  flag. CI fails when the page is out of date.
+- `docs/img/features/*.png` and `docs/img/templates/*.png` are rendered
+  from the example vault in `examples/`. Each folder there (not starting
+  with `_`) is one example and becomes `docs/img/features/<folder>.png`.
+  Run `uv run python scripts/render_examples.py [name ...]` after a change
+  that affects the output. It needs `pdftoppm` (poppler) and Node.js for
+  Mermaid. Commit the images.
+- `docs/llms.txt` and `docs/llms-full.txt` come from the pages. Run
+  `uv run python scripts/gen_llms_txt.py` after adding or renaming a page.
+  CI fails when they are out of date.
+
+A feature page shows the example source next to its image with the
+`ope-example` block, see any page under `docs/obsidian/`. The source is
+included with `--8<-- "examples/<name>/<name>.md"`, so it cannot drift
+from the note that was rendered.
+
+## Release Process
+
+> [!NOTE]
+> Only relevant for maintainers.
+
+### Automated Release
+
+We use GitHub Actions for automated releases:
+
+1. **Trigger Release Workflow**
+   - Go to GitHub Actions tab
+   - Run "Release" workflow
+   - Choose version bump type (patch/minor/major) or specify custom version
+
+2. **Automated Steps**
+   - Updates version in `pyproject.toml`
+   - Runs tests and builds
+   - Creates Git tag
+   - Publishes to PyPI
+   - Creates GitHub release with auto-generated notes
+
+## Pull Request Guidelines
+
+### Before Submitting
+
+1. **Create a feature branch**
+
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+2. **Run the full test suite**
+
+   ```bash
+   uv run ruff check
+   uv run pytest
+   uv build --no-sources  # Test build
+   ```
+
+3. **Update documentation** if needed
+
+### PR Requirements
+
+- All tests pass (verified by CI)
+- Code passes linting (ruff check)
+- Descriptive PR title and description
+- Reference related issues if applicable
+- Update tests for new functionality
+- Update documentation for user-facing changes
+
+## Development Environment
+
+### Recommended Tools
+
+- **IDE**: VS Code with Python extension
+- **Git client**: Command line or your preferred GUI
+- **Terminal**: Any modern terminal with shell completion
+
+### VS Code Extensions
+
+Recommended extensions for development:
+
+- Python (Microsoft)
+- Ruff (Astral Software)
+
+### Project Structure
+
+```text
+obsidian-pdf-exporter/
+├── .github/workflows/      # CI/CD workflows
+├── obsidian_pdf_exporter/  # Main package, see Architecture
+│   ├── __init__.py
+│   ├── main.py            # CLI entry point
+│   ├── core/              # Export pipeline, dialect and core syntax steps
+│   ├── plugins/           # Obsidian community plugin support
+│   └── templates/         # PDF templates
+├── tests/                 # Test suite
+├── pyproject.toml         # Project configuration
+├── uv.lock                # Dependency lock file
+└── CONTRIBUTING.md        # This file
+```
+
+## Getting Help
+
+- **GitHub Issues**: For bug reports and feature requests
+- **GitHub Discussions**: For questions and general discussion
+- **Documentation**: https://spenhouet.com/obsidian-pdf-exporter/
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/getting-started/installation/
+
+# Installation
+
+ope is a Python package with two native dependencies: the Pango text stack that WeasyPrint uses, and pandoc. The installer below puts the CLI in place, and `ope setup` installs the native parts.
+
+## Install the CLI
+
+=== "Linux / macOS"
+
+    ```bash
+    curl -LsSf uvx.sh/obsidian-pdf-exporter/install.sh | sh && ope setup --yes
+    ```
+
+=== "Windows"
+
+    ```powershell
+    powershell -ExecutionPolicy ByPass -c "irm https://uvx.sh/obsidian-pdf-exporter/install.ps1 | iex; ope setup --yes"
+    ```
+
+=== "uv"
+
+    ```bash
+    uv tool install obsidian-pdf-exporter
+    ope setup --yes
+
+    # or run it once without installing
+    uvx obsidian-pdf-exporter --help
+    ```
+
+=== "pip"
+
+    ```bash
+    pip install obsidian-pdf-exporter
+    ope setup --yes
+    ```
+
+The installer script installs [uv](https://docs.astral.sh/uv/) if needed and runs `uv tool install obsidian-pdf-exporter`, so the CLI lives in its own environment. A pinned version uses the version in the URL:
+
+```bash
+curl -LsSf uvx.sh/obsidian-pdf-exporter/0.5.1/install.sh | sh
+```
+
+`ope` and `obsidian-pdf-exporter` are the same command.
+
+## Native dependencies
+
+- [WeasyPrint](https://weasyprint.org/) needs Pango, GLib, HarfBuzz (with `harfbuzz-subset`) and Fontconfig. Cairo is not needed. The package lists follow [WeasyPrint's first steps](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html).
+- [Pandoc](https://pandoc.org/) converts Markdown to HTML. If it is missing, `ope setup` downloads it from the official pandoc release with `pypandoc`.
+
+```bash
+ope setup           # install what is missing, asks first
+ope setup --yes     # same, without asking (for CI)
+ope setup --check   # report only, exit 1 if something is missing
+```
+
+`setup` only runs the package manager of your platform:
+
+| OS | What `setup` runs when libraries are missing | Notes |
+| -- | -------------------------------------------- | ----- |
+| Debian / Ubuntu | `sudo apt-get install -y libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b libharfbuzz-subset0 ...` | Same list as the WeasyPrint docs. |
+| Fedora | `sudo dnf install -y pango` | Pulls GLib, HarfBuzz and Fontconfig. |
+| Arch | `sudo pacman -S --needed --noconfirm pango` | |
+| openSUSE | `sudo zypper install -y pango` | |
+| Alpine | `sudo apk add pango fontconfig` | |
+| macOS | `brew install pango` | Needs [Homebrew](https://brew.sh). Without it, `setup` prints the install link and exits with 1. |
+| Windows | `winget install --id tschoonj.GTKForWindows --accept-source-agreements --accept-package-agreements` | The GTK3 runtime. An [Inkscape](https://inkscape.org/) install also brings GTK. |
+
+When WeasyPrint still cannot find the libraries, set `OBSIDIAN_PDF_GTK_PATH` to the folders that hold them, separated by `os.pathsep`.
+
+## Optional tools
+
+| Tool | Needed for |
+| ---- | ---------- |
+| git | [Redline](../redline.md), the version label from the commit hash, and the vault root for Dataview. |
+| Node.js (`npx`) or `mmdc` | [Mermaid](../obsidian/mermaid.md) diagrams. Without it, Mermaid blocks stay code blocks. |
+
+## In CI
+
+A GitHub Actions job that exports a folder and keeps the PDF:
+
+```yaml
+jobs:
+  pdf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history for redline and the version label
+      - uses: astral-sh/setup-uv@v6
+      - run: uv tool install obsidian-pdf-exporter
+      - run: ope setup --yes
+      - run: ope export ./Handbook --title "Team handbook" --version "${{ github.ref_name }}" -o handbook.pdf
+      - uses: actions/upload-artifact@v4
+        with:
+          name: handbook
+          path: handbook.pdf
+```
+
+## Check the install
+
+```bash
+ope --version
+ope setup --check
+ope list-templates
+ope list-plugins
+```
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/getting-started/quick-start/
+
+# Quick start
+
+## Export a folder
+
+```bash
+ope export ./MyVault/Handbook
+```
+
+The PDF is written to `./.export/Handbook.pdf`. The folder name is the title. Every subfolder becomes a section, see [Folder structure](../obsidian/structure.md).
+
+## Title, version and output
+
+```bash
+ope export ./MyVault/Handbook \
+  --title "Team handbook" --subtitle "How we work" \
+  --version 3.1.0 --date 2026-05-07 \
+  --output ./out/handbook.pdf
+```
+
+The title and subtitle go into the title block and the running header. The version and date go into the footer of the `default` template. Without `--version`, a folder inside a git repository shows the short commit hash.
+
+## Only some chapters
+
+```bash
+ope export ./MyVault/Handbook --include "Chapter A" --include "Chapter B"
+ope export ./MyVault/Handbook --exclude "Drafts" --no-toc
+```
+
+`--include` and `--exclude` take names of the top-level subfolders.
+
+## A different look
+
+```bash
+ope list-templates
+ope export ./MyVault/Handbook --template ./my-template/
+```
+
+A template is a CSS file or a folder with CSS, header and footer. See [Templates and styling](../templating/index.md).
+
+## Settings for features
+
+`-O key=value` passes settings to the steps, plugins and the template:
+
+```bash
+ope export ./MyVault/Handbook -O mermaid.theme=neutral -O tables.landscape=off
+ope export ./MyVault/Handbook --disable-plugin dataview
+```
+
+All keys are listed in the [CLI reference](../reference/cli.md#options-for-o-keyvalue).
+
+## Tracked changes
+
+```bash
+cd MyVault
+ope redline ./Handbook --from-commit v3.0.0 --to-commit HEAD
+```
+
+See [Redline](../redline.md).
+
+## When something looks wrong
+
+```bash
+ope export ./MyVault/Handbook --debug
+```
+
+`--debug` keeps the build folder next to the PDF. `assembled.md` is what pandoc reads, `final.html` is what WeasyPrint lays out. See [Debugging](../templating/debugging.md).
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/reference/cli/
+
+# CLI reference
+
+<!-- Generated by scripts/gen_cli_docs.py from the Typer app. Do not edit by hand. -->
+
+# CLI reference
+
+`ope` and `obsidian-pdf-exporter` are the same command. Run `ope --help` or `ope <command> --help` for the same information in the terminal.
+
+```text
+ope [--version] COMMAND [ARGS]...
+```
+
+| Command | Summary |
+| ------- | ------- |
+| [`version`](#version) | Print the installed version. |
+| [`setup`](#setup) | Install missing system dependencies (Pango/HarfBuzz/Fontconfig, pandoc). |
+| [`list-templates`](#list-templates) | List all known PDF templates (built-in, packaged, user-config, runtime). |
+| [`list-plugins`](#list-plugins) | List all installed Obsidian-plugin support modules (built-in + third-party). |
+| [`export`](#export) | Export an Obsidian-format folder tree to a single PDF file. |
+| [`redline`](#redline) | Generate a redline (tracked-changes) PDF between two git commits. |
+
+## `version`
+
+Print the installed version.
+
+```text
+ope version
+```
+
+Prints the installed version. `ope --version` does the same.
+
+```bash
+ope version
+```
+
+## `setup`
+
+Install missing system dependencies (Pango/HarfBuzz/Fontconfig, pandoc).
+
+```text
+ope setup [OPTIONS]
+```
+
+Installs missing native dependencies (Pango, HarfBuzz, Fontconfig and pandoc) with the package manager of the platform. See [Installation](../getting-started/installation.md).
+
+| Option | Description | Default |
+| ------ | ----------- | ------- |
+| `--check` | Diagnose only — do not install anything (exit 1 if something is missing) | off |
+| `-y`, `--yes` | Skip the confirmation prompt | off |
+
+```bash
+ope setup --check   # report only
+ope setup --yes     # install without asking
+```
+
+## `list-templates`
+
+List all known PDF templates (built-in, packaged, user-config, runtime).
+
+```text
+ope list-templates
+```
+
+Prints every known template with its source: built-in, packaged entry point, user-config folder or registered at runtime. See [Templates](../templating/index.md).
+
+```bash
+ope list-templates
+```
+
+## `list-plugins`
+
+List all installed Obsidian-plugin support modules (built-in + third-party).
+
+```text
+ope list-plugins
+```
+
+Prints every installed plugin support module, sorted by priority. See [Plugins](../plugins/index.md).
+
+```bash
+ope list-plugins
+```
+
+## `export`
+
+Export an Obsidian-format folder tree to a single PDF file.
+
+```text
+ope export ROOT [OPTIONS]
+```
+
+Builds one PDF from a vault folder. Git is not required. When the folder is in a git repository and `--version` is not set, the short commit hash is shown as the version label. See [Folder structure](../obsidian/structure.md) for how the folder becomes sections.
+
+| Argument | Description |
+| -------- | ----------- |
+| `ROOT` | Path to the vault folder to export (required) |
+
+| Option | Description | Default |
+| ------ | ----------- | ------- |
+| `-T NAME\|PATH`, `--template NAME\|PATH` | Template name (see `list-templates`) or path to a custom template (.css file or directory with template.yaml) | `default` |
+| `-o PATH`, `--output PATH` | Output PDF path (default: ./.export/&lt;title&gt;.pdf) |  |
+| `-t TEXT`, `--title TEXT` | Document title (default: folder name) |  |
+| `--subtitle TEXT` | Document subtitle |  |
+| `-v TEXT`, `--version TEXT` | Document version (e.g. 3.1.0) |  |
+| `-d YYYY-MM-DD`, `--date YYYY-MM-DD` | Document date (YYYY-MM-DD, default: today) |  |
+| `--include NAME` | Only include these subfolder names. Repeatable. |  |
+| `--exclude NAME` | Exclude these subfolder names. Repeatable. |  |
+| `-O KEY=VALUE`, `--option KEY=VALUE` | Pass key=value options to plugins / template (repeatable) |  |
+| `--disable-plugin NAME` | Skip the named Obsidian plugin (repeatable; see `list-plugins`) |  |
+| `--toc/--no-toc` | Include a table of contents at the start of the document | `--toc` |
+| `--debug` | Keep the intermediate build directory for inspection | off |
+
+```bash
+ope export ./Vault/Handbook \
+  --title "Team handbook" --subtitle "How we work" \
+  --version 3.1.0 --date 2026-05-07 \
+  --include "Chapter A" --include "Chapter B" \
+  --disable-plugin meta_bind \
+  -O mermaid.theme=neutral -O tables.landscape=off
+```
+
+## `redline`
+
+Generate a redline (tracked-changes) PDF between two git commits.
+
+```text
+ope redline ROOT [OPTIONS]
+```
+
+Builds a tracked-changes PDF between two git commits. Must run inside the git repository that holds `ROOT`. See [Redline](../redline.md).
+
+| Argument | Description |
+| -------- | ----------- |
+| `ROOT` | Path to the vault folder to export (required) |
+
+| Option | Description | Default |
+| ------ | ----------- | ------- |
+| `--from-commit REF` | Older git commit ref (baseline) | required |
+| `--to-commit REF` | Newer git commit ref (default: HEAD) | `HEAD` |
+| `-T NAME\|PATH`, `--template NAME\|PATH` | Template name (default: redline) or path to a custom template (.css file or directory with template.yaml) | `redline` |
+| `-o PATH`, `--output PATH` | Output PDF path (default: ./.export/&lt;title&gt;_redline.pdf) |  |
+| `-t TEXT`, `--title TEXT` | Document title (default: folder name) |  |
+| `--subtitle TEXT` | Document subtitle |  |
+| `-O KEY=VALUE`, `--option KEY=VALUE` | Pass key=value options to plugins / template (repeatable) |  |
+| `--disable-plugin NAME` | Skip the named Obsidian plugin (repeatable; see `list-plugins`) |  |
+| `--toc/--no-toc` | Include a table of contents at the start of the document | `--toc` |
+| `--debug` | Keep the intermediate build directory for inspection | off |
+
+```bash
+ope redline ./Vault/Handbook --from-commit v3.0.0 --to-commit HEAD
+```
+
+## Options for `-O key=value`
+
+`-O` (`--option`) passes free-form settings to the core steps, the plugins and
+the template. These keys are read by ope itself:
+
+| Key | Values | Default | Described in |
+| --- | ------ | ------- | ------------ |
+| `line_breaks` | `hard`, `soft` | from `.obsidian/app.json` | [Line breaks](../obsidian/line-breaks.md) |
+| `tables.landscape` | `auto`, `on`, `off` | `auto` | [Tables](../markdown/tables.md#wide-tables) |
+| `tables.landscape_min_cols` | number | `6` | [Tables](../markdown/tables.md#wide-tables) |
+| `mermaid` | `off` | on | [Mermaid](../obsidian/mermaid.md) |
+| `mermaid.format` | `svg`, `png` | `svg` | [Mermaid](../obsidian/mermaid.md#options) |
+| `mermaid.scale` | number | `3` | [Mermaid](../obsidian/mermaid.md#options) |
+| `mermaid.config` | path to JSON | none | [Mermaid](../obsidian/mermaid.md#options) |
+| `mermaid.theme` | Mermaid theme | none | [Mermaid](../obsidian/mermaid.md#options) |
+| `mermaid.cli` | command | auto | [Mermaid](../obsidian/mermaid.md#options) |
+| `mermaid.puppeteer_config` | path | none | [Mermaid](../obsidian/mermaid.md#options) |
+| `mermaid.trim` | `on`, `off` | `on` | [Mermaid](../obsidian/mermaid.md#options) |
+| `mermaid.max_height` | CSS length | none | [Mermaid](../obsidian/mermaid.md#options) |
+| `mermaid.landscape` | `on`, `off` | `on` | [Mermaid](../obsidian/mermaid.md#wide-diagrams) |
+| `mermaid.landscape_ratio` | number | `1.4` | [Mermaid](../obsidian/mermaid.md#wide-diagrams) |
+| `mermaid.landscape_min_font` | points | `7` | [Mermaid](../obsidian/mermaid.md#wide-diagrams) |
+| `footnotes` | `page`, `end` | `page` | [Footnotes](../markdown/footnotes.md) |
+| `citations` | `off` | on | [Citations](../plugins/citations.md#options) |
+| `citations.bibliography` | paths, separated by `,` | auto | [Citations](../plugins/citations.md#bibliography) |
+| `citations.csl` | path to a CSL style | Chicago author-date | [Citations](../plugins/citations.md#options) |
+| `citations.title` | text | `References` | [Citations](../plugins/citations.md#options) |
+| `excalidraw.auto_export` | `on`, `off` | `on` | [Excalidraw](../plugins/excalidraw.md#auto-export-files-first) |
+
+Third-party plugins and templates can read any other key. By convention a
+plugin uses `<plugin>.<key>` and a template `<template>.<key>`.
+
+## Environment variables
+
+| Name | Purpose |
+| ---- | ------- |
+| `OBSIDIAN_PDF_GTK_PATH` | Extra folders, separated by `os.pathsep`, that are searched for the GTK and Pango libraries (Windows and macOS). |
+| `OBSIDIAN_PDF_EXPORTER_TEMPLATES_DIR` | Folder scanned for named user templates. Default: `$XDG_CONFIG_HOME/obsidian-pdf-exporter/templates`, or `~/.config/obsidian-pdf-exporter/templates`. |
+| `XDG_CONFIG_HOME` | Moves the default user templates folder. |
+
+## Exit codes
+
+| Code | Meaning |
+| ---- | ------- |
+| `0` | Success. |
+| `1` | The export failed, `setup --check` found a missing dependency, an install command failed, or `redline` ran outside a git repository. |
+| `2` | Bad arguments, for example an unknown template or a malformed `-O` value. |
+| `130` | Aborted at the `setup` confirmation prompt. |
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/markdown/
+
+# Markdown
+
+The first layer of an export is the Markdown dialect: the pandoc reader and its extensions. It is defined in one place, [`core/dialect.py`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/obsidian_pdf_exporter/core/dialect.py).
+
+## The dialect
+
+The base is pandoc's `markdown` reader with these settings:
+
+| Setting | Why |
+| ------- | --- |
+| `+raw_html` | HTML in notes is passed through, as in Obsidian. |
+| `+lists_without_preceding_blankline` | A list may start right after a paragraph, as in Obsidian. |
+| `-raw_tex` | Text like `A\B` stays as written. |
+| `--number-sections` | Headings are numbered. |
+| `--columns=100000` | Table columns are sized by their content, not by the dash count of the source. |
+| `--toc --toc-depth=4` | The table of contents, unless `--no-toc` is set. |
+
+The core syntax steps add what they need on top, for example `mark` for [highlights](../obsidian/highlights-comments.md) and `hard_line_breaks` for [line breaks](../obsidian/line-breaks.md). Math is rendered by a step of its own, see [Math](math.md).
+
+Anything else pandoc's Markdown reader understands works too, for example definition lists, fenced divs (`::: {.note}`) and attributes on headings (`## Title {#my-id}`). Obsidian does not show those, so they are not covered here.
+
+## Pages in this section
+
+| Page | Covers |
+| ---- | ------ |
+| [Headings and text](text.md) | Headings, emphasis, horizontal rules |
+| [Lists](lists.md) | Bullet, numbered and nested lists |
+| [Tables](tables.md) | Alignment, column widths, wide tables on landscape pages |
+| [Code blocks](code.md) | Fenced code with syntax highlighting |
+| [Block quotes](quotes.md) | Quotes and nested quotes |
+| [Footnotes](footnotes.md) | Reference and inline footnotes |
+| [Links and images](links-images.md) | Markdown links, URLs and images |
+| [Inline HTML](html.md) | HTML tags inside notes |
+| [Math](math.md) | Inline and display LaTeX math |
+
+The screenshots are made from the notes in [`examples/`](https://github.com/Spenhouet/obsidian-pdf-exporter/tree/main/examples) with the `default` template. The title block, header and footer are hidden so only the feature shows. [Contributing](../contributing.md#documentation) explains how to rebuild them.
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/markdown/text/
+
+# Headings and text
+
+## Headings
+
+Headings are numbered and go into the table of contents (down to level 4). The headings of a page nest under the page's own heading, so a note's `##` becomes a level below its section. See [Folder structure](../obsidian/structure.md).
+
+Markdown:
+
+````markdown
+## Overview
+
+Text under a level 2 heading.
+
+### Details
+
+#### Fine print
+
+Headings are numbered and listed in the table of contents.
+````
+
+PDF:
+
+![Numbered headings in the PDF](../img/features/headings.png)
+
+A page that starts with `###` (it skips a level) is closed up, so section numbers never contain a `0`.
+
+## Emphasis
+
+Markdown:
+
+````markdown
+Text can be *italic*, **bold**, ***bold and italic*** or ~~struck through~~.
+
+Underscores work too: _italic_ and __bold__.
+
+Inline code looks like `ope export ./Notes`.
+````
+
+PDF:
+
+![Italic, bold and struck-through text](../img/features/emphasis.png)
+
+## Horizontal rules
+
+`---`, `***` and `___` on their own line draw a thin line.
+
+Markdown:
+
+````markdown
+Text above the rule.
+
+---
+
+Text between two rules.
+
+***
+
+Text below the rule.
+````
+
+PDF:
+
+![Horizontal rules](../img/features/horizontal-rules.png)
+
+The CSS for all of this is in the [CSS reference](../templating/css-reference.md).
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/markdown/lists/
+
+# Lists
+
+Markdown:
+
+````markdown
+Shopping list:
+- Apples
+- Bread
+    - Whole grain
+    - Rye
+- Milk
+
+1. Open the vault
+2. Run the export
+    1. Pick a template
+    2. Set a title
+3. Share the PDF
+
+5. A list can start at any number
+6. and keeps counting
+````
+
+PDF:
+
+![Bullet, numbered and nested lists](../img/features/lists.png)
+
+- Nested lists are indented by four spaces or one tab.
+- A list can follow a paragraph without a blank line in between, as in Obsidian.
+- A numbered list keeps its start number.
+- Task lists (`- [ ]`) are covered in [Tasks](../obsidian/tasks.md).
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/markdown/tables/
+
+# Tables
+
+## Alignment
+
+Colons in the separator row set the alignment of a column. Cells can hold inline formatting, code and links.
+
+Markdown:
+
+````markdown
+| Left aligned | Centered | Right aligned |
+| :----------- | :------: | ------------: |
+| Apples       |   Red    |          1.20 |
+| Bananas      |  Yellow  |          0.80 |
+| Grapes       |  Green   |          3.50 |
+
+Cells can hold **formatting**, `code` and [[#Left aligned|links]].
+````
+
+PDF:
+
+![Table with left, centered and right aligned columns](../img/features/tables.png)
+
+## Column widths
+
+Columns are sized by their content, as in Obsidian, also for tables with long source lines. A table with set widths (an HTML `<colgroup>`) keeps their ratio. A very narrow column, such as an image column, is widened to half of an equal share, at most 20%.
+
+Header rows repeat when a table breaks across pages. Rows do not split.
+
+## Wide tables
+
+A table that needs more width than a portrait page has goes to its own landscape page. The text after it continues on a new portrait page.
+
+Markdown:
+
+````markdown
+A table that does not fit the page width moves to its own landscape page.
+
+| ID | Requirement | Rationale | Owner | Status | Verification | Notes |
+| -- | ----------- | --------- | ----- | ------ | ------------ | ----- |
+| R-1 | The export runs without network access | Builds run in closed networks | Build team | Done | Automated test on an offline runner | None |
+| R-2 | Every page shows the document version | Readers can tell revisions apart | Docs team | Open | Review of the footer on each page | Needs template change |
+
+The text continues on the next portrait page.
+````
+
+PDF:
+
+![A wide table on a landscape page between two portrait pages](../img/features/wide-tables.png)
+
+A table goes to landscape when it has at least 6 columns and its content does not fit. The width is estimated from the text: each column counts with its longest cell (up to 25 characters, longer text wraps) or its longest word, which cannot wrap. An image counts as a full cell. A table of short values, such as keys and numbers, stays in the text.
+
+| Option | Effect | Default |
+| ------ | ------ | ------- |
+| `-O tables.landscape=auto\|on\|off` | `auto` uses the estimate. `on` turns every table with enough columns. `off` keeps all tables portrait. | `auto` |
+| `-O tables.landscape_min_cols=N` | Fewest columns for landscape. | `6` |
+
+```bash
+ope export ./Notes -O tables.landscape=off
+```
+
+A template styles the landscape page with `@page landscape-page`, see [Header and footer](../templating/header-footer.md#landscape-pages).
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/markdown/code/
+
+# Code blocks
+
+Fenced code blocks are highlighted by pandoc for the language after the fence. Inline code uses a monospace font.
+
+Markdown:
+
+````markdown
+```python
+def greet(name: str) -> str:
+    """Return a friendly greeting."""
+    return f"Hello, {name}!"
+```
+
+```bash
+ope export ./Notes --title "Handbook"
+```
+
+```json
+{ "theme": "base", "pages": 12 }
+```
+````
+
+PDF:
+
+![Highlighted Python, Bash and JSON code blocks](../img/features/code-blocks.png)
+
+Code is shown as written. Wiki links, embeds, block IDs and `%%` comments inside code are not processed, as in Obsidian. A `mermaid` block is drawn as a diagram, see [Mermaid](../obsidian/mermaid.md). `dataview` blocks are run by the [Dataview](../plugins/dataview.md) plugin.
+
+The colours of the highlighting come from pandoc's default style. A template can change them with the `span.kw`, `span.st`, `span.co` (and so on) classes inside `pre code`.
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/markdown/quotes/
+
+# Block quotes
+
+Markdown:
+
+````markdown
+> Simplicity is prerequisite for reliability.
+>
+> > A quote can contain another quote.
+
+> A quote can hold **formatting**,
+> - lists
+> - and more
+````
+
+PDF:
+
+![Block quotes, nested and with a list](../img/features/blockquotes.png)
+
+A quote that starts with `[!type]` is a callout, see [Callouts](../obsidian/callouts.md).
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/markdown/footnotes/
+
+# Footnotes
+
+Footnotes work as in Obsidian: a reference `[^1]` with a definition `[^1]: text` anywhere in the note, or an inline note `^[text]`. Each note is shown at the bottom of the page where it is referenced. The numbers run through the whole document.
+
+Markdown:
+
+````markdown
+Pandoc reads footnotes with a label[^label] or a number[^1].
+Inline footnotes work too.^[This one is written in the text.]
+
+[^label]: A footnote with a named label.
+[^1]: A footnote with a number.
+````
+
+PDF:
+
+![Footnote references in the text and the notes at the bottom of the page](../img/features/footnotes.png)
+
+The dashed line in the picture marks where empty page space was cut out.
+
+- The labels of each note (and of each embedded note) are kept apart, so `[^1]` on one page never shows the text of `[^1]` on another page.
+- When two references use the same label, each gets its own copy of the note, with its own number.
+- A note that holds a list, a table or another block besides paragraphs cannot be placed at the bottom of the page. It stays in the list of notes at the end of the document, with its number.
+
+| Option | Effect | Default |
+| ------ | ------ | ------- |
+| `-O footnotes=page\|end` | `page` shows notes at the bottom of the page. `end` keeps one list of notes at the end of the document. | `page` |
+
+The notes use CSS [paged media footnotes](https://www.w3.org/TR/css-gcpm-3/#footnotes) (`float: footnote`). To style them, see the [CSS reference](../templating/css-reference.md#footnotes).
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/markdown/links-images/
+
+# Links and images
+
+## Links
+
+Markdown:
+
+````markdown
+A Markdown link: [Obsidian](https://obsidian.md).
+
+A bare URL: https://pandoc.org
+
+An autolink: <https://github.com>
+
+A link with a title: [WeasyPrint](https://weasyprint.org "PDF engine").
+````
+
+PDF:
+
+![Markdown links and URLs](../img/features/links.png)
+
+- A Markdown link and an autolink in angle brackets become links in the PDF.
+- A bare URL stays plain text. Pandoc's reader does not turn it into a link, while Obsidian does. Wrap it in `<...>` to get a link.
+- In print, links have the text colour. Links between pages of the export are [wiki links](../obsidian/wiki-links.md).
+
+## Images
+
+Markdown:
+
+````markdown
+An image followed by a single italic line:
+
+![[chart.png|320]]
+*The italic line becomes the caption.*
+
+A caption written in the embed:
+
+![[chart.png|Visits per month|240]]
+````
+
+PDF:
+
+![Images with captions](../img/features/images.png)
+
+- An image is at most as wide as the text and never split across pages.
+- A single italic line right below an image becomes its caption.
+- Image sizes and the full embed syntax are on the [Embeds](../obsidian/embeds.md) page.
+
+!!! warning "Relative paths in Markdown images"
+    A Markdown image with a relative path, such as `![Chart](../img/chart.png)`, is not looked up from the note's folder yet, so the image is missing in the PDF. Use an Obsidian embed (`![[chart.png]]`), which is looked up in the whole vault.
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/markdown/html/
+
+# Inline HTML
+
+HTML in a note is passed to the PDF as it is, so tags such as `<kbd>`, `<sub>`, `<sup>`, `<u>` or a styled `<div>` work.
+
+Markdown:
+
+````markdown
+Press <kbd>Ctrl</kbd> + <kbd>P</kbd> to open the command palette.
+
+Water is H<sub>2</sub>O and E = mc<sup>2</sup>.
+
+<span style="color: #c53030">Red text</span> and <u>underlined text</u>.
+
+A block of raw HTML with its own style.
+````
+
+PDF:
+
+![Keyboard keys, sub and superscript, colored and boxed text](../img/features/inline-html.png)
+
+HTML comments (`<!-- ... -->`) are removed. WeasyPrint draws the HTML, so scripts and interactive elements have no effect.
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/markdown/math/
+
+# Math
+
+`$...$` is inline math, `$$...$$` display math. Formulas are rendered to SVG with [ziamath](https://github.com/cdelker/ziamath), so no TeX install is needed.
+
+Markdown:
+
+````markdown
+Inline math such as $e^{i\pi} + 1 = 0$ sits in the text.
+
+Display math is centered:
+
+$$
+\int_0^\infty e^{-x^2}\,dx = \frac{\sqrt{\pi}}{2}
+$$
+
+$$
+\mathbf{A} = \begin{pmatrix} a & b \\ c & d \end{pmatrix}
+$$
+````
+
+PDF:
+
+![Inline and display math](../img/features/math.png)
+
+Display math is centered. A formula takes the colour of the text around it, for example inside a callout. A formula that fails to render is shown as code, and the export prints a warning.
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/obsidian/
+
+# Obsidian
+
+The second layer of an export handles the syntax Obsidian adds to Markdown, without any community plugin. Each piece of syntax is a small step in [`core/steps/`](https://github.com/Spenhouet/obsidian-pdf-exporter/tree/main/obsidian_pdf_exporter/core/steps). All steps are listed in `CORE_STEPS` in `core/steps/__init__.py`.
+
+## Features
+
+| Feature | Page |
+| ------- | ---- |
+| Folders as sections, folder notes, table of contents, numbering | [Folder structure](structure.md) |
+| `[[Page]]`, `[[Page\|alias]]`, `[[#Heading]]` | [Wiki links](wiki-links.md) |
+| `![[image.png\|300]]`, `![[Note]]`, `![[Note#Heading]]`, `![[Note#^id]]` | [Embeds](embeds.md) |
+| `^block-id` | [Block IDs](block-ids.md) |
+| `> [!note] Title` | [Callouts](callouts.md) |
+| `==highlight==`, `%% comment %%` | [Highlights and comments](highlights-comments.md) |
+| `#tag` | [Tags](tags.md) |
+| YAML frontmatter | [Properties](properties.md) |
+| `- [ ] task` | [Tasks](tasks.md) |
+| A newline is a line break | [Line breaks](line-breaks.md) |
+| ` ```mermaid ` | [Mermaid](mermaid.md) |
+| `[^1]`, `^[note]` | [Footnotes](../markdown/footnotes.md) |
+| `![[Books.base]]`, ` ```base ` | [Bases](bases.md) |
+
+## Order of the steps
+
+The markdown steps run on every page in this order. The order matters: an embed inside an HTML comment is not expanded, because comments are removed first, and block IDs in embedded text are removed because embeds run before them.
+
+| Priority | Step | Why here |
+| -------- | ---- | -------- |
+| 10 | `frontmatter` | Plugins read the parsed frontmatter. |
+| 20 | `plugins` | Community plugins see Obsidian source syntax. |
+| 30 | `html_comments` | Commented-out embeds are not expanded. |
+| 35 | `bases` | Before embeds, so `![[x.base]]` is rendered as a view. |
+| 40 | `embeds` | Embedded content then passes all later steps. |
+| 50 | `obsidian_comments` | After embeds, so embedded comments go too. |
+| 60 | `block_ids` | After embeds, so embedded markers go too. |
+| 65 | `footnotes` | After embeds, so each embedded note keeps its own labels. |
+| 70 | `callouts` | |
+| 80 | `heading_links` | Tags `[[#Heading]]` links with the page they are written on. |
+| 90 | `wiki_links` | |
+| 100 | `bracket_links` | After real wiki links are resolved. |
+| 110 | `image_captions` | After `![[img]]` became an image. |
+| 120 | `title_heading` | |
+| 130 | `heading_levels` | Sees every heading of the page. |
+| 135 | `plugin_code_blocks` | Warns about plugin code blocks nobody rendered. |
+| 180 | `mermaid` | Runs once on the whole document. |
+
+After pandoc, the HTML steps run: `base_css`, `empty_table_headers`, `column_widths`, `svg_images`, `heading_links`, `tasks`, `math`, `wide_tables`, `landscape_figures`, `footnotes` and `plugins`. [Contributing](../contributing.md) explains how to add a step.
+
+## Content that is not rendered
+
+Some content cannot be drawn in a PDF, or is not supported yet. It stays in the document in a simple form, and the export prints a line starting with `Warning:` that names the page:
+
+- An embed of a file type other than notes and images, such as `![[Board.canvas]]`, `![[Manual.pdf]]` or a video, becomes a link (or italic text when the file is not part of the export).
+- An image that cannot be found becomes the italic text _[Image: name]_.
+- A code block of a plugin ope does not render, such as ` ```tasks `, ` ```dataviewjs `, ` ```chart ` or an Admonition block ` ```ad-note `, stays a code block.
+- DataviewJS and `TASK` queries become a short note in italics.
+
+Check the warnings of an export to find such places:
+
+```bash
+ope export ./Vault 2>&1 | grep Warning:
+```
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/obsidian/structure/
+
+# Folder structure
+
+`ope export ROOT` walks the folder `ROOT`. Every subfolder becomes a section, and the note named like its folder is the text of that section:
+
+```text
+Handbook/
+├── Handbook.md            ← root note, the first text of the document
+├── images/                ← an attachments folder, its name does not matter
+│   └── logo.png
+├── Introduction/
+│   └── Introduction.md    ← folder note of "Introduction"
+├── Part A/
+│   ├── Part A.md
+│   ├── img/               ← scoped attachments, picked over images/ on ties
+│   │   └── logo.png
+│   ├── Chapter 1/
+│   │   └── Chapter 1.md
+│   └── Chapter 2/
+│       └── Chapter 2.md
+└── Part B/
+    └── Part B.md
+```
+
+Markdown:
+
+````markdown
+The root note is the first page. Every folder below becomes a section.
+````
+
+PDF:
+
+![Table of contents and numbered sections made from the folders](../img/features/structure.png)
+
+## Rules
+
+- Sections are sorted by folder name. The folder name is the section heading.
+- Headings inside a note nest under the section heading, so a note's `##` sits one level below its folder.
+- Folders without Markdown, such as attachment folders, are left out. `.git`, `.obsidian`, `.vscode` and every other dot folder are skipped.
+- `--include` and `--exclude` pick top-level subfolders by name. `--no-toc` leaves out the table of contents.
+
+## The root note
+
+Three layouts are recognised:
+
+1. `Handbook/Handbook.md` exists: it is the root note.
+2. `Handbook/Handbook/Handbook.md` exists: the inner folder is the root, its siblings become sections.
+3. Neither: the root has no text, the subfolders are the sections.
+
+The mapping from folder to note is done by the [Folder Notes](../plugins/folder-notes.md) plugin, so a third-party plugin can change it (for example to `README.md` per folder).
+
+## The vault
+
+Links, embeds and images are looked up in the whole vault, not only in the exported folder. The vault is the folder that holds `.obsidian`, or else the root of the git repository. When several files share a name, the one closest to the linking page wins: `Part A/img/logo.png` beats `images/logo.png` for every page inside `Part A/`.
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/obsidian/wiki-links/
+
+# Wiki links
+
+A wiki link to a page of the export becomes a link to that page's section in the PDF.
+
+Markdown:
+
+````markdown
+## Links
+
+- Plain: [[Setup guide]]
+- With alias: [[Setup guide|the setup guide]]
+- To a heading on this page: [[#Links]]
+- To a page outside the export: [[Missing page]]
+````
+
+PDF:
+
+![Wiki links in the PDF](../img/features/wiki-links.png)
+
+| Syntax | Result |
+| ------ | ------ |
+| `[[Page]]` | Link to the section of `Page`. |
+| `[[Page\|alias]]` | Same link, showing the alias. |
+| `[[#Heading]]`, `[[#Heading\|alias]]` | Link to the heading on the same page. When several pages share a heading name, the one on the linking page wins. |
+| `[[Page#Heading]]` | Link to the section of `Page`. The heading part is not used yet ([#60](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/60)). |
+| `[[Folder/Page]]` | A link with a path is not resolved yet and shows as plain text ([#60](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/60)). Use the page name. |
+| `[[Missing page]]` | A page outside the export shows as plain text. |
+| `[[https://example.com\|text]]` | An external link. |
+
+When two pages have the same name, the link goes to the one closest to the linking page. Links inside code are left as written.
+
+Standard Markdown links (`[text](https://...)`) are covered in [Links and images](../markdown/links-images.md).
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/obsidian/embeds/
+
+# Embeds
+
+## Images
+
+`![[image.png]]` embeds an image from anywhere in the vault. A number sets the width in pixels, `WIDTHxHEIGHT` both. A caption can come first.
+
+Markdown:
+
+````markdown
+Natural size, limited to the text width:
+
+![[chart.png]]
+
+Width in pixels:
+
+![[chart.png|200]]
+
+Width and height, with a caption first:
+
+![[chart.png|Visits per month|300x100]]
+````
+
+PDF:
+
+![Images at natural size, with a width, and with width, height and caption](../img/features/embed-images.png)
+
+| Syntax | Result |
+| ------ | ------ |
+| `![[chart.png]]` | Natural size, at most the text width. |
+| `![[chart.png\|300]]` | 300 px wide. |
+| `![[chart.png\|300x100]]` | 300 by 100 px. |
+| `![[chart.png\|Caption\|300]]` | A caption below the image, and a width. |
+| `![[missing.png]]` | Shown as _[Image: missing.png]_. |
+
+An image is at most as wide as the text and is never split across pages. PNG, JPG, GIF, WebP and SVG are supported.
+
+## SVG
+
+SVG files are inlined into the HTML, so lines and text stay sharp at any zoom and the text can be searched. draw.io exports get extra handling, see [draw.io](../plugins/drawio.md).
+
+Markdown:
+
+````markdown
+SVG images are inlined, so they stay sharp:
+
+![[shapes.svg]]
+
+![[shapes.svg|180]]
+````
+
+PDF:
+
+![An SVG file at natural size and at 180 pixels](../img/features/embed-svg.png)
+
+## PDF
+
+Markdown:
+
+````markdown
+A PDF embed:
+
+![[sample.pdf]]
+````
+
+PDF:
+
+![A PDF embed shows as the file name](../img/features/embed-pdf.png)
+
+A PDF embed is not rendered. It shows as the file name in italics. Export the page as an image to include it.
+
+## Notes, headings and blocks
+
+`![[Note]]` puts the content of another note in place, without its frontmatter. A heading or block reference embeds a part of it. The source note here is `_notes/Meeting notes.md`:
+
+````markdown
+---
+type: meeting
+date: 2026-03-02
+status: done
+---
+# Meeting notes
+
+## Decisions
+
+- Ship version 2 in April.
+- Keep the old export for one more release.
+
+## Open points
+
+The budget for the new server is still open. ^budget
+
+| Item   | Cost |
+| ------ | ---- |
+| Server | 2400 |
+| Backup | 300  |
+
+^costs
+````
+
+Markdown:
+
+````markdown
+### Whole note
+
+![[Meeting notes]]
+
+### One heading
+
+![[Meeting notes#Decisions]]
+
+### One block
+
+![[Meeting notes#^budget]]
+
+### A table marked on the line below
+
+![[Meeting notes#^costs]]
+````
+
+PDF:
+
+![Embedded note, heading, block and table](../img/features/embed-notes.png)
+
+| Syntax | Embeds |
+| ------ | ------ |
+| `![[Note]]` | The whole note. |
+| `![[Note#Heading]]` | The heading and its content, up to the next heading of the same or a higher level. |
+| `![[Note#A#B]]` | Heading `B` inside section `A`. |
+| `![[Note#^id]]` | The block marked `^id`, see [Block IDs](block-ids.md). |
+| `![[Note#^id-id]]` | A range, see [Block Link Plus](../plugins/block-link-plus.md). |
+
+Embedded content is processed like the note it comes from:
+
+- Plugin syntax (Dataview, Meta Bind, ...) uses the frontmatter and folder of the source note.
+- Images and wiki links resolve from the source note's folder.
+- Embeds inside embedded content are expanded too, up to 10 levels. An embed that would include itself again is skipped.
+- Headings are shifted so the topmost one sits one level below the heading the embed is under. Without a heading above it, the page title counts. Nested headings keep their relative levels.
+- An embed alone on its line (it may be indented, or in a quote or callout) becomes block content. An embed inside other text is inserted inline, with its lines joined.
+- A note, heading or block that cannot be found shows as italic text, such as _Note#^id_, and the export prints a warning.
+
+The target is looked up in the whole vault. `![[Note]]` picks the closest note of that name. A path such as `![[Folder/Note#^id]]` is matched against the end of each note's path.
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/obsidian/block-ids/
+
+# Block IDs
+
+A block ID (`^id`) at the end of a line marks that paragraph, list item or heading. A line with only `^id` marks the block right above it: a table, list, quote or callout. The IDs are used by [embeds](embeds.md#notes-headings-and-blocks) and removed from the output.
+
+Markdown:
+
+````markdown
+Block IDs at the end of a line are removed from the output. ^first-point
+
+- A list item with an ID ^item
+
+> A quote with an ID on the line below
+
+^quote
+````
+
+PDF:
+
+![Text with the block IDs removed](../img/features/block-ids.png)
+
+`^id-id` marks the end of a range for [Block Link Plus](../plugins/block-link-plus.md). Without that plugin it is a plain block ID.
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/obsidian/callouts/
+
+# Callouts
+
+## Types
+
+Every Obsidian callout type works. Aliases share the style of their group: `[!summary]` looks like `[!abstract]`, `[!caution]` like `[!warning]`.
+
+Markdown:
+
+````markdown
+> [!note]
+> note
+
+> [!abstract]
+> abstract, summary, tldr
+
+> [!info]
+> info
+
+> [!todo]
+> todo
+
+> [!tip]
+> tip, hint, important
+
+> [!success]
+> success, check, done
+
+> [!question]
+> question, help, faq
+
+> [!warning]
+> warning, caution, attention
+
+> [!failure]
+> failure, fail, missing
+
+> [!danger]
+> danger, error
+
+> [!bug]
+> bug
+
+> [!example]
+> example
+
+> [!quote]
+> quote, cite
+````
+
+PDF:
+
+![Every callout type with its colour](../img/features/callout-types.png)
+
+| Group | Types |
+| ----- | ----- |
+| note | `note` |
+| abstract | `abstract`, `summary`, `tldr` |
+| info | `info` |
+| todo | `todo` |
+| tip | `tip`, `hint`, `important` |
+| success | `success`, `check`, `done` |
+| question | `question`, `help`, `faq` |
+| warning | `warning`, `caution`, `attention` |
+| failure | `failure`, `fail`, `missing` |
+| danger | `danger`, `error` |
+| bug | `bug` |
+| example | `example` |
+| quote | `quote`, `cite` |
+
+Any other type, such as `[!information]`, looks like a note unless the template styles it.
+
+## Titles, folding, nesting
+
+Markdown:
+
+````markdown
+> [!tip] A custom title
+> The title replaces the type name.
+
+> [!faq]- Foldable callouts are always shown open
+> The `+` and `-` markers are accepted.
+
+> [!warning] Nested callouts
+> Outer text.
+>
+> > [!info] Inner callout
+> > Inner text.
+
+> [!note] Lazy continuation
+A line without `>` still belongs to the callout,
+as in Obsidian.
+
+| Status | Note |
+| ------ | ---- |
+| Done   | > [!success] Inline callout in a cell |
+````
+
+PDF:
+
+![Custom title, foldable, nested, lazy and inline callouts](../img/features/callouts.png)
+
+- The text after the type is the title. Without it, the type name is the title.
+- The fold markers `[!faq]+` and `[!faq]-` are accepted. The callout is always shown open.
+- Callouts nest with `> >`.
+- Blank `>` lines stay inside the callout.
+- A line right after a callout without `>` still belongs to it (lazy continuation), as in Obsidian.
+- A single-line callout inside other text, for example in a table cell, becomes an inline callout.
+
+## HTML and CSS
+
+A callout becomes a `div` with the classes of its type and group, and a `data-callout` attribute:
+
+```html
+  <p><span class="callout-title"><strong>Title</strong></span></p>
+  <p>Text</p>
+```
+
+An inline callout is a `span` with the same classes. To style a type, see the [CSS reference](../templating/css-reference.md#callouts).
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/obsidian/highlights-comments/
+
+# Highlights and comments
+
+## Highlights
+
+`==text==` becomes `<mark>`.
+
+Markdown:
+
+````markdown
+Mark the ==important words== in a sentence.
+
+==A whole line can be highlighted.==
+````
+
+PDF:
+
+![Highlighted words and a highlighted line](../img/features/highlights.png)
+
+## Comments
+
+`%% ... %%` comments, on one line or over several lines, and HTML comments are removed. Inside code they stay as written.
+
+Markdown:
+
+````markdown
+This text is visible. %% This comment is not. %%
+
+%%
+A comment block over several lines
+is removed as well.
+%%
+
+<!-- HTML comments are removed too. -->
+The `%% text %%` inside code stays as written.
+````
+
+PDF:
+
+![Only the visible text remains](../img/features/comments.png)
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/obsidian/tags/
+
+# Tags
+
+Inline tags such as `#draft` or `#area/docs` stay in the text as plain text. Tags in the frontmatter are not shown. The [Dataview](../plugins/dataview.md) plugin uses both kinds for `FROM #tag` queries.
+
+Markdown:
+
+````markdown
+Tags such as #draft and #status/review stay in the text as written.
+
+Nested tags like #area/docs/pdf are kept as well.
+````
+
+PDF:
+
+![Tags as plain text](../img/features/tags.png)
+
+A tag at the start of a line is not a heading, because headings need a space after `#`.
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/obsidian/properties/
+
+# Properties
+
+The properties block (YAML frontmatter) at the top of a note is parsed and removed from the output. [Meta Bind](../plugins/meta-bind.md) and [Dataview](../plugins/dataview.md) read it.
+
+Markdown:
+
+````markdown
+---
+title: Release checklist
+owner: Docs team
+tags: [release, checklist]
+---
+The properties block at the top is parsed and removed. Plugins such as Meta Bind and Dataview read it.
+
+The owner of this page is `VIEW[{owner}][text]`.
+````
+
+PDF:
+
+![The frontmatter is gone, a Meta Bind view shows one value](../img/features/properties.png)
+
+The title of the document comes from `--title` or the folder name, not from a `title` property.
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/obsidian/tasks/
+
+# Tasks
+
+`- [ ]` and `- [x]` become empty and checked boxes on the same line as the text, in a list without bullets.
+
+Markdown:
+
+````markdown
+- [ ] Write the release notes
+- [x] Update the version
+- [ ] Review the PDF
+    - [x] Check the table of contents
+    - [ ] Check the footer
+````
+
+PDF:
+
+![Open and done tasks, nested](../img/features/tasks.png)
+
+The list is a `ul.task-list`. Status characters other than space and `x` (such as `[/]` or `[-]` from some themes) are not drawn as boxes.
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/obsidian/line-breaks/
+
+# Line breaks
+
+In Obsidian a single newline is a line break, unless "Strict line breaks" is on. ope reads that setting from `.obsidian/app.json` (`strictLineBreaks`).
+
+Markdown:
+
+````markdown
+A single newline
+is a line break,
+as in Obsidian.
+
+A blank line starts a new paragraph.
+````
+
+PDF:
+
+![A newline is a line break](../img/features/line-breaks.png)
+
+With strict line breaks, or with `-O line_breaks=soft`, lines of one paragraph are joined:
+
+Markdown:
+
+````markdown
+A single newline
+is a line break,
+as in Obsidian.
+
+A blank line starts a new paragraph.
+````
+
+PDF:
+
+![Lines joined into one paragraph](../img/features/line-breaks-soft.png)
+
+| Option | Effect |
+| ------ | ------ |
+| `-O line_breaks=hard` | A newline is always a line break. |
+| `-O line_breaks=soft` | A newline is a space. A line break needs two trailing spaces or a backslash. |
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/obsidian/mermaid/
+
+# Mermaid
+
+` ```mermaid ` blocks are drawn with [mermaid-cli](https://github.com/mermaid-js/mermaid-cli). ope uses `mmdc` if it is on the `PATH`, else `npx -y @mermaid-js/mermaid-cli@11.4.2` when Node.js is installed. Without either, the blocks stay code blocks and the export prints a warning. A block that fails to render also stays code.
+
+Markdown:
+
+````markdown
+```mermaid
+flowchart LR
+    A[Notes] --> B{Export}
+    B -->|PDF| C[Readers]
+    B -->|Redline| D[Reviewers]
+```
+
+```mermaid
+sequenceDiagram
+    Author->>ope: export ./Notes
+    ope->>Author: handbook.pdf
+```
+````
+
+PDF:
+
+![A flowchart and a sequence diagram](../img/features/mermaid.png)
+
+The default output is SVG, so text stays sharp and can be searched. Mermaid normally puts labels in HTML `<foreignObject>` elements, which WeasyPrint does not draw, so for SVG output ope always sets `htmlLabels: false`. Use PNG for a diagram type that needs HTML labels.
+
+## Options
+
+| Option | Effect | Default |
+| ------ | ------ | ------- |
+| `-O mermaid=off` | Keep Mermaid blocks as code. | on |
+| `-O mermaid.format=svg\|png` | Output format. | `svg` |
+| `-O mermaid.scale=N` | Pixel density of PNG output. The image keeps its natural size. | `3` |
+| `-O mermaid.config=PATH` | JSON [Mermaid config](https://mermaid.js.org/config/schema-docs/config.html) (`theme`, `themeVariables`, ...). | none |
+| `-O mermaid.theme=NAME` | Shortcut for `theme`: `default`, `neutral`, `dark`, `forest`, `base`. | none |
+| `-O mermaid.cli=COMMAND` | Command that runs mermaid-cli. | auto |
+| `-O mermaid.puppeteer_config=PATH` | Puppeteer config passed as `-p`. | none |
+| `-O mermaid.trim=on\|off` | Trim the empty space around diagrams. | `on` |
+| `-O mermaid.max_height=LENGTH` | Largest height, such as `10cm`. Taller diagrams are scaled down. | none |
+| `-O mermaid.landscape=on\|off` | Put wide diagrams on landscape pages. | `on` |
+| `-O mermaid.landscape_ratio=R` | Width to height ratio from which a diagram that has to shrink goes to landscape. | `1.4` |
+| `-O mermaid.landscape_min_font=PT` | Smallest text size a diagram may shrink to on a portrait page before it goes to landscape. | `7` |
+
+A template can set a base config with the `mermaid` key in `template.yaml` or `Template.mermaid_config()`. `mermaid.config` is merged over it, then `mermaid.theme`.
+
+```bash
+ope export ./Notes -O mermaid.config=mermaid.json
+```
+
+```json
+{ "theme": "base", "themeVariables": { "primaryColor": "#e8eef5", "pie1": "#2c5282" } }
+```
+
+## Diagram size
+
+A diagram keeps its natural size and only shrinks when it is wider than the text. `mermaid.max_height` scales down taller ones. Other sizes belong in the template's CSS: every diagram has the classes `doc-image`, `mermaid` and `mermaid-<type>`, see [CSS reference](../templating/css-reference.md#mermaid-diagrams).
+
+Mermaid leaves empty space around some diagram types. ope trims it to a margin of 8 px. PNG images are cropped. For SVG, mermaid-cli renders a second, transparent PNG to find the visible area, and ope shrinks the `viewBox`. That takes a few seconds, `-O mermaid.trim=off` skips it.
+
+`%%` comment lines in a block are removed before rendering.
+
+## Wide diagrams
+
+A diagram wider than the text shrinks, and so does its text. When that makes it hard to read, the diagram goes to its own landscape page, like a [wide table](../markdown/tables.md#wide-tables).
+
+Markdown:
+
+````markdown
+A wide diagram moves to its own landscape page:
+
+```mermaid
+flowchart LR
+    A[Draft] --> B[Review] --> C[Approve] --> D[Export PDF] --> E[Sign] --> F[Publish] --> G[Archive] --> H[Retire]
+```
+
+Figure 1: The document life cycle
+
+The text continues on a portrait page.
+````
+
+PDF:
+
+![A wide flowchart on a landscape page, with its caption](../img/features/mermaid-landscape.png)
+
+A diagram moves when it has to shrink to fit a portrait page and either its width is at least `mermaid.landscape_ratio` times its height, or its text would get smaller than `mermaid.landscape_min_font` points. It only moves when the landscape page shows it larger, so a tall diagram stays where it is. On the landscape page it is sized to fit the page height, with room for a caption.
+
+A short paragraph right below the diagram that starts with a word and a number, such as `Figure 1: Overview`, is its caption and moves with it. The diagram gets the class `landscape`, its wrapper `wide-table-section landscape-figure`, so a template's landscape page for tables applies to diagrams too.
+
+```bash
+ope export ./Notes -O mermaid.landscape_ratio=2
+ope export ./Notes -O mermaid.landscape=off
+```
+
+!!! note
+    In the picture above the right edge of the last box is cut off. That comes from the trimming of empty space; `-O mermaid.trim=off` avoids it.
+
+## Notes
+
+- WeasyPrint clips text centered in a semi-transparent group. Gantt axis labels are drawn that way, so ope adds `.grid .tick { opacity: 1 }` to the `themeCSS` of SVG diagrams.
+- Wrapped labels in timeline diagrams carry a line offset twice. ope removes the outer one, so the text stays in its box.
+- Flowchart edge labels use `edgeLabelBackground`. With the `base` theme it can look purple. Set `themeVariables.edgeLabelBackground` to change it.
+- When running as root (in a CI container), Chromium needs `--no-sandbox`. ope passes it in that case.
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/obsidian/bases/
+
+# Bases
+
+[Bases](https://help.obsidian.md/bases) is a core plugin of Obsidian. A base is a `.base` file, or a ` ```base ` code block, in YAML. It selects notes with filters and shows them in views. The export renders a view as it looks when the PDF is made. The notes here are the project notes shown on the [Dataview](../plugins/dataview.md) page.
+
+Markdown:
+
+````markdown
+```base
+filters:
+  and:
+    - file.hasTag("project")
+views:
+  - type: table
+    name: Projects
+    order:
+      - file.name
+      - owner
+      - status
+      - due
+    sort:
+      - property: due
+        direction: ASC
+  - type: list
+    name: Open
+    filters:
+      and:
+        - status != "done"
+```
+````
+
+PDF:
+
+![A table view of the project notes, sorted by due date](../img/features/bases.png)
+
+## Views
+
+- `![[Books.base]]` and ` ```base ` blocks show the first view. `![[Books.base#Reading list]]` shows the view with that name.
+- `table` and `cards` views become a table, `list` views a bullet list. Other view types (`kanban`, `map`, views of community plugins) become a table, and the export prints a warning.
+- Columns come from the view's `order` (only the file name when there is none), with the `displayName` from `properties` as header.
+- The file name links to the note when the note is part of the export.
+- `sort` (several properties, `ASC` or `DESC`, empty values last), `limit`, `groupBy` (a label line and a table per group), `groupOrder` and the view's `summaries` (a last row such as `Sum: 25.5`) work.
+- The global `filters` and the view's `filters` both apply. `and`, `or` and `not` can be nested. `this` is the note that shows the base.
+
+## Expressions
+
+| Area | Supported |
+| ---- | --------- |
+| Literals | numbers, `"text"` and `'text'`, `true`, `false`, `null`, lists `[1, 2]`, objects, regular expressions `/a.c/gi` |
+| Operators | `+ - * / %`, `== != > < >= <=`, `&& \|\| !`, `a ? b : c`, parentheses, `x.y`, `x["y"]`, `list[0]` |
+| Properties | `price`, `note.price`, `note["my price"]`, `formula.name`, `file.*`, `this.*`. A name with a `-`, such as `due-date`, is a property when the note has one, otherwise a subtraction. |
+| File fields | `name`, `basename`, `path`, `folder`, `ext`, `size`, `ctime`, `mtime`, `properties`, `tags`, `links`, `embeds`, `backlinks` |
+| File functions | `hasTag()` (nested tags count), `inFolder()`, `hasLink()`, `hasProperty()`, `asLink()` |
+| Global functions | `if()`, `date()`, `duration()`, `now()`, `today()`, `number()`, `list()`, `link()`, `file()`, `min()`, `max()`, `escapeHTML()`, `image()` |
+| Any value | `isTruthy()`, `isType()`, `isEmpty()`, `toString()` |
+| Text | `length`, `contains()`, `containsAll()`, `containsAny()`, `startsWith()`, `endsWith()`, `lower()`, `title()`, `trim()`, `replace()` (text or regular expression, `$1`), `repeat()`, `reverse()`, `slice()`, `split()` |
+| Numbers | `abs()`, `ceil()`, `floor()`, `round()`, `toFixed()` |
+| Lists | `length`, `contains()`, `containsAll()`, `containsAny()`, `filter()`, `map()`, `reduce()` (with `value`, `index`, `acc`), `flat()`, `join()`, `reverse()`, `slice()`, `sort()`, `unique()`, `mean()`, `sum()`, `min()`, `max()` |
+| Dates | `year`, `month`, `day`, `hour`, `minute`, `second`, `millisecond`, `date()`, `format()` (Moment.js tokens), `time()`, `relative()`, `date + "1M"`, `date - "2h"`, `date - date` (milliseconds) |
+| Links | `asFile()`, `linksTo()`, comparing links with files and `this` |
+| Objects | `keys()`, `values()` |
+| Regular expressions | `matches()` |
+| Summaries | `Average`, `Min`, `Max`, `Sum`, `Range`, `Median`, `Stddev`, `Earliest`, `Latest`, `Checked`, `Unchecked`, `Empty`, `Filled`, `Unique`, and custom summaries with `values` |
+
+Anything else, such as `html()`, `icon()`, `random()` or a function that does not exist, is not dropped silently: the export prints a warning that names the base and the expression. A filter that cannot be evaluated is ignored, so the view shows more notes rather than fewer. A column that cannot be evaluated stays empty.
+
+Property types come from the YAML: a date written as `2024-05-01` is a date. The types set in Obsidian (`.obsidian/types.json`) are not read. Dates are shown as `YYYY-MM-DD`, checkboxes as ☑ and ☐.
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/plugins/
+
+# Plugins
+
+The third layer handles syntax and files from community Obsidian plugins and other tools. Each plugin support module lives in its own package under [`plugins/`](https://github.com/Spenhouet/obsidian-pdf-exporter/tree/main/obsidian_pdf_exporter/plugins), is found through an entry point and runs inside the `plugins` step of the [core steps](../obsidian/index.md#order-of-the-steps).
+
+## Built-in plugins
+
+| Name | Obsidian plugin | What it does | Priority |
+| ---- | --------------- | ------------ | -------- |
+| `folder_notes` | [Folder Notes](https://github.com/LostPaul/obsidian-folder-notes) | `Folder/Folder.md` is the text of its folder. [More](folder-notes.md) | 5 |
+| `dataview` | [Dataview](https://github.com/blacksmithgu/obsidian-dataview) | Renders `TABLE` and `LIST` queries as static tables and lists. [More](dataview.md) | 10 |
+| `excalidraw` | [Excalidraw](https://github.com/zsviczian/obsidian-excalidraw-plugin) | Turns drawing embeds into images. [More](excalidraw.md) | 15 |
+| `meta_bind` | [Meta Bind](https://github.com/mProjectsCode/obsidian-meta-bind-plugin) | Fills `VIEW[...]` fields from the frontmatter, removes inputs and buttons. [More](meta-bind.md) | 20 |
+| `block_link_plus` | [Block Link Plus](https://github.com/Jasper-1024/block-link-plus) | Resolves `![[Note#^id-id]]` range embeds. [More](block-link-plus.md) | 30 |
+| `drawio` | [draw.io](https://www.drawio.com/) SVG exports | Turns HTML labels into SVG text. [More](drawio.md) | 40 |
+| `citations` | [Citations](https://github.com/hans/obsidian-citation-plugin), Zotero integrations | Renders `[@key]` citations and a reference list with pandoc citeproc. [More](citations.md) | 50 |
+
+```bash
+ope list-plugins
+```
+
+shows the same list at runtime, including third-party plugins you installed.
+
+## Turn a plugin off
+
+```bash
+ope export ./Vault --disable-plugin dataview --disable-plugin meta_bind
+```
+
+## Pass options
+
+```bash
+ope export ./Vault -O dataview.limit=200
+```
+
+`-O key=value` reaches every plugin hook as `context.options`. Plugin options use the name of the plugin as prefix: `<plugin>.<key>`.
+
+## Third-party plugins
+
+Any Python package can register a plugin under the `obsidian_pdf_exporter.obsidian_plugins` entry point. After `pip install` (or `uv tool install obsidian-pdf-exporter --with <package>`) it is used without any change to ope. See [Write a plugin](write-a-plugin.md).
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/plugins/folder-notes/
+
+# Folder Notes
+
+The [Folder Notes](https://github.com/LostPaul/obsidian-folder-notes) plugin stores the note of a folder inside it, with the folder's name: `Chapter A/Chapter A.md`. The `folder_notes` plugin maps that note onto its folder while the page tree is built, so the note becomes the text of the folder's section.
+
+The result is shown on [Folder structure](../obsidian/structure.md). Without this plugin (`--disable-plugin folder_notes`) the folders have no text.
+
+A third-party plugin can change the convention with the `find_folder_note` hook, for example to use `Folder/README.md` or the note with `folder-note: true` in its frontmatter. See [Write a plugin](write-a-plugin.md#hooks).
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/plugins/dataview/
+
+# Dataview
+
+The `dataview` plugin runs [Dataview](https://github.com/blacksmithgu/obsidian-dataview) queries at export time and writes the result as a Markdown table or list. The project notes queried here look like this:
+
+````markdown
+---
+tags: [project]
+status: active
+owner: Ana
+due: 2026-05-01
+---
+Notes about Website relaunch.
+````
+
+Markdown:
+
+````markdown
+```dataview
+TABLE status, owner, due
+FROM #project
+SORT due ASC
+```
+
+```dataview
+LIST
+FROM "_notes/Projects"
+WHERE status != "done"
+```
+````
+
+PDF:
+
+![A table and a list built from the query results](../img/features/dataview.png)
+
+## Supported queries
+
+- `TABLE` (with `WITHOUT ID`) and `LIST`.
+- `FROM #tag` and `FROM "folder"`, combined with `AND` and `OR`, negated with `-`.
+- `WHERE` with `field = "x"`, `field != "x"`, `NOT`, `AND`, `OR` and bare fields.
+- `SORT field ASC|DESC` and `LIMIT n`.
+
+`TASK`, `CALENDAR` and `dataviewjs` blocks are replaced with a placeholder text. Other queries are left as they are.
+
+The query runs over the whole vault (the folder with `.obsidian`, or the git repository). Without a vault root the blocks stay as they are.
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/plugins/excalidraw/
+
+# Excalidraw
+
+The `excalidraw` plugin turns embeds of [Excalidraw](https://github.com/zsviczian/obsidian-excalidraw-plugin) drawings into images.
+
+Markdown:
+
+````markdown
+An Excalidraw drawing from the vault:
+
+![[Drawing.excalidraw|420]]
+````
+
+PDF:
+
+![An Excalidraw drawing with shapes, fills, an arrow, free drawing, text and an image](../img/features/excalidraw.png)
+
+## Embeds
+
+| Syntax | Finds |
+| ------ | ----- |
+| `![[Drawing.excalidraw]]`, `![[Drawing.excalidraw.md]]` | The drawing note `Drawing.excalidraw.md`. |
+| `![[Drawing]]` | Any note with `excalidraw-plugin` in its frontmatter. |
+| `![[Sketch.excalidraw]]` | A plain `.excalidraw` JSON file, as saved by excalidraw.com. |
+| `![[Drawing.excalidraw\|400]]` | A width, as for images. |
+
+## Auto-export files first
+
+When the plugin's "Auto-export SVG" or "Auto-export PNG" setting wrote `Drawing.excalidraw.svg` (or `.light.svg`, `.png`, `.light.png`) next to the drawing, that file is used as it is. It looks exactly like the drawing in Obsidian. `-O excalidraw.auto_export=off` turns this off.
+
+## Drawn from the scene
+
+Otherwise ope reads the scene from the `## Drawing` section of the note (a ` ```json ` block, or ` ```compressed-json ` in LZ-String base64) and draws it as SVG. Excalidraw's hand-drawn look comes from rough.js in the browser. ope draws the same shapes with clean strokes, so the export needs neither Node.js nor a browser.
+
+| Drawn | Not drawn (with a warning) |
+| ----- | -------------------------- |
+| Rectangles (also rounded), diamonds, ellipses | Embedded web pages, shown as an outlined box with their link |
+| Solid fills; hachure, cross-hatch and zigzag fills as straight hatching | LaTeX equations |
+| Lines, curves, elbow arrows and all arrowheads | Embedded notes, PDFs and drawings inside a drawing |
+| Free drawing, as a line of even width | Image cropping (the whole image is drawn) |
+| Text, also inside shapes and on arrows | Element links and `#^group=`, `#^area=`, `#^frame=` parts of an embed (the whole drawing is shown) |
+| Images from the vault or a data URL, mirrored images | |
+| Stroke colour, width, dashed and dotted strokes, opacity, rotation | |
+
+Frames are not drawn, as in an Excalidraw export. Text uses the Excalidraw fonts when they are installed and falls back to a sans-serif or monospace font. The frontmatter keys `excalidraw-export-transparent` and `excalidraw-export-padding` are honoured. Dark drawings are drawn with their light colours.
+
+For an exact copy of the hand-drawn look, turn on auto-export in the Excalidraw plugin.
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/plugins/meta-bind/
+
+# Meta Bind
+
+The `meta_bind` plugin fills [Meta Bind](https://github.com/mProjectsCode/obsidian-meta-bind-plugin) `VIEW` fields with the values of the page's frontmatter. `INPUT` and `BUTTON` fields have no PDF form and are removed.
+
+Markdown:
+
+````markdown
+---
+product: Example App
+version: 2.4.0
+released: 2026-04-15
+platforms: |
+  - Linux
+  - macOS
+---
+Release notes for `VIEW[{product}][text]` version `VIEW[{version}][text]`.
+
+Released on `VIEW[{released}][text]`.
+
+| Field     | Value                                     |
+| --------- | ----------------------------------------- |
+| Product   | `VIEW[{product} + " " + {version}][text]` |
+| Platforms | `VIEW[{platforms}][text]`                 |
+
+Input fields such as `INPUT[text:version]` are removed.
+````
+
+PDF:
+
+![View fields filled with the frontmatter values](../img/features/meta-bind.png)
+
+- `{key}` is the value of a frontmatter field. `+` joins values and quoted text.
+- A multi-line value shown inside text, such as in a table cell, stays in its cell: list items become an HTML list, other lines are joined with line breaks. A field alone on its line keeps the lines as they are.
+- Fields inside code blocks are left as written.
+- In an embedded note, the fields use the embedded note's frontmatter.
+
+!!! warning "Date formats"
+    `VIEW[{date}][date(...)]` is meant to format a date with moment.js tokens. The format is currently lowercased, so the result is wrong ([#61](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/61)). Use `[text]` to show the value as written.
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/plugins/block-link-plus/
+
+# Block Link Plus
+
+[Block Link Plus](https://github.com/Jasper-1024/block-link-plus) extends block references to ranges: `^id` marks the first block, `^id-id` the last one. `![[Note#^id-id]]` embeds everything from the first to the last block. The source note:
+
+````markdown
+# Procedure
+
+Before the range.
+
+1. Check out the repository. ^steps
+2. Run the export.
+3. Review the PDF. ^steps-steps
+
+After the range.
+````
+
+Markdown:
+
+````markdown
+The steps from the procedure:
+
+![[Procedure#^steps-steps]]
+````
+
+PDF:
+
+![Only the steps of the range are embedded](../img/features/block-link-plus.png)
+
+The end marker can also sit on its own line below a block, for example after a list or table. When the first line of a range is empty, Block Link Plus writes a `%% %% ^id` placeholder, which also works. Without this plugin, `^id-id` is looked up as a plain block ID.
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/plugins/drawio/
+
+# draw.io
+
+draw.io stores labels as HTML in `<foreignObject>`, which WeasyPrint does not draw. Next to each label it writes a short fallback text and a "Text is not SVG - cannot display" note. The `drawio` plugin replaces each label with SVG text, one `<tspan>` per line, and removes the note.
+
+Markdown:
+
+````markdown
+A draw.io diagram exported as SVG with HTML labels:
+
+![[flow.drawio.svg]]
+````
+
+PDF:
+
+![A draw.io diagram with readable labels](../img/features/drawio.png)
+
+This is a best effort:
+
+- Mixed formatting inside one label (a bold word, a second colour) is flattened to the main style of the label.
+- Wrapped labels are wrapped again with an estimated character width, so line breaks can differ a little from draw.io.
+- For full fidelity, export from draw.io with "Convert labels to SVG" turned on, or as PNG.
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/plugins/citations/
+
+# Citations
+
+The `citations` plugin renders [pandoc citations](https://pandoc.org/MANUAL.html#citation-syntax) with `pandoc --citeproc`, as the [Citations](https://github.com/hans/obsidian-citation-plugin) plugin and the Zotero integration plugins write them. The bibliography of this example is `examples/_attachments/references.bib`.
+
+Markdown:
+
+````markdown
+---
+bibliography: ../_attachments/references.bib
+---
+Typesetting is covered in depth by [@knuth1984, p. 12].
+Several sources at once: [see @knuth1984; @lamport1995].
+@lamport1995 shows how to structure a proof.
+
+## References
+````
+
+PDF:
+
+![Citations in the text and the reference list](../img/features/citations.png)
+
+| Written | Rendered (default Chicago author-date style) |
+| ------- | -------------------------------------------- |
+| `[@doe2020]` | (Doe 2020) |
+| `[@doe2020, p. 12]` | (Doe 2020, 12) |
+| `[see @doe2020; @roe2021]` | (see Doe 2020; Roe 2021) |
+| `[-@doe2020]` | (2020) |
+| `@doe2020 shows` | Doe (2020) shows |
+
+## Bibliography
+
+The bibliography is the first one found of:
+
+1. `-O citations.bibliography=refs.bib` (several files separated by `,`). Relative paths start at the current folder or the exported folder.
+2. The export path of the Citations plugin: `citationExportPath` in `.obsidian/plugins/obsidian-citation-plugin/data.json`, relative to the vault.
+3. `bibliography:` in the frontmatter of the exported notes (a path or a list), relative to the note.
+
+BibLaTeX and BibTeX (`.bib`, `.bibtex`), CSL JSON (`.json`) and CSL YAML (`.yaml`) work.
+
+## Options
+
+| Option | Effect |
+| ------ | ------ |
+| `-O citations.bibliography=PATH` | Bibliography files, separated by `,`. |
+| `-O citations.csl=PATH` | A [CSL style](https://www.zotero.org/styles). `csl:` in the frontmatter does the same. |
+| `-O citations.title=TEXT` | Heading of the reference list when ope adds one. |
+| `-O citations=off` | Leave citations as written. |
+
+## Where the reference list goes
+
+The list goes into a `::: {#refs}` block when the document has one, otherwise below the last heading named `References`, `Bibliography`, `Works cited`, `Literature` or `Sources`. Without either, a `References` heading and the list are added at the end. Citations link to their entry.
+
+`@word` outside brackets becomes a citation only when `word` is a key of the bibliography, so `@mentions` and e-mail addresses stay text. A link to a literature note such as `[[@doe2020]]` becomes the in-text citation `@doe2020` when the note is not part of the export.
+
+Without a bibliography, citations stay as written and the export prints one warning. A citation whose key is not in the bibliography also prints a warning, and pandoc shows it as `(doe2020?)`.
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/plugins/write-a-plugin/
+
+# Write a plugin
+
+A plugin support module is a subclass of [`ObsidianPlugin`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/obsidian_pdf_exporter/plugins/base.py) that overrides the hooks it needs. It can live in this repository or in a package of its own. Support for core Obsidian syntax is a step, not a plugin, see [Contributing](../contributing.md).
+
+## Example: strip Tasks metadata
+
+The [Tasks](https://github.com/obsidian-tasks-group/obsidian-tasks) plugin adds emoji metadata such as `📅 2026-05-10` to task lines. This plugin removes it:
+
+```python title="my_ope_plugins/tasks.py"
+from __future__ import annotations
+
+import re
+
+from obsidian_pdf_exporter.plugins.base import ObsidianPlugin
+from obsidian_pdf_exporter.plugins.base import PluginContext
+
+_METADATA = re.compile(r"\s+[⏫🔼🔽📅⏳🛫✅❌🔁][^\n]*")
+
+class TasksPlugin(ObsidianPlugin):
+    """Remove the emoji metadata of the Tasks plugin."""
+
+    name = "tasks"
+    description = "Remove Tasks plugin metadata from task lines"
+    priority = 60  # after the built-in plugins (5 to 50)
+
+    def process_markdown(self, content: str, context: PluginContext) -> str:
+        return _METADATA.sub("", content)
+```
+
+Register it under the entry point group in the package's `pyproject.toml`:
+
+```toml
+[project.entry-points."obsidian_pdf_exporter.obsidian_plugins"]
+tasks = "my_ope_plugins.tasks:TasksPlugin"
+```
+
+Install it next to ope and check that it is found:
+
+```bash
+uv tool install obsidian-pdf-exporter --with ./my-ope-plugins
+ope list-plugins
+```
+
+## Hooks
+
+All hooks have no-op defaults.
+
+| Hook | Runs | Used by |
+| ---- | ---- | ------- |
+| `find_folder_note(folder)` | While the page tree is built. Returns the note of a folder or `None`. The first plugin with a result wins. | `folder_notes` |
+| `process_markdown(content, context)` | On each page and on embedded notes, after the frontmatter is parsed and before embeds, callouts and wiki links. | `dataview`, `meta_bind`, `excalidraw` |
+| `process_document(markdown, context)` | On the assembled Markdown of the whole document, after `process_markdown` ran on every page. | `citations` |
+| `reader_extensions(context)`, `pandoc_args(context)` | When the pandoc call is built, after `process_document`. Return extra reader extensions and arguments, such as `--citeproc`. | `citations` |
+| `extract_block(body, block_id)` | For `![[Note#^id]]`. Returns the selected text or `None`, before core looks for `^id`. | `block_link_plus` |
+| `process_svg(svg, context)` | On each SVG image while it is inlined. | `drawio` |
+| `process_html(html, context)` | On the HTML of the whole document, after the core HTML steps and before the template. | `meta_bind` |
+
+`PluginContext` (markdown hooks) has `vault_root`, `page_folder`, `frontmatter`, `options` and `vault_index`. `vault_root` is `None` when the export runs outside a vault, so a plugin that needs vault-wide data should do nothing then.
+
+`DocumentContext` (SVG and HTML hooks) has `build_dir`, `options`, `root`, `export` (title, version, date), `template`, `plugins`, `redline` and `log`.
+
+## Priority
+
+`priority` is an integer, lower runs earlier. The built-ins use 5 (`folder_notes`), 10 (`dataview`), 15 (`excalidraw`), 20 (`meta_bind`), 30 (`block_link_plus`), 40 (`drawio`) and 50 (`citations`). Pick a value after the plugins whose output you need: a plugin that reads tables made by Dataview runs after 10.
+
+## Guarantees
+
+- The frontmatter is parsed and removed before `process_markdown` runs.
+- Plugins run before embeds, callouts, wiki links and image captions, so their output passes the rest of the pipeline like written Markdown.
+- Plugins also run on embedded notes, with the context of the embedded note.
+- Keep code as written. Wrap a rewrite in `outside_code` from `obsidian_pdf_exporter.core.code`, as Obsidian does not process code.
+
+## In this repository
+
+A plugin for a broadly used Obsidian plugin can go into `obsidian_pdf_exporter/plugins/<name>/` with an `__init__.py` that exports the class and a thin `plugin.py`. Put larger parsing code in a module next to it, as Dataview does with `engine.py`. Add the entry point to the project's `pyproject.toml`, unit tests in `tests/unit/`, a page in these docs and an example in `examples/`.
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/templating/
+
+# Templates and styling
+
+A template decides how the PDF looks: fonts, colours, page size and margins, the running header and footer, and the style of every element. It does not change what is in the document. That is the job of the [steps](../obsidian/index.md) and [plugins](../plugins/index.md).
+
+The PDF is laid out by [WeasyPrint](https://weasyprint.org/), which supports [CSS Paged Media](https://www.w3.org/TR/css-page-3/): `@page` rules, margin boxes, running elements, named pages and page counters. Templates are written in that CSS.
+
+## Built-in templates
+
+| Name | Look |
+| ---- | ---- |
+| `default` | A4 portrait. Document title at the top left, date at the bottom left, version and page counter at the bottom right. |
+| `redline` | Same as `default`, plus the styles for [tracked changes](../redline.md). Used by `ope redline`. |
+
+![A page with the default template](../img/templates/default.png)
+![The same page with the letterhead recipe](../img/templates/letterhead.png)
+
+## Three ways to make a template
+
+| Way | Good for | Page |
+| --- | -------- | ---- |
+| One CSS file: `-T ./brand.css` | Changing styles only. | [Template folders](folders.md#a-single-css-file) |
+| A folder with CSS, `template.yaml`, header HTML and page CSS: `-T ./my-template/` | A logo, a letterhead, a new footer. No Python. | [Template folders](folders.md) |
+| A Python class registered as entry point | Header and footer text from the title, version or `-O` options, changes to Markdown or HTML. | [Python templates](python.md) |
+
+Start with the [recipes](recipes.md): each one is a complete template with a picture of the result.
+
+## How `--template` is resolved
+
+```bash
+ope export ./Vault --template default        # a name
+ope export ./Vault --template ./brand.css    # a CSS file
+ope export ./Vault --template ./my-template  # a folder
+ope list-templates                           # every name and where it comes from
+```
+
+1. A value that is an existing path is loaded as a CSS file or template folder.
+2. Any other value is a name, looked up in this order (a later source wins on equal names):
+    1. built-in templates,
+    2. templates of installed packages (entry point group `obsidian_pdf_exporter.templates`),
+    3. folders in the user templates folder,
+    4. templates registered at runtime with `register_template()`.
+
+The user templates folder is `$XDG_CONFIG_HOME/obsidian-pdf-exporter/templates` (default `~/.config/obsidian-pdf-exporter/templates`). `OBSIDIAN_PDF_EXPORTER_TEMPLATES_DIR` points it somewhere else. Each subfolder is a template folder, named after the folder or the `name` in its `template.yaml`.
+
+An unknown name ends the export with exit code 2.
+
+## What a template does in an export
+
+```text
+notes → steps and plugins → template.process_markdown → pandoc → HTML steps
+      → template.process_html → header/footer HTML and page CSS added → WeasyPrint → PDF
+```
+
+The template CSS is linked from the HTML. Its rules come after the base CSS of ope, so a template can restyle everything ope adds. The [CSS reference](css-reference.md) lists the elements and classes to style. [Debugging](debugging.md) shows how to look at the HTML WeasyPrint gets.
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/templating/folders/
+
+# Template folders
+
+## A single CSS file
+
+```bash
+ope export ./Vault --template ./brand.css
+```
+
+The file is the whole CSS of the PDF. Its name without `.css` is the template name. A single file has no running header or footer HTML, but it can use `@page` margin boxes with text and counters, see [Header and footer](header-footer.md).
+
+The CSS replaces the `default` CSS completely. To change only a few things, start from a copy of [`default.css`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/obsidian_pdf_exporter/templates/builtin/default/default.css) and add your rules at the end:
+
+```bash
+curl -o brand.css https://raw.githubusercontent.com/Spenhouet/obsidian-pdf-exporter/main/obsidian_pdf_exporter/templates/builtin/default/default.css
+```
+
+## A folder
+
+```text
+my-template/
+├── template.yaml   # optional
+├── main.css        # the CSS of the PDF
+├── header.html     # optional: running header and footer elements
+├── page.css        # optional: @page rules for the header and footer
+├── logo.svg        # optional: assets, copied next to the CSS
+└── fonts/
+    └── Inter.woff2 # optional: list sub-folder assets in template.yaml
+```
+
+```bash
+ope export ./Vault --template ./my-template/
+```
+
+### template.yaml
+
+Every key is optional.
+
+```yaml
+name: legal-pack                 # default: the folder name
+description: Cover sheet style   # shown by `ope list-templates`
+css: main.css                    # default: template.css, or the only *.css file
+running_html: header.html        # HTML put right after <body>
+page_css: page.css               # CSS put into <head> after the template CSS
+assets: [logo.svg, fonts/Inter.woff2]  # default: every other file in the folder
+mermaid:                         # base Mermaid config for diagrams
+  theme: base
+  themeVariables:
+    primaryColor: "#e8eef5"
+```
+
+| Key | Default | Meaning |
+| --- | ------- | ------- |
+| `name` | folder name | Name in `list-templates` and for `--template` when the folder is in the user templates folder. |
+| `description` | empty | One line for `list-templates`. |
+| `css` | `template.css` or the only `*.css` file | The main CSS. With more than one CSS file and no `css` key, loading fails. |
+| `running_html` | none | HTML for the running header and footer. It is put right after `<body>`, so its elements can be moved into margin boxes. |
+| `page_css` | none | CSS for the page: `@page` rules and running elements. |
+| `assets` | every file in the folder that is not CSS, YAML, HTML or Markdown, plus a sibling `assets/` folder | Files copied into the build folder next to the CSS. |
+| `mermaid` | none | Base [Mermaid config](../obsidian/mermaid.md#options). `-O mermaid.config` and `-O mermaid.theme` are merged over it. |
+
+Without `running_html` and `page_css` the template has no header or footer. The `default` header and footer come from Python and are not part of a folder template. A folder template that should have them writes them in `page.css`, as in the [recipes](recipes.md).
+
+### Assets: logos and fonts
+
+Assets are copied into the build folder next to the CSS, so `main.css` refers to them by relative path:
+
+```css
+@font-face {
+  font-family: "Inter";
+  src: url("fonts/Inter.woff2");
+}
+:root { --font-sans: "Inter", Arial, sans-serif; }
+```
+
+In `header.html` and `page.css`, every `src="..."` and `url(...)` that names an asset is replaced by a base64 data URI when the template is loaded. WeasyPrint does not resolve relative URLs from elements inside page margin boxes, so this is what makes a logo in the header work:
+
+```html
+<img class="brand-logo" src="logo.svg" alt="Logo">
+```
+
+External URLs (`https://...`) and names that are not assets are left as they are.
+
+Fonts can also come from the system: any font installed for Fontconfig can be named in `font-family`.
+
+### Sharing assets between templates
+
+A folder named `assets/` next to the template folders is found too. Its files are referenced as `../assets/<name>`:
+
+```text
+templates/
+├── assets/
+│   └── logo.svg
+├── letterhead/
+│   └── header.html   # <img src="../assets/logo.svg">
+└── compact/
+```
+
+The same path works in an explicit list: `assets: ['../assets/logo.svg']`.
+
+## A named template for every vault
+
+Put the folder into the user templates folder to use it by name from anywhere:
+
+```text
+~/.config/obsidian-pdf-exporter/templates/
+└── legal-pack/
+    ├── template.yaml
+    └── main.css
+```
+
+```bash
+ope list-templates
+ope export ./Vault --template legal-pack
+```
+
+To share a template with a team, keep the folder in a repository and pass its path, or publish it as a [Python package](python.md#publish-as-a-package).
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/templating/header-footer/
+
+# Header and footer
+
+Headers and footers are drawn in the page margins with [CSS Paged Media](https://www.w3.org/TR/css-page-3/). A template puts content there in three ways:
+
+| Way | Content | Where it is defined |
+| --- | ------- | ------------------- |
+| Text and counters in a margin box | Fixed text, page numbers | `page.css`, or any CSS of the template |
+| Named strings (`string-set`) | Text copied from the document, such as the title | `page.css` |
+| Running elements (`position: running()`) | Any HTML: a logo, several lines, styled spans | `header.html` plus `page.css` |
+
+## Margin boxes
+
+Every page has 16 margin boxes around the page area. The ones used most:
+
+```text
+┌─────────────┬──────────────┬──────────────┐
+│ @top-left   │ @top-center  │ @top-right   │
+├─────────────┴──────────────┴──────────────┤
+│                                           │
+│                 page area                 │
+│                                           │
+├─────────────┬──────────────┬──────────────┤
+│ @bottom-left│@bottom-center│ @bottom-right│
+└─────────────┴──────────────┴──────────────┘
+```
+
+A box shows its `content`. Text, `counter(page)`, `counter(pages)`, `string(...)` and `element(...)` can be combined:
+
+```css
+@page {
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font-family: Arial, sans-serif;
+    font-size: 7pt;
+    color: #606872;
+  }
+}
+```
+
+A margin box does not inherit the font of `body`. Set `font-family` and `font-size` in each box. `\A` in a string is a line break when the box has `white-space: pre`.
+
+The margins of `@page` are the room for the boxes. A header that is 20pt tall in a 25mm top margin leaves about 5mm between the header and the text. Widen the margin or shrink the header.
+
+## Named strings: text from the document
+
+`string-set` copies the text of an element into a named string. A margin box shows it with `string()`. The title block that ope writes at the start of every document holds the title, subtitle and the version line:
+
+```html
+<header id="title-block-header">
+  <h1 class="title">Team handbook</h1>
+  <p class="subtitle">How we work</p>
+  <p class="author">1.2.0 | 2026-04-01</p>
+</header>
+```
+
+So a template folder, which has no Python, can still show them:
+
+```css
+header#title-block-header .title  { string-set: doc-title content(); }
+header#title-block-header .author { string-set: doc-meta content(); }
+
+@page {
+  @top-left    { content: string(doc-title); }
+  @bottom-left { content: string(doc-title) " · " string(doc-meta); }
+}
+```
+
+The `author` line holds the version label and the date: `--version` or the short commit hash, then `--date`.
+
+## Running elements: HTML in the margin
+
+An element with `position: running(name)` is taken out of the page flow and can be placed in a margin box with `element(name)`. In a template folder, the elements are written in `header.html` (the `running_html` of `template.yaml`), which ope puts right after `<body>`:
+
+```html title="header.html"
+<img class="logo" src="logo.svg" alt="Logo">
+```
+
+```css title="page.css"
+.logo    { position: running(logo); width: 40mm; }
+.address { position: running(address); font-size: 7pt; }
+
+@page {
+  @top-right { content: element(logo); vertical-align: bottom; }
+}
+@page :first {
+  @top-left { content: element(address); vertical-align: bottom; }
+}
+```
+
+The `default` template uses a running element for its header too: `div.pdf-running-header` with `span.pdf-header-title` and `span.pdf-header-subtitle`, placed in `@top-left`.
+
+A running element must come before the first page it appears on. Elements in `header.html` are at the very start of the document, so they show from page 1.
+
+Images and fonts in `header.html` and `page.css` are turned into data URIs when the template is loaded, see [assets](folders.md#assets-logos-and-fonts).
+
+## First page and other page selectors
+
+```css
+@page :first {
+  margin-top: 40mm;                       /* room for a letterhead */
+  @top-left { content: element(address); }
+}
+@page :first { @top-left { content: none; } }  /* no header on page 1 */
+@page :left  { @bottom-left  { content: counter(page); } }
+@page :right { @bottom-right { content: counter(page); } }
+@page :blank { @top-left { content: none; } }
+```
+
+`:left` and `:right` are useful for printed, double-sided documents.
+
+## Landscape pages
+
+[Wide tables](../markdown/tables.md#wide-tables) and [wide diagrams](../obsidian/mermaid.md#wide-diagrams) are placed on a named page, `landscape-page`. A template that changes the page margins or the header should set them for that page too, or the landscape pages keep the old margins:
+
+```css
+@page landscape-page {
+  size: A4 landscape;
+  margin: 20mm 20mm 18mm 20mm;
+  @top-left { content: string(doc-title); }
+}
+```
+
+ope wraps each wide table and diagram in `.wide-table-section`. The template's CSS sends that wrapper to the named page. `default.css` does it like this, and a template written from scratch needs the same rules:
+
+```css
+@page landscape-page { size: A4 landscape; margin: 25mm 20mm 22mm 20mm; }
+.wide-table-section { page: landscape-page; break-before: page; break-after: page; }
+```
+
+Margin boxes of the plain `@page` rule also apply to the named page unless the named page sets them.
+
+## Escaping
+
+- HTML in `header.html` or `running_html` must be valid: write `&amp;`, `&lt;` and `&quot;`.
+- Text in a CSS string needs CSS escaping: `\` becomes `\\`, `"` becomes `\"` and a newline `\A `. Python templates build these strings from user data, so escape them there (see [Python templates](python.md)).
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/templating/css-reference/
+
+# CSS reference
+
+The HTML WeasyPrint lays out is pandoc's HTML plus the markup the steps and plugins add. This page lists what a template can style. To see the HTML of a real export, use [`--debug`](debugging.md).
+
+## Order of the CSS
+
+1. The base CSS of ope (`<style id="obsidian-pdf-exporter-base">`), at the start of `<head>`. It holds working defaults for the markup ope adds, so a template does not need rules for it.
+2. The template CSS (`get_css()` or the folder's main CSS).
+3. The template's `page_css`, if any.
+
+A later rule wins, so a template can restyle everything from the base CSS.
+
+## Colour and font variables of `default`
+
+`default.css` keeps its colours and fonts in custom properties on `:root`. A template that starts from a copy of it can change the look by changing these:
+
+| Variable | Default | Used for |
+| -------- | ------- | -------- |
+| `--color-accent` | `#2c5282` | Accent, link colour on screen |
+| `--color-grey` | `#606872` | Secondary text, header row of tables, section numbers |
+| `--color-light-grey` | `#f5f5f5` | Even table rows, code background |
+| `--color-mid-grey` | `#e0e2e4` | Borders, rules |
+| `--color-dark` | `#1a1a1a` | Body text |
+| `--color-link` | `var(--color-accent)` | Links |
+| `--font-sans` | `'Arial', 'Helvetica', sans-serif` | Body text, header and footer |
+| `--font-mono` | `'Courier New', monospace` | Code |
+| `--page-margin` | `20mm` | Defined for templates to reuse. The `@page` rule of `default` sets its margins directly. |
+
+The `redline` template adds `--color-ins-bg`, `--color-ins-text`, `--color-del-bg` and `--color-del-text`.
+
+## Document structure
+
+| Selector | What it is |
+| -------- | ---------- |
+| `html`, `body` | Base font size and font. `default` uses `html { font-size: 12pt }`. |
+| `header#title-block-header` | Title block at the start: `h1.title`, `p.subtitle`, `p.author` (version label and date). |
+| `nav#TOC` | Table of contents: nested `ul`, links, `span.toc-section-number`. |
+| `h1` ... `h6` | Headings. The top-level sections are `h1`. Each has `data-number` and an `id`. |
+| `.header-section-number` | The number in front of a heading. |
+| `div.pdf-running-header`, `.pdf-header-title`, `.pdf-header-subtitle` | Running header of the `default` and `redline` templates. |
+
+## Text
+
+| Selector | What it is |
+| -------- | ---------- |
+| `p`, `strong`, `em`, `del` | Paragraphs and emphasis. In a redline, `del` is also removed text. |
+| `mark` | [Highlights](../obsidian/highlights-comments.md). |
+| `a` | Links. `a.heading-link` is a `[[#Heading]]` link. `default` prints links in the text colour. |
+| `blockquote` | Block quotes. Callouts are not block quotes. |
+| `hr` | Horizontal rules. |
+| `code`, `pre`, `pre code` | Inline code and code blocks. Highlighting uses pandoc's classes inside `pre code`: `span.kw` (keyword), `span.st` (string), `span.co` (comment), `span.dv` (number), `span.fu` (function) and more. |
+| `ul`, `ol`, `li` | Lists. |
+| `ul.task-list`, `span.task-checkbox`, `span.task-checkbox.checked` | [Tasks](../obsidian/tasks.md). The boxes are the glyphs ☐ and ☑. |
+| `dl`, `dt`, `dd` | Definition lists (pandoc syntax). |
+
+## Tables
+
+| Selector | What it is |
+| -------- | ---------- |
+| `table`, `thead`, `tbody`, `tr`, `th`, `td` | Tables. `colgroup > col` holds the column widths ope computed. |
+| `.wide-table-section` | Wrapper of a table (or diagram) on a landscape page. See [Landscape pages](header-footer.md#landscape-pages). |
+
+Tips:
+
+- Do not put `break-inside: avoid` on `table`. A table that does not fit the rest of a page would then jump to the next page and leave a gap. Put it on `tr`: the table breaks between rows and the header row repeats.
+- `td, th { overflow-wrap: break-word }` is in the base CSS, so long words wrap.
+
+## Callouts
+
+| Selector | What it is |
+| -------- | ---------- |
+| `.callout` | Every callout, a `div` (or a `span` with `display: block` for inline callouts). |
+| `.callout-<group>` | The style group: `note`, `abstract`, `info`, `todo`, `tip`, `success`, `question`, `warning`, `failure`, `danger`, `bug`, `example`, `quote`. |
+| `.callout-<type>` | The type as written, for aliases: `.callout-caution` next to `.callout-warning`. |
+| `[data-callout="<type>"]` | The type as written, as attribute. |
+| `.callout-title` | The title, a `span` holding a `strong`. |
+
+```css
+.callout-warning { background: #fff8e1; border-left-color: #f59e0b; color: #7a4b00; }
+.callout-title { text-transform: uppercase; letter-spacing: 0.03em; }
+.callout[data-callout="checklist"] { border-left-color: #2c7a7b; }
+```
+
+## Images and diagrams
+
+| Selector | What it is |
+| -------- | ---------- |
+| `img.doc-image`, `svg.doc-image` | Embedded images. SVG files are inline `svg` elements with the same class. |
+| `figure`, `figcaption` | An image with a caption. |
+| `.mermaid`, `.mermaid-<type>` | A rendered [Mermaid](../obsidian/mermaid.md) diagram, such as `.mermaid-flowchart`, `.mermaid-pie`, `.mermaid-gantt`, `.mermaid-sequenceDiagram`. `graph` blocks get `mermaid-flowchart`. The type keeps its case. |
+| `.landscape-figure`, `.landscape` | A wide diagram on a landscape page: the wrapper (with `.wide-table-section`) and the diagram. |
+| `span.math.inline`, `span.math.display`, `svg.math-svg` | [Math](../markdown/math.md). `.math-source` is a formula that failed and is shown as code. |
+
+### Mermaid diagrams
+
+A rule of the template wins over the size ope sets, because ope gives the size as a rule with zero specificity:
+
+```css
+.mermaid-pie   { height: 6cm; width: auto; }
+.mermaid-gantt { width: 100%; }
+```
+
+A diagram is never wider than the text (`max-width: 100%`). `default` styles images with `img:where(.doc-image)`, so a class rule such as `.mermaid-pie` also wins over its `height: auto`. A template that sets `height` on `img.doc-image` needs a selector that is at least as specific, for example `img.mermaid-pie`.
+
+## Footnotes
+
+Each footnote is a `span.footnote` with `data-footnote-number` at the place of its reference. The base CSS floats it to the footnote area at the bottom of the page:
+
+```css
+.footnote { float: footnote; font-size: 0.75rem; line-height: 1.35; font-weight: normal; font-style: normal; }
+.footnote::footnote-call { content: attr(data-footnote-number); vertical-align: super; font-size: 0.65rem; line-height: 0; }
+.footnote::footnote-marker { content: attr(data-footnote-number) ". "; }
+.footnote-paragraph { display: block; }
+@page { @footnote { margin-top: 0.8em; padding-top: 0.3em; border-top: 0.5pt solid #999; } }
+```
+
+| Selector | What it is |
+| -------- | ---------- |
+| `.footnote` | The note text, moved to the bottom of the page. |
+| `.footnote::footnote-call` | The number in the text. |
+| `.footnote::footnote-marker` | The number in front of the note. |
+| `@page { @footnote { ... } }` | The footnote area: rule, spacing. |
+| `.footnote-paragraph` | Second and later paragraphs of a note. |
+| `section.footnotes`, `a.footnote-ref`, `a.footnote-back` | The list of notes at the end, for notes with block content or with `-O footnotes=end`. |
+
+A note takes its style from where it is referenced, so a note referenced in a callout inherits its colour. `default` sets `.footnote { color: var(--color-dark) }`. Use `data-footnote-number`, not `counter(footnote)`: the numbers come from pandoc and run through the whole document, also into the list at the end.
+
+## Redline
+
+| Selector | What it is |
+| -------- | ---------- |
+| `ins`, `del` | Inserted and removed words inside a changed block. |
+| `.redline-ins`, `.redline-del` | Inserted and removed blocks. |
+
+## The base CSS
+
+ope adds this before the template CSS. A template can override any of it.
+
+```css
+ul.task-list, ol.task-list { list-style: none; }
+ul.task-list > li, ol.task-list > li { list-style: none; }
+.task-checkbox { display: inline; margin-right: 0.4em; font-family: "DejaVu Sans", sans-serif; }
+span.math.display { display: block; text-align: center; margin: 0.6em 0; }
+svg.math-svg { display: inline; overflow: visible; }
+.math-source code { white-space: pre-wrap; }
+td, th { overflow-wrap: break-word; }
+.landscape-figure .landscape { margin-left: auto; margin-right: auto; }
+```
+
+plus the footnote rules above, and one rule per image width used in the document (`:where(img[width="300"]) { width: 300px; }`), because WeasyPrint ignores the `width` attribute.
+
+## WeasyPrint is not a browser
+
+- Flexbox and grid work only in part. Block layout, simple flex and CSS counters are safe.
+- Images cannot be split. An image that does not fit below the current text moves to the next page. Limit its size, for example with `max-height`, to keep it on the page.
+- Print media applies: `@media print` rules are used.
+- Supported CSS is listed in the [WeasyPrint docs](https://doc.courtbouillon.org/weasyprint/stable/api_reference.html#supported-features).
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/templating/python/
+
+# Python templates
+
+A Python template can do what a folder cannot: build the header and footer from the title, version or `-O` options, extend a built-in template instead of copying its CSS, and change the Markdown or HTML of the document.
+
+## The `Template` class
+
+```python
+from obsidian_pdf_exporter.templates import Decorations, ExportContext, Template
+
+class MyTemplate(Template):
+    name = "mytemplate"                  # the --template name, must be unique
+    description = "Shown by list-templates"
+
+    def get_css(self) -> str: ...                                   # required in practice
+    def assets(self) -> dict[str, bytes]: return {}                 # name -> bytes
+    def decorations(self, context: ExportContext) -> Decorations | None: return None
+    def mermaid_config(self, context: ExportContext) -> dict[str, object]: return {}
+    def process_markdown(self, content: str, context: ExportContext) -> str: return content
+    def process_html(self, html: str, context: ExportContext) -> str: return html
+```
+
+| Member | Called | Notes |
+| ------ | ------ | ----- |
+| `name` | | Identifier for `--template`. |
+| `description` | | One line for `list-templates`. |
+| `get_css()` | Before the export, without context | The CSS source. Written to `<build>/<name>.css`. |
+| `assets()` | Before the export | Files written into the build folder, for relative `url(...)` in the CSS. |
+| `decorations(ctx)` | After the HTML hooks | Running header and footer HTML and page CSS. `None` for none. |
+| `mermaid_config(ctx)` | Before Mermaid runs | Base Mermaid config. `-O mermaid.config` and `-O mermaid.theme` are merged over it. |
+| `process_markdown(content, ctx)` | Right before pandoc | The assembled Markdown of the whole document, after all steps and plugins. |
+| `process_html(html, ctx)` | After pandoc and the HTML steps | The full HTML document, before decorations. |
+
+One instance is made per export. Do not keep state on the class.
+
+`get_css()` has no context. Anything that depends on the title or `-O` options goes into `decorations`, `process_markdown` or `process_html`.
+
+## `ExportContext`
+
+```python
+@dataclass
+class ExportContext:
+    title: str                 # --title or the folder name
+    subtitle: str = ""         # --subtitle
+    version: str = ""          # --version (export only)
+    date: str = ""             # --date or today, ISO
+    label: str = ""            # version, short commit hash, "Redline: a -> b" or empty
+    output_path: Path          # the PDF
+    build_dir: Path            # the build folder, for scratch files
+    options: dict[str, str]    # the -O key=value pairs
+
+    @property
+    def formatted_date(self) -> str: ...   # "7 May, 2026" for an ISO date
+```
+
+Treat it as read-only.
+
+## `Decorations`
+
+```python
+@dataclass
+class Decorations:
+    running_html: str = ""     # put right after <body>
+    page_css: str = ""         # put into <head>
+```
+
+The mechanics are described in [Header and footer](header-footer.md). Strings from the context must be escaped: HTML escaping for `running_html`, CSS string escaping for `content: "..."`.
+
+## Extend a built-in template
+
+Subclass `DefaultTemplate` to keep its CSS, header and footer and add to them. This template adds a confidentiality label from `-O confidentiality=...`:
+
+```python title="confidential.py"
+"""A template that adds a confidentiality label from ``-O confidentiality=...``.
+
+It extends the built-in default template, so it keeps all of its CSS and
+its header and footer, and only adds a label at the top right of each page.
+
+    ope export ./Notes -T confidential -O confidentiality=Internal
+"""
+
+from __future__ import annotations
+
+from obsidian_pdf_exporter.templates import Decorations
+from obsidian_pdf_exporter.templates import ExportContext
+from obsidian_pdf_exporter.templates.builtin.default import DefaultTemplate
+
+class ConfidentialTemplate(DefaultTemplate):
+    """The default template plus a confidentiality label."""
+
+    name = "confidential"
+    description = "Default template with a confidentiality label"
+
+    def decorations(self, context: ExportContext) -> Decorations | None:
+        base = super().decorations(context) or Decorations()
+        label = context.options.get("confidentiality", "")
+        if not label:
+            return base
+        escaped = label.replace("&", "&amp;").replace("<", "&lt;")
+        running_html = f'<span class="confidential-label">{escaped}</span>\n'
+        page_css = """
+.confidential-label {
+    position: running(confidential);
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 8pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    color: #c53030;
+    border: 1.5pt solid #c53030;
+    padding: 2pt 6pt;
+}
+@page {
+    @top-right { content: element(confidential); vertical-align: bottom; padding-bottom: 12pt; }
+}
+"""
+        return Decorations(
+            running_html=base.running_html + running_html,
+            page_css=base.page_css + page_css,
+        )
+
+#: Picked up by scripts/render_examples.py for the docs screenshots.
+TEMPLATE = ConfidentialTemplate
+```
+
+The result is in the [recipes](recipes.md#confidentiality-label).
+
+## Change Markdown or HTML
+
+Use these hooks only when CSS cannot do it:
+
+```python
+def process_markdown(self, content: str, context: ExportContext) -> str:
+    if context.options.get("draft") == "yes":
+        return "::: {.draft-banner}\nDraft, not approved\n:::\n\n" + content
+    return content
+
+def process_html(self, html: str, context: ExportContext) -> str:
+    return html.replace('class="title"', 'class="title brand-title"')
+```
+
+`process_markdown` gets the Markdown after the steps and plugins: Dataview tables and Meta Bind values are already in place. Decorations are added after `process_html`, so it cannot change them. If the syntax of the notes is the problem, write a [plugin](../plugins/write-a-plugin.md) instead.
+
+## Assets
+
+```python
+from importlib import resources
+from pathlib import Path
+
+from obsidian_pdf_exporter.templates.base import asset_data_uri
+
+def assets(self) -> dict[str, bytes]:
+    return {"logo.svg": (resources.files(__package__) / "logo.svg").read_bytes()}
+
+# For an image in running_html, a data URI avoids WeasyPrint's URL rules in margin boxes:
+logo = asset_data_uri(Path(__file__).with_name("logo.svg"))
+running_html = f'<img class="brand-logo" src="{logo}">'
+```
+
+## Publish as a package
+
+Register the class under the entry point group `obsidian_pdf_exporter.templates`:
+
+```toml title="pyproject.toml"
+[project]
+name = "acme-pdf-template"
+dependencies = ["obsidian-pdf-exporter"]
+
+[project.entry-points."obsidian_pdf_exporter.templates"]
+confidential = "acme_pdf_template:ConfidentialTemplate"
+```
+
+```bash
+uv tool install obsidian-pdf-exporter --with acme-pdf-template   # or with a local path
+ope list-templates
+ope export ./Vault -T confidential -O confidentiality=Internal
+```
+
+## Register at runtime
+
+When ope is used as a library:
+
+```python
+from obsidian_pdf_exporter.main import app
+from obsidian_pdf_exporter.templates import register_template
+
+register_template(MyTemplate)               # under MyTemplate.name
+register_template(MyTemplate, name="alt")   # or another name
+app(["export", "./Vault", "-T", "mytemplate"], standalone_mode=False)
+```
+
+Runtime templates win over entry points of the same name. This is how the docs screenshots of the confidentiality recipe are made, see `scripts/render_examples.py`.
+
+## Options
+
+`-O key=value` reaches the template as `context.options`. By convention a template uses `<template>.<key>` for its own options and a bare key for options shared with plugins.
+
+A template is Python code and can do anything Python can. Review third-party templates like any other dependency.
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/templating/recipes/
+
+# Recipes
+
+Each recipe is a complete template in [`examples/_templates/`](https://github.com/Spenhouet/obsidian-pdf-exporter/tree/main/examples/_templates). The pictures show the same sample page with the `default` template (left) and with the recipe (right), exported with:
+
+```bash
+ope export ./Handbook --title "Team handbook" --version 1.2.0 --date 2026-04-01 --no-toc -T <recipe>
+```
+
+The folder recipes keep only the rules they add in `custom.css`. To use one, put a copy of [`default.css`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/obsidian_pdf_exporter/templates/builtin/default/default.css) into the folder as `main.css` and append `custom.css` to it:
+
+```bash
+cp -r examples/_templates/letterhead examples/_templates/assets ~/.config/obsidian-pdf-exporter/templates/
+cd ~/.config/obsidian-pdf-exporter/templates/letterhead
+curl -sL https://raw.githubusercontent.com/Spenhouet/obsidian-pdf-exporter/main/obsidian_pdf_exporter/templates/builtin/default/default.css > main.css
+cat custom.css >> main.css && rm custom.css
+ope export ./Handbook -T letterhead
+```
+
+## Company letterhead
+
+A logo at the top right of every page, the address on the first page, the document title on the following pages, and a teal accent colour.
+
+![Before: default template](../img/templates/default.png)
+![After: letterhead](../img/templates/letterhead.png)
+
+=== "template.yaml"
+
+    ```yaml
+    name: letterhead
+    description: Logo on every page, address on the first page
+    css: main.css
+    running_html: header.html
+    page_css: page.css
+    ```
+
+=== "header.html"
+
+    ```html
+    <img class="letterhead-logo" src="../assets/logo.svg" alt="Example Ltd.">
+    <div class="letterhead-address">Example Ltd. · 1 Sample Street · 12345 Sample City · www.example.com</div>
+    ```
+
+=== "page.css"
+
+    ```css
+    /* Running elements: taken out of the text and placed in margin boxes. */
+    .letterhead-logo { position: running(logo); width: 40mm; }
+    .letterhead-address { position: running(address); font-size: 7pt; color: #606872; }
+
+    /* The document title from the title block, for the header of later pages. */
+    header#title-block-header .title { string-set: doc-title content(); }
+
+    @page {
+      margin: 30mm 20mm 22mm 20mm;
+      @top-left { content: string(doc-title); font-family: Arial, Helvetica, sans-serif; font-size: 8pt; font-weight: bold; vertical-align: bottom; padding-bottom: 10pt; }
+      @top-right { content: element(logo); vertical-align: bottom; padding-bottom: 6pt; }
+      @bottom-right { font-family: Arial, Helvetica, sans-serif; content: "Page " counter(page) " / " counter(pages); font-size: 7pt; color: #606872; }
+    }
+
+    /* First page: address instead of the title, and more room for the letterhead. */
+    @page :first {
+      margin-top: 40mm;
+      @top-left { content: element(address); vertical-align: bottom; padding-bottom: 10pt; }
+    }
+    ```
+
+=== "custom.css"
+
+    ```css
+    /* Accent colour taken from the logo. */
+    :root { --color-accent: #2c7a7b; }
+    ```
+
+The logo is `../assets/logo.svg`, a [shared asset](folders.md#sharing-assets-between-templates). It becomes a data URI when the template is loaded, so it shows inside the margin box.
+
+## Change the footer text
+
+Title and version line at the bottom left, a fixed notice in the middle, "Page X of Y" at the right. The header is left out. This recipe changes only `page.css`, so `main.css` is an unchanged copy of `default.css`.
+
+![Before: default template](../img/templates/default.png)
+![After: footer text](../img/templates/footer-text.png)
+
+=== "template.yaml"
+
+    ```yaml
+    name: footer-text
+    description: Title, version and page count in the footer
+    css: main.css
+    page_css: page.css
+    ```
+
+=== "page.css"
+
+    ```css
+    /* Copy the title and the version line of the title block into named strings. */
+    header#title-block-header .title { string-set: doc-title content(); }
+    header#title-block-header .author { string-set: doc-meta content(); }
+
+    @page {
+      @bottom-left { font-family: Arial, Helvetica, sans-serif; content: string(doc-title) " · " string(doc-meta); font-size: 7pt; color: #606872; }
+      @bottom-center { font-family: Arial, Helvetica, sans-serif; content: "Internal draft, do not forward"; font-size: 7pt; color: #c53030; }
+      @bottom-right { font-family: Arial, Helvetica, sans-serif; content: "Page " counter(page) " of " counter(pages); font-size: 7pt; color: #606872; }
+    }
+    ```
+
+## Confidentiality label
+
+A label at the top right, set per export with `-O confidentiality=Internal`. The text comes from an option, so this is a [Python template](python.md). It extends `default` and keeps everything else.
+
+![Before: default template](../img/templates/default.png)
+![After: confidentiality label](../img/templates/confidential.png)
+
+```python title="confidential.py"
+"""A template that adds a confidentiality label from ``-O confidentiality=...``.
+
+It extends the built-in default template, so it keeps all of its CSS and
+its header and footer, and only adds a label at the top right of each page.
+
+    ope export ./Notes -T confidential -O confidentiality=Internal
+"""
+
+from __future__ import annotations
+
+from obsidian_pdf_exporter.templates import Decorations
+from obsidian_pdf_exporter.templates import ExportContext
+from obsidian_pdf_exporter.templates.builtin.default import DefaultTemplate
+
+class ConfidentialTemplate(DefaultTemplate):
+    """The default template plus a confidentiality label."""
+
+    name = "confidential"
+    description = "Default template with a confidentiality label"
+
+    def decorations(self, context: ExportContext) -> Decorations | None:
+        base = super().decorations(context) or Decorations()
+        label = context.options.get("confidentiality", "")
+        if not label:
+            return base
+        escaped = label.replace("&", "&amp;").replace("<", "&lt;")
+        running_html = f'<span class="confidential-label">{escaped}</span>\n'
+        page_css = """
+.confidential-label {
+    position: running(confidential);
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 8pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    color: #c53030;
+    border: 1.5pt solid #c53030;
+    padding: 2pt 6pt;
+}
+@page {
+    @top-right { content: element(confidential); vertical-align: bottom; padding-bottom: 12pt; }
+}
+"""
+        return Decorations(
+            running_html=base.running_html + running_html,
+            page_css=base.page_css + page_css,
+        )
+
+#: Picked up by scripts/render_examples.py for the docs screenshots.
+TEMPLATE = ConfidentialTemplate
+```
+
+Register it as an entry point (see [Publish as a package](python.md#publish-as-a-package)) and export with:
+
+```bash
+ope export ./Handbook -T confidential -O confidentiality=Internal
+```
+
+For a fixed label, a folder template is enough: put `@top-right { content: "INTERNAL"; }` into its `page.css`.
+
+## Compact variant
+
+Smaller text, tighter spacing and narrow margins, for long reference documents.
+
+![Before: default template](../img/templates/default.png)
+![After: compact](../img/templates/compact.png)
+
+=== "custom.css"
+
+    ```css
+    html { font-size: 10pt; }
+    body { line-height: 1.35; }
+    @page { margin: 14mm 14mm 16mm 14mm; }
+    @page landscape-page { margin: 14mm; }
+    h1, h2, h3, h4 { margin-top: 0.9em; margin-bottom: 0.3em; }
+    p { margin-bottom: 0.45em; }
+    th, td { padding: 3px 6px; }
+    .callout { padding: 6px 10px; margin: 0.6em 0; }
+    ```
+
+=== "page.css"
+
+    ```css
+    header#title-block-header .title { string-set: doc-title content(); }
+    @page {
+      @top-left { content: string(doc-title); font-family: Arial, Helvetica, sans-serif; font-size: 7pt; font-weight: bold; vertical-align: bottom; padding-bottom: 6pt; }
+      @bottom-right { font-family: Arial, Helvetica, sans-serif; content: counter(page) " / " counter(pages); font-size: 7pt; color: #606872; }
+    }
+    ```
+
+=== "template.yaml"
+
+    ```yaml
+    name: compact
+    description: Smaller text and margins
+    css: main.css
+    page_css: page.css
+    ```
+
+## Dark variant
+
+Light text on a dark page, for reading on screens. Most of it is a change of the [colour variables](css-reference.md#colour-and-font-variables-of-default).
+
+![Before: default template](../img/templates/default.png)
+![After: dark](../img/templates/dark.png)
+
+=== "custom.css"
+
+    ```css
+    :root {
+      --color-accent: #90cdf4;
+      --color-grey: #a0aec0;
+      --color-light-grey: #2d3748;
+      --color-mid-grey: #4a5568;
+      --color-dark: #edf2f7;
+    }
+    @page { background: #1a202c; }
+    @page landscape-page { background: #1a202c; }
+    body { background: transparent; color: var(--color-dark); }
+    thead tr { background: #2c5282; }
+    th { color: #ffffff; }
+    td { border-color: var(--color-mid-grey); }
+    code, pre { background: #2d3748; color: #edf2f7; }
+    .callout { background: #2d3748; }
+    .callout, .callout * { color: var(--color-dark); }
+    ```
+
+=== "page.css"
+
+    ```css
+    header#title-block-header .title { string-set: doc-title content(); }
+    @page {
+      @top-left { content: string(doc-title); font-family: Arial, Helvetica, sans-serif; font-size: 7pt; font-weight: bold; color: #edf2f7; vertical-align: bottom; padding-bottom: 6pt; }
+      @bottom-right { font-family: Arial, Helvetica, sans-serif; content: counter(page) " / " counter(pages); font-size: 7pt; color: #a0aec0; }
+    }
+    ```
+
+`@page { background: ... }` colours the whole sheet, margins included. `body` alone would leave a white border.
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/templating/debugging/
+
+# Debugging
+
+## Keep the build folder
+
+```bash
+ope export ./Vault --debug -o out/handbook.pdf
+```
+
+The build folder stays next to the PDF and is named after it, here `out/_build_handbook/`:
+
+| File | What it is |
+| ---- | ---------- |
+| `assembled.md` | The Markdown pandoc reads: all pages after the steps, plugins and `process_markdown`. |
+| `output.html` | The HTML pandoc wrote. |
+| `final.html` | The HTML WeasyPrint lays out: after the HTML steps, `process_html`, the header and footer HTML and the page CSS. |
+| `<template>.css` | The template CSS. |
+| images, diagrams | Copied and rendered images, assets of the template. |
+
+## Find where something goes wrong
+
+1. The text is wrong or missing: look at `assembled.md`. If the syntax is still there unchanged, no step or plugin handled it. Check the `Warning:` lines of the export.
+2. The structure is wrong (a list is a paragraph, a table is text): pandoc read the Markdown differently. Run pandoc on `assembled.md` by hand to try changes.
+3. Only the look is wrong: look at `final.html` and the CSS.
+
+## Open final.html in a browser
+
+```bash
+xdg-open out/_build_handbook/final.html    # Linux
+open out/_build_handbook/final.html        # macOS
+start out\_build_handbook\final.html       # Windows
+```
+
+The browser's developer tools show which rules apply to an element and which classes it has. A browser does not draw `@page` margin boxes, running elements or footnote areas, and it lays out some things differently from WeasyPrint. Use it to check selectors, not page breaks.
+
+To check page layout, run WeasyPrint on the file directly:
+
+```bash
+uv tool run weasyprint out/_build_handbook/final.html test.pdf
+```
+
+WeasyPrint prints a warning for each CSS rule it ignores, with the line of the CSS, for example `Ignored 'gap: 1em' at 4:28, invalid value`.
+
+## Check the PDF from the command line
+
+```bash
+pdftotext -layout handbook.pdf - | less                    # the text, for searching and diffs
+pdftoppm -r 80 -png -f 1 -l 3 handbook.pdf page            # the first three pages as page-1.png ...
+pdfinfo handbook.pdf                                        # page count and page size
+```
+
+`pdftotext`, `pdftoppm` and `pdfinfo` are part of poppler (`poppler-utils` on Debian and Ubuntu).
+
+## Common problems
+
+| Problem | Cause and fix |
+| ------- | ------------- |
+| `Multiple CSS files in ...` | A template folder has more than one CSS file. Set `css:` in `template.yaml`. |
+| The header and footer are gone | A folder or single-file template replaces `default` completely, header and footer included. Add them in `page.css`, see [Header and footer](header-footer.md). |
+| A logo in the header does not show | The image is not an asset of the template, or the path in `src` differs from the asset name. Assets are matched by their exact path, such as `logo.svg` or `../assets/logo.svg`. |
+| A `content: "..."` rule breaks the CSS | A quote or backslash in the text is not escaped. |
+| Wide tables have other margins | The template changed `@page` but not `@page landscape-page`. |
+| A table leaves a big gap | `break-inside: avoid` is set on `table`. Put it on `tr`. |
+| An image jumps to the next page | Images cannot be split. Limit the size with `max-height`. |
+| Mermaid blocks stay code | Neither `mmdc` nor `npx` was found. Install Node.js or mermaid-cli. |
