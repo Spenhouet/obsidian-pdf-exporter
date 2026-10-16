@@ -146,6 +146,7 @@ obsidian_pdf_exporter/
 │   │   ├── callouts.py, heading_links.py, wiki_links.py, image_captions.py,
 │   │   ├── headings.py, highlights.py, line_breaks.py, tasks.py, math.py,
 │   │   └── mermaid.py, svg_images.py, tables.py, base_css.py
+│   ├── code.py             # outside_code: keeps fenced and inline code as written
 │   └── embeds.py, callouts.py, wiki_links.py, mermaid.py, ...  # the work behind the steps
 ├── plugins/                # layer 3
 │   ├── base.py             # ObsidianPlugin, PluginContext, DocumentContext
@@ -213,9 +214,12 @@ plugin. Everything else is a plugin (see below).
 
 2. Add the class to `CORE_STEPS` in `core/steps/__init__.py`, at the
    position of its priority, and to the table in the module docstring.
-3. Add tests. [`test_steps.py`](tests/unit/test_steps.py) checks the
+3. Leave code alone. Obsidian shows fenced code blocks and inline code
+   as written, so wrap the rewrite in `outside_code` from
+   [`core/code.py`](obsidian_pdf_exporter/core/code.py).
+4. Add tests. [`test_steps.py`](tests/unit/test_steps.py) checks the
    order of all steps, so update the expected lists there.
-4. Describe the syntax in [MARKDOWN.md](MARKDOWN.md).
+5. Describe the syntax in [MARKDOWN.md](MARKDOWN.md).
 
 ## Adding support for an Obsidian plugin
 

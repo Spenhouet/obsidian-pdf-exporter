@@ -104,3 +104,10 @@ def test_inline_svg_keeps_aspect_ratio_in_weasyprint(
     p = page.children[0].children[0].children[0]
     svg = p.children[0].children[0]
     assert (round(svg.width), round(svg.height)) == expected
+
+
+def test_convert_wiki_links_skips_code(page: tuple[Path, Path]) -> None:
+    page_folder, build_dir = page
+    source = "`[[Note]]` and `![[pic.png]]`\n```\n[[Note|alias]] ![[pic.png]]\n```\n[[Note|alias]]"
+    expected = "`[[Note]]` and `![[pic.png]]`\n```\n[[Note|alias]] ![[pic.png]]\n```\nalias"
+    assert convert_wiki_links(source, page_folder, {}, build_dir) == expected
