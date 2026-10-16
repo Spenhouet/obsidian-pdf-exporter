@@ -11,6 +11,7 @@ Any contribution is welcome! This document provides guidelines for contributing 
 - [Adding a PDF template](#adding-a-pdf-template)
 - [Testing](#testing)
 - [Code Quality](#code-quality)
+- [Documentation](#documentation)
 - [Release Process](#release-process)
 - [Pull Request Guidelines](#pull-request-guidelines)
 
@@ -113,19 +114,19 @@ An export reads a folder of notes and turns it into one PDF. The work is
 split into three layers. Each layer has one place where its parts are
 listed.
 
-1. Markdown dialect ([`core/dialect.py`](obsidian_pdf_exporter/core/dialect.py)).
+1. Markdown dialect ([`core/dialect.py`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/obsidian_pdf_exporter/core/dialect.py)).
    The pandoc reader extensions and pandoc arguments. The base is pandoc's
    `markdown` reader with `raw_html` and `lists_without_preceding_blankline`
    on and `raw_tex` off. Steps add what they need, for example `mark` for
    highlights, `hard_line_breaks` for line breaks or `--mathml` for math.
-2. Obsidian core syntax ([`core/steps/`](obsidian_pdf_exporter/core/steps/)).
+2. Obsidian core syntax ([`core/steps/`](https://github.com/Spenhouet/obsidian-pdf-exporter/tree/main/obsidian_pdf_exporter/core/steps/)).
    Every piece of syntax that Obsidian itself supports is a small step:
    frontmatter, comments, Bases, embeds, block IDs, callouts, heading links, wiki
    links, image captions, headings, warnings about plugin code blocks,
    highlights, line breaks, tasks, math, footnotes, Mermaid, landscape
    diagrams, SVG images and table fixes. All steps are listed in
-   `CORE_STEPS` in [`core/steps/__init__.py`](obsidian_pdf_exporter/core/steps/__init__.py).
-3. Community plugins ([`plugins/`](obsidian_pdf_exporter/plugins/)).
+   `CORE_STEPS` in [`core/steps/__init__.py`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/obsidian_pdf_exporter/core/steps/__init__.py).
+3. Community plugins ([`plugins/`](https://github.com/Spenhouet/obsidian-pdf-exporter/tree/main/obsidian_pdf_exporter/plugins/)).
    Support for syntax from community Obsidian plugins and other tools:
    Folder Notes, Dataview, Excalidraw, Meta Bind, Block Link Plus, draw.io
    and pandoc citations. Plugins
@@ -185,7 +186,7 @@ The order of the markdown steps matters. For example, `embeds` runs after
 runs before `block_ids`, so the block IDs in embedded text are removed
 too. `bracket_links` runs after `wiki_links`, so real wiki links are
 already resolved. The table in the docstring of
-[`core/steps/__init__.py`](obsidian_pdf_exporter/core/steps/__init__.py)
+[`core/steps/__init__.py`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/obsidian_pdf_exporter/core/steps/__init__.py)
 gives the reason for each position.
 
 Embedded notes (`![[Note]]`) run through the steps marked `embedded`
@@ -222,20 +223,20 @@ plugin. Everything else is a plugin (see below).
    position of its priority, and to the table in the module docstring.
 3. Leave code alone. Obsidian shows fenced code blocks and inline code
    as written, so wrap the rewrite in `outside_code` from
-   [`core/code.py`](obsidian_pdf_exporter/core/code.py).
+   [`core/code.py`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/obsidian_pdf_exporter/core/code.py).
 4. Never drop content silently. When the step sees syntax it can not
    render, it keeps it in a simple form and reports it with
    `context.warn(...)`, which prints a line starting with `Warning:`.
-5. Add tests. [`test_steps.py`](tests/unit/test_steps.py) checks the
+5. Add tests. [`test_steps.py`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/tests/unit/test_steps.py) checks the
    order of all steps, so update the expected lists there.
-6. Describe the syntax in [MARKDOWN.md](MARKDOWN.md).
+6. Describe the syntax in the docs (see [Documentation](#documentation)).
 
 ## Adding support for an Obsidian plugin
 
 Obsidian plugins (Dataview, Meta Bind, Tasks, Templater, Excalidraw …)
 introduce non-core syntax into markdown notes. To make those notes export
 cleanly, the project carries one **plugin support module** per Obsidian
-plugin. They all live under [`obsidian_pdf_exporter/plugins/`](obsidian_pdf_exporter/plugins/),
+plugin. They all live under [`obsidian_pdf_exporter/plugins/`](https://github.com/Spenhouet/obsidian-pdf-exporter/tree/main/obsidian_pdf_exporter/plugins/),
 one subpackage per plugin, so contributors have an obvious place to add a
 new one.
 
@@ -301,7 +302,7 @@ __all__ = ["TasksPlugin"]
 #### 2. Implement the plugin class
 
 Every plugin subclasses
-[`ObsidianPlugin`](obsidian_pdf_exporter/plugins/base.py) and overrides
+[`ObsidianPlugin`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/obsidian_pdf_exporter/plugins/base.py) and overrides
 ``process_markdown(content, context)``. ``context`` is a
 ``PluginContext`` carrying the page's vault root, page folder,
 frontmatter, and the user's ``--option key=value`` settings.
@@ -372,12 +373,13 @@ uv run obsidian-pdf-exporter list-plugins
 
 Drop a file in `tests/unit/` that imports your plugin directly and feeds
 it a few representative markdown snippets. Mirror the style in
-[`test_plugins.py`](tests/unit/test_plugins.py).
+[`test_plugins.py`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/tests/unit/test_plugins.py).
 
 #### 5. Document it
 
-Mention the new plugin in the README's feature list and add a note in
-this file under "supported plugins" if the support is partial.
+Add a page under `docs/plugins/`, an example note under `examples/` and
+its screenshot (see [Documentation](#documentation)), and list the plugin
+in the table above.
 
 ### Plugin priority
 
@@ -400,7 +402,7 @@ tables it generated are visible).
 ### Hooks
 
 A plugin can override any of these methods on
-[`ObsidianPlugin`](obsidian_pdf_exporter/plugins/base.py). All have
+[`ObsidianPlugin`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/obsidian_pdf_exporter/plugins/base.py). All have
 no-op defaults so you only implement what you need. A plugin that only
 implements `process_markdown` keeps working:
 
@@ -470,7 +472,7 @@ system but is not the same thing. Templates plug into rendering, plugins
 plug into markdown.
 
 End users do **not** need to touch this repository to ship a custom
-look. The README's [Templates](README.md#templates) section covers the
+look. [Templates and styling](https://spenhouet.com/obsidian-pdf-exporter/templating/) in the docs covers the
 no-Python options — drop-in CSS file, template directory with a
 `template.yaml` manifest, or a named directory under
 `~/.config/obsidian-pdf-exporter/templates/`. Reach for the steps below
@@ -478,12 +480,12 @@ only when your template needs to mutate markdown or HTML (i.e. requires
 Python code).
 
 Templates that ship inside this project live under
-[`obsidian_pdf_exporter/templates/builtin/`](obsidian_pdf_exporter/templates/builtin/);
+[`obsidian_pdf_exporter/templates/builtin/`](https://github.com/Spenhouet/obsidian-pdf-exporter/tree/main/obsidian_pdf_exporter/templates/builtin/);
 each one ships a ``Template`` subclass plus its CSS file. To add one:
 
 1. Drop a new package next to ``default`` and ``redline``.
 2. Subclass
-   [`Template`](obsidian_pdf_exporter/templates/base.py) and override
+   [`Template`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/obsidian_pdf_exporter/templates/base.py) and override
    ``get_css()`` (return CSS source) and optionally ``decorations(ctx)``
    to inject running header/footer HTML and ``@page`` rules.
 3. Register the class under the ``obsidian_pdf_exporter.templates``
@@ -566,6 +568,38 @@ Before committing:
 1. **Run linting**: `uv run ruff check`
 2. **Run tests**: `uv run pytest`
 3. **Fix any issues** before committing
+
+## Documentation
+
+The documentation site is built with [Zensical](https://zensical.org/)
+from `mkdocs.yml` and `docs/`, and published to GitHub Pages by
+`.github/workflows/docs.yml` on every push to `main`.
+
+```bash
+uv sync --group docs
+uv run zensical serve            # live preview on http://localhost:8000
+uv run zensical build --strict   # what CI runs
+```
+
+Generated content:
+
+- `docs/reference/cli.md` comes from the Typer app. Run
+  `uv run python scripts/gen_cli_docs.py` after changing a command or
+  flag. CI fails when the page is out of date.
+- `docs/img/features/*.png` and `docs/img/templates/*.png` are rendered
+  from the example vault in `examples/`. Each folder there (not starting
+  with `_`) is one example and becomes `docs/img/features/<folder>.png`.
+  Run `uv run python scripts/render_examples.py [name ...]` after a change
+  that affects the output. It needs `pdftoppm` (poppler) and Node.js for
+  Mermaid. Commit the images.
+- `docs/llms.txt` and `docs/llms-full.txt` come from the pages. Run
+  `uv run python scripts/gen_llms_txt.py` after adding or renaming a page.
+  CI fails when they are out of date.
+
+A feature page shows the example source next to its image with the
+`ope-example` block, see any page under `docs/obsidian/`. The source is
+included with `--8<-- "examples/<name>/<name>.md"`, so it cannot drift
+from the note that was rendered.
 
 ## Release Process
 
@@ -653,4 +687,4 @@ obsidian-pdf-exporter/
 
 - **GitHub Issues**: For bug reports and feature requests
 - **GitHub Discussions**: For questions and general discussion
-- **Documentation**: Check the README and code comments
+- **Documentation**: https://spenhouet.com/obsidian-pdf-exporter/

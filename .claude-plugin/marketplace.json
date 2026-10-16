@@ -1,0 +1,31 @@
+{
+  "name": "obsidian-pdf-exporter",
+  "description": "Claude Code plugin for obsidian-pdf-exporter (ope): export Obsidian vaults to PDF.",
+  "owner": {
+    "name": "Sebastian Penhouet",
+    "url": "https://github.com/Spenhouet"
+  },
+  "plugins": [
+    {
+      "name": "obsidian-pdf-exporter",
+      "source": "./",
+      "description": "Export Obsidian vaults to PDF with the ope CLI: wiki links, embeds, callouts, Mermaid, Dataview and other plugins, redline PDFs between git commits, and custom templates. Bundles an agent skill that installs ope when it is missing.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Sebastian Penhouet"
+      },
+      "homepage": "https://spenhouet.com/obsidian-pdf-exporter/",
+      "repository": "https://github.com/Spenhouet/obsidian-pdf-exporter",
+      "license": "MIT",
+      "keywords": [
+        "obsidian",
+        "pdf",
+        "export",
+        "markdown",
+        "redline",
+        "weasyprint",
+        "agent-skill"
+      ]
+    }
+  ]
+}

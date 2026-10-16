@@ -1,0 +1,89 @@
+/* Brand touches on top of the Material theme. */
+
+.ope-hero {
+  text-align: center;
+  margin: 1.5rem 0 2rem;
+}
+
+.ope-hero img {
+  max-width: 560px;
+  width: 100%;
+  height: auto;
+}
+
+.ope-hero .ope-tagline {
+  font-size: 1.1rem;
+  color: var(--md-default-fg-color--light);
+  max-width: 40rem;
+  margin: 1rem auto 1.5rem;
+}
+
+.md-banner__inner {
+  text-align: center;
+}
+
+.md-typeset .grid.cards > ul > li:hover {
+  border-color: var(--md-accent-fg-color);
+}
+
+/* Side-by-side example: Markdown source on the left, rendered PDF on the right.
+   Stacks on narrow screens. */
+.md-typeset .ope-example {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+  margin: 1em 0 1.5em;
+}
+
+.md-typeset .ope-example > div > :first-child {
+  margin-top: 0;
+}
+
+.md-typeset .ope-example > div > :last-child {
+  margin-bottom: 0;
+}
+
+.md-typeset .ope-example .ope-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--md-default-fg-color--light);
+  margin: 0 0 0.3rem;
+}
+
+.md-typeset .ope-example pre {
+  margin: 0;
+}
+
+/* The rendered PDF always sits on white paper, also in the dark theme. */
+.md-typeset .ope-example img,
+.md-typeset .ope-page img {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #ffffff;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* Whole pages (template recipes): before and after next to each other. */
+.md-typeset .ope-pages {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1em 0 1.5em;
+}
+
+.md-typeset .ope-pages figure {
+  margin: 0;
+}
+
+@media screen and (max-width: 59.9375em) {
+  .md-typeset .ope-example,
+  .md-typeset .ope-pages {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

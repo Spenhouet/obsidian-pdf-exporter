@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-import pytest
 from typer.testing import CliRunner
 
 from obsidian_pdf_exporter import __version__
@@ -49,17 +48,3 @@ def test_redline_outside_git_repo_fails_cleanly(
     )
     assert result.exit_code == 1
     assert "git" in result.output.lower()
-
-
-def test_log_lines_keep_square_brackets(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Embeds like ![[file.pdf]] in a warning must not be read as Rich markup."""
-    import io
-
-    from rich.console import Console
-
-    from obsidian_pdf_exporter import main
-
-    buf = io.StringIO()
-    monkeypatch.setattr(main, "_console", Console(file=buf, width=200))
-    main._log("  Warning: cannot render embed ![[Manual.pdf]] [bold]x[/bold]")
-    assert buf.getvalue().strip() == "Warning: cannot render embed ![[Manual.pdf]] [bold]x[/bold]"

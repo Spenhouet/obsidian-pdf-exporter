@@ -1,0 +1,5 @@
+- [ ] Write the release notes
+- [x] Update the version
+- [ ] Review the PDF
+    - [x] Check the table of contents
+    - [ ] Check the footer
