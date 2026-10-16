@@ -77,9 +77,10 @@ def test_missing_image_warns(tmp_path: Path) -> None:
     assert messages == ["could not find image ![[gone.png]]"]
 
 
-def test_dataviewjs_placeholder_warns(tmp_path: Path) -> None:
+def test_dataviewjs_block_is_rendered_without_warning(tmp_path: Path) -> None:
     vault = tmp_path / "vault"
     vault.mkdir()
     out, messages = _export_page(vault, "```dataviewjs\ndv.list([1])\n```\n")
-    assert "not supported" in out
-    assert any("DataviewJS" in m for m in messages)
+    assert "- 1" in out
+    assert "```dataviewjs" not in out
+    assert messages == []
