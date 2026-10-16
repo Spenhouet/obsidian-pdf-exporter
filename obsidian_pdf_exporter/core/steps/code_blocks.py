@@ -20,7 +20,6 @@ if TYPE_CHECKING:
 PLUGIN_LANGUAGES: frozenset[str] = frozenset(
     {
         "abc",
-        "base",
         "button",
         "chart",
         "datacore",

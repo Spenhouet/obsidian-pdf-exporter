@@ -54,6 +54,10 @@ class VaultIndex:
                             break
                         cur = cur.parent
 
+    def files(self) -> list[Path]:
+        """Return every indexed file, sorted by path."""
+        return sorted({p for paths in self._by_name.values() for p in paths})
+
     def md_files(self) -> list[Path]:
         """Return every indexed markdown file."""
         return list(self._md_files)
