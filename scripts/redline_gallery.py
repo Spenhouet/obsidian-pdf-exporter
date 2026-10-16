@@ -35,6 +35,7 @@ class Scenario:
     end_exclusive: bool = False
     body: bool = True  # search after the start of the body only
     top: int = 0  # which start anchor is the top of the crop
+    extra: float = 0  # mm added below the end when the last end anchor was used
 
 
 SCENARIOS = [
@@ -67,7 +68,7 @@ SCENARIOS = [
     Scenario(
         "moves",
         "Moved paragraph (edited) and moved paragraph (unchanged)",
-        ["Cross references point"],
+        ["Archiving"],
         ["checked during internal audits"],
     ),
     Scenario(
@@ -75,6 +76,7 @@ SCENARIOS = [
         "Long deleted section with headings, Dataview table changed",
         ["Open records", "File"],
         ["accepted as evidence", "Deleted headings"],
+        extra=38,
     ),
     Scenario(
         "figures",
@@ -102,6 +104,7 @@ def _find(
         h = pg.get_size()[1]
         tp = pg.get_textpage()
         s = tp.search(text, match_case=False)
+        best = None
         while True:
             r = s.get_next()
             if r is None:
@@ -109,8 +112,10 @@ def _find(
             boxes = [tp.get_charbox(i) for i in range(r[0], r[0] + r[1])]
             top = h - max(b[3] for b in boxes)
             bottom = h - min(b[1] for b in boxes)
-            if p > page or top >= y - 0.5:
-                return p, top, bottom
+            if (p > page or top >= y - 0.5) and (best is None or top < best[1]):
+                best = (p, top, bottom)
+        if best is not None:
+            return best
     return None
 
 
@@ -132,10 +137,12 @@ def crop(pdf: Path, sc: Scenario, out: Path) -> bool:
         page, y = start[0], start[2]
     assert start is not None
     end = None
-    for cand in sc.end:
+    used_last = False
+    for n, cand in enumerate(sc.end):
         e = _find(doc, cand, start[0], start[1])
-        if e is not None and e[0] - start[0] <= 1:
+        if e is not None and e[0] - start[0] <= 2:
             end = e
+            used_last = n == len(sc.end) - 1 and n > 0
             break
     if end is None:
         return False
@@ -147,6 +154,8 @@ def crop(pdf: Path, sc: Scenario, out: Path) -> bool:
         w, h = pg.get_size()
         y0 = top_y - pad if p == top_page else 18 * MM
         y1 = end[1] - 3 if sc.end_exclusive else end[2] + 2.5 * MM
+        if used_last:
+            y1 += sc.extra * MM
         if p != end[0]:
             y1 = h - 20 * MM
         scale = DPI / 72

@@ -67,7 +67,7 @@ def remove_class(el: etree._Element, cls: str) -> None:
 
 def element(tag: str, cls: str = "", text: str = "", **attrs: str) -> etree._Element:
     """Create an element with a class, text and attributes."""
-    el = etree.Element(tag)
+    el = lxml_html.Element(tag)
     if cls:
         el.set("class", cls)
     if text:

@@ -1,0 +1,35 @@
+/* ---- sbs3: synopsis ----
+   The classic synopsis of regulated document changes: a ruled table over the whole
+   document with section, previous wording, new wording and a change column. */
+@page { size: A4 landscape; margin: 20mm 14mm 16mm 14mm; }
+ins { color: var(--ins); text-decoration: underline; }
+del { color: var(--del); text-decoration: line-through; }
+ins.rl-moved, del.rl-moved { color: var(--move); }
+.rl-fmt, .rl-link a { border-bottom: 0.8pt dotted var(--fmt); }
+.rl-summary, nav#TOC { width: 62%; }
+table.rl-wd { width: 100%; table-layout: fixed; border-collapse: collapse; margin: 0; font-size: 0.9em; }
+table.rl-wd.rl-wd-break { break-before: page; }
+col.rl-col-s { width: 6%; } col.rl-col-l, col.rl-col-r { width: 37%; } col.rl-col-c { width: 20%; }
+table.rl-wd thead th { font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-dark);
+  border-bottom: 1.2pt solid var(--color-dark); padding: 0.2em 2mm 0.3em; text-align: left; }
+table.rl-wd td { border-bottom: 0.5pt solid #d4d7db; padding: 0.35em 2mm 0.1em; vertical-align: top; }
+table.rl-wd td + td { border-left: 0.5pt solid #e3e5e8; }
+td.rl-wd-s { font-weight: bold; color: var(--color-grey); font-size: 0.9em; }
+tr.rl-wd-equal td.rl-wd-l, tr.rl-wd-equal td.rl-wd-r { color: #4c5158; }
+td.rl-wd-c { font-size: 0.82em; color: var(--color-dark); }
+.rl-sym { font-family: var(--font-mono); font-weight: bold; margin-right: 0.4em; }
+.rl-sym-ins { color: var(--ins); } .rl-sym-del { color: var(--del); } .rl-sym-move-from, .rl-sym-move-to { color: var(--move); }
+.rl-gap { color: #8a9097; font-style: italic; font-size: 0.85em; }
+.rl-wd h1, .rl-wd h2, .rl-wd h3, .rl-wd h4 { break-before: auto; margin: 0.1em 0 0.2em; font-size: 1.05em; }
+td.rl-wd-l h1, td.rl-wd-l h2, td.rl-wd-l h3, td.rl-wd-l h4 { bookmark-level: none; }
+.rl-wd p { margin-bottom: 0.35em; }
+.rl-wd .rl-block.rl-del > :not(.rl-img-label):not(.rl-move-label), .rl-wd .rl-heading.rl-del { color: var(--del); text-decoration: line-through; }
+.rl-wd .rl-block.rl-ins > :not(.rl-img-label):not(.rl-move-label) { color: var(--ins); }
+.rl-wd .rl-block.rl-move-from > :not(.rl-move-label), .rl-wd .rl-block.rl-move-to > :not(.rl-move-label) { color: var(--move); }
+.rl-wd .rl-move-label { display: none; }
+.rl-wd .rl-block[data-rl-kind="image"].rl-del img, .rl-wd .rl-block[data-rl-kind="image"].rl-del svg { opacity: 0.4; }
+tr.rl-tr-ins td { color: var(--ins); } tr.rl-tr-del td { color: var(--del); text-decoration: line-through; }
+.rl-wd table td, .rl-wd table th { border-left: none !important; }
+pre.rl-code .rl-line-del { color: var(--del); } pre.rl-code .rl-line-ins { color: var(--ins); }
+.rl-wd pre { font-size: 0.85em; }
+.rl-wd ul, .rl-wd ol { margin-left: 5mm; }

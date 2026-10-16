@@ -1,0 +1,39 @@
+/* ---- diff3: bracket notation ----
+   Black ink only, as in regulatory amendment texts: inserted text bold and
+   underlined, deleted text struck and set in brackets. A change number for each
+   change sits in the right margin; a list of changes closes the document. */
+@page { margin-right: 30mm; }
+ins { font-weight: bold; text-decoration: underline; color: inherit; }
+del { text-decoration: line-through; color: inherit; }
+del::before { content: "["; text-decoration: none; font-weight: bold; }
+del::after { content: "]"; text-decoration: none; font-weight: bold; }
+ins.rl-moved { font-weight: normal; font-style: italic; }
+del.rl-moved { font-style: italic; }
+.rl-fmt { border-bottom: 0.8pt dotted var(--color-dark); }
+.rl-link a { color: inherit; text-decoration: underline dotted; }
+.rl-block.rl-ins > :not(.rl-img-label):not(.rl-move-label) { text-decoration: underline; }
+h1.rl-ins, h2.rl-ins, h3.rl-ins { text-decoration: underline; }
+.rl-block.rl-del > :not(.rl-img-label):not(.rl-move-label), .rl-heading.rl-del { text-decoration: line-through; }
+.rl-block.rl-del > p:first-of-type::before { content: "["; font-weight: bold; }
+.rl-block.rl-del > p:last-of-type::after { content: "]"; font-weight: bold; }
+.rl-block.rl-move-from > :not(.rl-move-label) { text-decoration: line-through; font-style: italic; }
+.rl-block.rl-move-to > :not(.rl-move-label) { font-style: italic; }
+.rl-move-label, .rl-img-label { color: var(--color-dark); }
+.rl-block[data-rl-kind="image"].rl-del img, .rl-block[data-rl-kind="image"].rl-del svg { opacity: 0.35; }
+tr.rl-tr-ins td { font-weight: bold; text-decoration: underline; } tr.rl-tr-del td { text-decoration: line-through; }
+pre.rl-code .rl-line-del { text-decoration: line-through; } pre.rl-code .rl-line-ins { font-weight: bold; }
+.rl-hunk { position: relative; }
+.rl-cn {
+  float: right; clear: right; width: 16mm; margin-right: -22mm; text-align: left;
+  font-family: var(--font-mono); font-weight: bold; font-size: 7.4pt; line-height: 1.9; color: var(--color-dark);
+  border-left: 1.4pt solid var(--color-dark); padding-left: 1.5mm; font-style: normal; text-decoration: none;
+}
+.rl-changelist { break-before: page; }
+.rl-cl-title { font-size: 1.4em; }
+table.rl-cl th { font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.05em; }
+table.rl-cl td { font-size: 0.9em; padding: 0.2em 0.5em 0.2em 0; }
+.rl-cl-n { width: 9%; font-family: var(--font-mono); font-weight: bold; }
+.rl-cl-n a { color: inherit; }
+.rl-cl-p { width: 9%; text-align: right; }
+.rl-cl-d { font-size: 0.85em; color: var(--color-grey); }
+.rl-tile-ins .rl-tile-n, .rl-tile-del .rl-tile-n, .rl-tile-move .rl-tile-n, .rl-tile-other .rl-tile-n { color: var(--color-dark); }

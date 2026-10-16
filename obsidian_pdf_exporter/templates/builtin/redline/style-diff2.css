@@ -1,0 +1,22 @@
+/* ---- diff2: collapsed context ----
+   A review copy that shows only what changed: headings for orientation, changed
+   blocks with word marks, and one quiet line for every run of unchanged blocks
+   (also inside lists and tables). */
+h1 { break-before: auto; margin-top: 1.1em; }
+ins { color: var(--ins); text-decoration: underline; text-decoration-color: var(--ins); }
+del { color: var(--del); text-decoration: line-through; }
+ins.rl-moved, del.rl-moved { color: var(--move); }
+.rl-fmt, .rl-link a { border-bottom: 0.8pt dotted var(--fmt); }
+.rl-block.rl-ins > :not(.rl-img-label):not(.rl-move-label) { color: var(--ins); text-decoration: underline; }
+.rl-block.rl-del > :not(.rl-img-label):not(.rl-move-label), .rl-heading.rl-del { color: var(--del); text-decoration: line-through; }
+.rl-block.rl-move-from > :not(.rl-move-label), .rl-block.rl-move-to > :not(.rl-move-label) { color: var(--move); }
+h1.rl-ins, h2.rl-ins, h3.rl-ins { color: var(--ins); text-decoration: underline; }
+.rl-block[data-rl-kind="image"].rl-del img, .rl-block[data-rl-kind="image"].rl-del svg { opacity: 0.4; }
+tr.rl-tr-ins td { color: var(--ins); } tr.rl-tr-del td { color: var(--del); text-decoration: line-through; }
+pre.rl-code .rl-line-del { color: var(--del); } pre.rl-code .rl-line-ins { color: var(--ins); }
+.rl-hunk { margin-left: -5mm; padding-left: calc(5mm - 1.2pt); border-left: 1.2pt solid var(--bar); }
+.callout .rl-hunk { margin-left: calc(-5mm - 0.9em - 3pt); padding-left: calc(5mm + 0.9em + 3pt - 1.2pt); }
+.rl-ctx { display: flex; align-items: center; gap: 3mm; margin: 0.5em 0 0.9em; color: #8a9097; font-size: 0.8em; font-style: italic; }
+.rl-ctx::before, .rl-ctx::after { content: ""; flex: 1; border-top: 0.6pt dotted #b9bec5; }
+li.rl-ctx-item { list-style: none; color: #8a9097; font-size: 0.85em; font-style: italic; }
+tr.rl-ctx-row td { color: #8a9097; font-size: 0.85em; font-style: italic; text-align: center; }
