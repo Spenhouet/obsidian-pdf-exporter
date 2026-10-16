@@ -368,7 +368,7 @@ def _parse_options(raw: list[str]) -> dict[str, str]:
 
 
 def _log(message: str) -> None:
-    _console.print(message, highlight=False, markup=False)
+    _console.print(message, highlight=False)
 
 
 def _run(action) -> None:  # noqa: ANN001 - any zero-arg callable
