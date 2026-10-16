@@ -57,7 +57,9 @@ def resolve_heading_links(html: str) -> str:
     such links is counted to the page before it, which is harmless because
     a page's own headings always come first. A link first looks for its
     heading inside its own page and then anywhere in the document. Unknown
-    headings keep their slug.
+    headings keep their slug. A link to a heading on another page
+    (``[[Page#Heading]]``) carries ``data-fallback`` with the page anchor; it
+    only looks inside that page and falls back to the page anchor.
     """
     page_anchors = set(re.findall(r'class="heading-link" data-scope="([^"]+)"', html))
     scoped: dict[tuple[str, str], str] = {}
@@ -80,7 +82,11 @@ def resolve_heading_links(html: str) -> str:
             return tag
         slug = href.group(1)
         key = ((link_scope.group(1) or "") if link_scope else "", slug)
-        target = scoped.get(key) or anywhere.get(slug)
+        fallback = re.search(r'data-fallback="([^"]*)"', tag)
+        if fallback:
+            target = scoped.get(key) or fallback.group(1)
+        else:
+            target = scoped.get(key) or anywhere.get(slug)
         if not target:
             return tag
         return tag.replace(href.group(0), f'href="#{target}"', 1)

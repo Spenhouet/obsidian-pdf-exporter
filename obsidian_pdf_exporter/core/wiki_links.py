@@ -120,6 +120,22 @@ def _render_embed(
     return f"*{page_name}*"
 
 
+def _heading_link(label: str, heading: str, page_info: dict) -> str:
+    """Link to ``heading`` on the page of ``page_info``.
+
+    The link is tagged like a same-page heading link (see
+    :mod:`obsidian_pdf_exporter.core.heading_links`), with the target page as
+    its scope. ``data-fallback`` names the page anchor, used when the page has
+    no such heading.
+    """
+    node = page_info["node"]
+    scope = node.anchor if node.depth > 0 else ""
+    return (
+        f"[{label}](#{slugify(heading)})"
+        f'{{.heading-link data-scope="{scope}" data-fallback="{page_info["anchor"]}"}}'
+    )
+
+
 def convert_wiki_links(
     content: str,
     page_folder: Path,
@@ -152,13 +168,16 @@ def convert_wiki_links(
         if not page_name and section:
             return f"[{display or section}](#{slugify(section)})"
 
-        label = display or page_name
         page_info = lookup_page(page_index, page_name, page_folder)
+        heading = section.rsplit("#", 1)[-1].strip()
+        if page_info and heading and not heading.startswith("^"):
+            return _heading_link(display or f"{page_name} > {heading}", heading, page_info)
+        label = display or page_name
         if page_info:
             return f"[{label}](#{page_info['anchor']})"
         if page_name.startswith("http"):
             return f"[{label}]({page_name})"
-        return label
+        return f"*{label}*"
 
     def convert(text: str) -> str:
         text = RE_WIKI_EMBED_IMAGE.sub(replace_embed, text)
