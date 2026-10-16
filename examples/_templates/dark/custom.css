@@ -1,0 +1,16 @@
+:root {
+  --color-accent: #90cdf4;
+  --color-grey: #a0aec0;
+  --color-light-grey: #2d3748;
+  --color-mid-grey: #4a5568;
+  --color-dark: #edf2f7;
+}
+@page { background: #1a202c; }
+@page landscape-page { background: #1a202c; }
+body { background: transparent; color: var(--color-dark); }
+thead tr { background: #2c5282; }
+th { color: #ffffff; }
+td { border-color: var(--color-mid-grey); }
+code, pre { background: #2d3748; color: #edf2f7; }
+.callout { background: #2d3748; }
+.callout, .callout * { color: var(--color-dark); }
