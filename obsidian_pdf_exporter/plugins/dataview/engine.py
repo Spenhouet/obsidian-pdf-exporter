@@ -25,12 +25,14 @@ from obsidian_pdf_exporter.core.frontmatter import parse_frontmatter
 if TYPE_CHECKING:
     from obsidian_pdf_exporter.core.vault_index import VaultIndex
 
-_DATAVIEW_PAGES_CACHE: dict[int, list[dict]] = {}
+# Keyed by the index object and its root: ids of freed objects are reused, and a
+# redline builds one index per commit.
+_DATAVIEW_PAGES_CACHE: dict[tuple[int, str], list[dict]] = {}
 _DATAVIEW_FENCE = re.compile(r"```(dataview(?:js)?)\s*\n(.*?)\n```", re.DOTALL | re.IGNORECASE)
 
 
 def _pages_for(index: VaultIndex) -> list[dict]:
-    cached = _DATAVIEW_PAGES_CACHE.get(id(index))
+    cached = _DATAVIEW_PAGES_CACHE.get((id(index), str(index.root)))
     if cached is not None:
         return cached
     pages: list[dict] = []
@@ -51,7 +53,7 @@ def _pages_for(index: VaultIndex) -> list[dict]:
             }
         )
     pages.sort(key=lambda p: str(p["rel"]).lower())
-    _DATAVIEW_PAGES_CACHE[id(index)] = pages
+    _DATAVIEW_PAGES_CACHE[(id(index), str(index.root))] = pages
     return pages
 
 
