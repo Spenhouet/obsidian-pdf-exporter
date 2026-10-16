@@ -175,12 +175,22 @@ def _wrap(lines: list[str], width: float, size: float, *, bold: bool) -> list[st
 def _horizontal(
     box: dict[str, str], fallback: dict[str, str], box_width: float
 ) -> tuple[float, str]:
-    if "x" in fallback and not fallback["x"].endswith("%"):
-        return _px(fallback["x"]), fallback.get("text-anchor", "middle")
-    left = _px(box.get("margin-left"))
+    """Return the x position and ``text-anchor`` of a label.
+
+    The alignment comes from the label box (``justify-content``). The x
+    position of draw.io's fallback text is used when there is one, since it
+    already includes the offsets of the label.
+    """
+    left = _px(box.get("margin-left")) + _px(box.get("padding-left"))
     justify = box.get("justify-content", "")
     if "flex-start" in justify:
-        return left, "start"
-    if "flex-end" in justify:
-        return left + (box_width if box_width > 1 else 0), "end"
-    return left + (box_width / 2 if box_width > 1 else 0), "middle"
+        x, anchor = left, "start"
+    elif "flex-end" in justify:
+        x, anchor = left + (box_width if box_width > 1 else 0), "end"
+    else:
+        x, anchor = left + (box_width / 2 if box_width > 1 else 0), "middle"
+    if "x" in fallback and not fallback["x"].endswith("%"):
+        x = _px(fallback["x"])
+        # SVG's default anchor is "start", and draw.io leaves it out for left labels.
+        anchor = fallback.get("text-anchor", anchor if justify else "start")
+    return x, anchor

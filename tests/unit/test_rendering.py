@@ -310,3 +310,48 @@ def test_drawio_label_without_switch_or_fallback() -> None:
     assert 'font-weight="bold"' in out
     assert '<tspan x="783"' in out
     assert ">34.1%</tspan>" in out
+
+
+def test_callout_lazy_continuation_lines() -> None:
+    src = "> [!IMPORTANT]\n\\* First note.\n\\*\\* Second note.\n\nOutside.\n"
+    out = convert_callouts(src)
+    div = out.split(":::")[1]
+    assert "First note." in div
+    assert "Second note." in div
+    assert "Outside." not in div
+
+
+@pytest.mark.parametrize("line", ["# Heading", "- item", "```", "---"])
+def test_callout_lazy_continuation_stops_at_new_block(line: str) -> None:
+    out = convert_callouts(f"> [!note]\n> text\n{line}\n")
+    assert line not in out.split(":::")[1]
+
+
+def test_drawio_left_aligned_label_keeps_start_anchor() -> None:
+    svg = (
+        '<svg><switch><foreignObject width="100%" height="100%">'
+        '<div xmlns="http://www.w3.org/1999/xhtml" style="display: flex;'
+        " align-items: unsafe center; justify-content: unsafe flex-start; width: 115px;"
+        ' height: 1px; padding-top: 66px; margin-left: 27px;">'
+        '<div style="box-sizing: border-box; font-size: 0; text-align: left;">'
+        '<div style="display: inline-block; font-size: 12px; white-space: normal;">'
+        "Midbrain</div></div></div></foreignObject>"
+        '<text x="27" y="69" font-size="12px">Midbrain</text></switch></svg>'
+    )
+    out = clean_drawio_svg(svg)
+    assert 'text-anchor="start"' in out
+    assert '<tspan x="27"' in out
+
+
+def test_drawio_left_aligned_label_without_fallback() -> None:
+    svg = (
+        '<svg><foreignObject width="100%" height="100%">'
+        '<div xmlns="http://www.w3.org/1999/xhtml" style="display: flex;'
+        " align-items: unsafe center; justify-content: unsafe flex-start; width: 1px;"
+        ' height: 1px; padding-top: 66px; margin-left: 27px; padding-left: 3px;">'
+        '<div style="display: inline-block; font-size: 12px;">Pons</div></div>'
+        "</foreignObject></svg>"
+    )
+    out = clean_drawio_svg(svg)
+    assert 'text-anchor="start"' in out
+    assert '<tspan x="30"' in out
