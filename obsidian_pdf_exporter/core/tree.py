@@ -163,29 +163,62 @@ def collect_page_index(node: PageNode, index: dict | None = None) -> dict:
 
     A vault may contain several folders with the same name; each
     candidate is appended in tree order so callers can pick the one
-    closest to the referencing page (see :func:`lookup_page`).
+    closest to the referencing page (see :func:`lookup_page`). Such pages
+    would share one anchor, so a later page gets a numbered anchor
+    (``page-1``, ``page-2``, ...), the way pandoc numbers repeated heading ids.
     """
     if index is None:
         index = {}
-    index.setdefault(node.name, []).append({"anchor": node.anchor, "node": node})
-    for child in node.children:
-        collect_page_index(child, index)
+    used = {entry["anchor"] for entries in index.values() for entry in entries}
+    _collect(node, index, used)
     return index
 
 
-def lookup_page(page_index: dict, name: str, from_folder: Path | None = None) -> dict | None:
-    """Return the page entry whose folder is closest to ``from_folder``.
+def _collect(node: PageNode, index: dict, used: set[str]) -> None:
+    anchor = node.anchor
+    n = 0
+    while anchor in used:
+        n += 1
+        anchor = f"{node.anchor}-{n}"
+    node.anchor = anchor
+    used.add(anchor)
+    index.setdefault(node.name, []).append({"anchor": anchor, "node": node})
+    for child in node.children:
+        _collect(child, index, used)
 
-    With no ``from_folder`` (or only one candidate) returns the first
-    entry. Falls back to None when ``name`` is unindexed.
+
+def lookup_page(page_index: dict, name: str, from_folder: Path | None = None) -> dict | None:
+    """Return the page entry for ``name`` whose folder is closest to ``from_folder``.
+
+    ``name`` may carry a folder path and a ``.md`` suffix, as in
+    ``Folder/Sub/Page.md``. The last path part is the page name. Entries whose
+    path ends with the given path are preferred, as with embeds. With no
+    ``from_folder`` (or only one candidate) returns the first entry. Falls
+    back to None when the page name is unindexed.
     """
-    entries = page_index.get(name)
+    parts = [p for p in name.strip().replace("\\", "/").split("/") if p]
+    if parts and parts[-1].lower().endswith(".md"):
+        parts[-1] = parts[-1][:-3]
+    if not parts:
+        return None
+    entries = page_index.get(parts[-1])
     if not entries:
         return None
+    if len(parts) > 1:
+        entries = [e for e in entries if _ends_with(e["node"], parts)] or entries
     if from_folder is None or len(entries) == 1:
         return entries[0]
     from_parts = from_folder.resolve().parts
     return min(entries, key=lambda e: _entry_distance(e["node"].folder, from_parts))
+
+
+def _ends_with(node: PageNode, parts: list[str]) -> bool:
+    """True if the folder of ``node`` (or its note file) ends with the path ``parts``."""
+    candidates = [node.folder.parts]
+    if node.md_file is not None:
+        candidates.append(node.md_file.with_suffix("").parts)
+    n = len(parts)
+    return any(len(c) >= n and list(c[-n:]) == parts for c in candidates)
 
 
 def _entry_distance(folder: Path, from_parts: tuple[str, ...]) -> tuple[int, int]:
