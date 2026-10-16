@@ -15,6 +15,7 @@ Priority    Step                 Why here
 10          frontmatter          plugins read the parsed frontmatter
 20          plugins              community plugins see Obsidian source syntax
 30          html_comments        commented-out embeds are not expanded
+35          bases                before embeds, so ``![[X.base]]`` is a view
 40          embeds               embedded content then passes all later steps
 50          obsidian_comments    after embeds, so embedded comments go too
 60          block_ids            after embeds, so embedded markers go too
@@ -42,6 +43,7 @@ from obsidian_pdf_exporter.core.steps.base import DocumentContext
 from obsidian_pdf_exporter.core.steps.base import PageContext
 from obsidian_pdf_exporter.core.steps.base import Step
 from obsidian_pdf_exporter.core.steps.base_css import BaseCssStep
+from obsidian_pdf_exporter.core.steps.bases import BasesStep
 from obsidian_pdf_exporter.core.steps.block_ids import BlockIdsStep
 from obsidian_pdf_exporter.core.steps.callouts import CalloutsStep
 from obsidian_pdf_exporter.core.steps.code_blocks import PluginCodeBlocksStep
@@ -73,6 +75,7 @@ CORE_STEPS: tuple[type[Step], ...] = (
     FrontmatterStep,
     PluginsStep,
     HtmlCommentsStep,
+    BasesStep,
     EmbedsStep,
     ObsidianCommentsStep,
     BlockIdsStep,
