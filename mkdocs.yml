@@ -36,7 +36,7 @@ theme:
   features:
     - navigation.instant
     - navigation.tracking
-    - navigation.sections
+    - navigation.indexes
     - navigation.top
     - navigation.footer
     - toc.follow
@@ -95,7 +95,7 @@ nav:
       - Quick start: getting-started/quick-start.md
       - CLI reference: reference/cli.md
   - Markdown:
-      - Overview: markdown/index.md
+      - markdown/index.md
       - Headings and text: markdown/text.md
       - Lists: markdown/lists.md
       - Tables: markdown/tables.md
@@ -106,7 +106,7 @@ nav:
       - Inline HTML: markdown/html.md
       - Math: markdown/math.md
   - Obsidian:
-      - Overview: obsidian/index.md
+      - obsidian/index.md
       - Folder structure: obsidian/structure.md
       - Wiki links: obsidian/wiki-links.md
       - Embeds: obsidian/embeds.md
@@ -120,7 +120,7 @@ nav:
       - Mermaid: obsidian/mermaid.md
       - Bases: obsidian/bases.md
   - Plugins:
-      - Overview: plugins/index.md
+      - plugins/index.md
       - Folder Notes: plugins/folder-notes.md
       - Dataview: plugins/dataview.md
       - Excalidraw: plugins/excalidraw.md
@@ -131,16 +131,12 @@ nav:
       - Write a plugin: plugins/write-a-plugin.md
   - Redline: redline.md
   - Templates and styling:
-      - Overview: templating/index.md
+      - templating/index.md
       - Template folders: templating/folders.md
       - Header and footer: templating/header-footer.md
       - CSS reference: templating/css-reference.md
       - Python templates: templating/python.md
       - Recipes: templating/recipes.md
       - Debugging: templating/debugging.md
-  # Single pages after a section group render as part of that group with
-  # navigation.sections, so each one gets a section of its own.
-  - AI agents:
-      - Use with AI agents: agents.md
-  - Project:
-      - Contributing: contributing.md
+  - Use with AI agents: agents.md
+  - Contributing: contributing.md
