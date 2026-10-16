@@ -24,9 +24,19 @@ td, th { overflow-wrap: break-word; }
 _CHECKBOX = re.compile(r'<input\b([^>]*\btype="checkbox"[^>]*)>(?:\s*</input>)?')
 
 
+_IMG_WIDTH = re.compile(r'<img\b[^>]*?\swidth="(\d+(?:\.\d+)?)"', re.IGNORECASE)
+
+
 def add_base_css(html: str) -> str:
-    """Insert :data:`BASE_CSS` at the start of ``<head>``."""
-    style = f'<style id="obsidian-pdf-exporter-base">{BASE_CSS}</style>'
+    """Insert :data:`BASE_CSS` at the start of ``<head>``.
+
+    WeasyPrint ignores the ``width`` attribute of ``<img>``. For each width
+    used in the document a rule with zero specificity is added, so the
+    attribute works and every rule of the template still wins over it.
+    """
+    widths = sorted(set(_IMG_WIDTH.findall(html)), key=float)
+    rules = "".join(f':where(img[width="{w}"]) {{ width: {w}px; }}\n' for w in widths)
+    style = f'<style id="obsidian-pdf-exporter-base">{BASE_CSS}{rules}</style>'
     new_html, count = re.subn(r"<head\b[^>]*>", lambda m: m.group(0) + style, html, count=1)
     return new_html if count else style + html
 
@@ -263,8 +273,12 @@ def inline_svg_images(html: str, build_dir: Path) -> str:  # noqa: C901 - small 
         cls = cls_m.group(1) if cls_m else "doc-image"
         style_m = re.search(r'\bstyle=["\']([^"\']*)["\']', tag, re.IGNORECASE)
         size = style_m.group(1) if style_m else ""
-        if size:
+        width_m = re.search(r'\swidth=["\']?([\d.]+)', tag, re.IGNORECASE)
+        if size or width_m:
             svg_text = _drop_svg_size(svg_text)
+        if width_m and not size:
+            # An attribute, not a style, so the template's CSS can override it.
+            svg_text = re.sub(r"<svg\b", f'<svg width="{width_m.group(1)}"', svg_text, count=1)
         # No ``height: auto`` here: WeasyPrint then sizes inline SVGs as squares.
         return re.sub(
             r"<svg\b",

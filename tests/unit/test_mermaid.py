@@ -86,8 +86,9 @@ def test_blocks_are_replaced_by_svg_images(tmp_path: Path, fake_cli: FakeMermaid
     md = f"Intro\n\n{pie}\n\nMiddle\n\n{graph}\n"
     out = render_mermaid_blocks(md, tmp_path, MermaidSettings())
 
-    images = re.findall(r"!\[\]\((mermaid-[0-9a-f]+\.svg)\)\{\.doc-image \.mermaid\}", out)
-    assert len(images) == 2
+    images = re.findall(r"!\[\]\((mermaid-[0-9a-f]+\.svg)\)\{\.doc-image \.mermaid ([^}]*)\}", out)
+    assert [kind for _, kind in images] == [".mermaid-pie", ".mermaid-flowchart"]
+    images = [name for name, _ in images]
     assert "```" not in out
     assert "~~~" not in out
     assert len(fake_cli.calls) == 2  # one run for all diagrams, one to measure them
@@ -139,11 +140,12 @@ def test_failed_block_stays_as_code(tmp_path: Path, fake_cli: FakeMermaidCli) ->
     assert any("1 Mermaid block(s) could not be rendered" in m for m in messages)
 
 
-def test_png_output_sets_css_width(tmp_path: Path, fake_cli: FakeMermaidCli) -> None:
+def test_png_output_sets_width_attribute(tmp_path: Path, fake_cli: FakeMermaidCli) -> None:
     settings = MermaidSettings(image_format="png", scale=3, config={"htmlLabels": True}, trim=False)
     out = render_mermaid_blocks(_block("graph LR\n  A-->B"), tmp_path, settings)
     assert re.fullmatch(
-        r'!\[\]\(mermaid-[0-9a-f]+\.png\)\{\.doc-image \.mermaid style="width:300px"\}', out
+        r"!\[\]\(mermaid-[0-9a-f]+\.png\)\{\.doc-image \.mermaid \.mermaid-flowchart width=300\}",
+        out,
     )
     argv = fake_cli.calls[0]
     assert argv[argv.index("-s") + 1] == "3"
@@ -181,7 +183,7 @@ def test_png_is_cropped_to_content(tmp_path: Path, fake_cli: FakeMermaidCli) -> 
     with Image.open(tmp_path / image.group(0)) as png:
         # content is 720x240 px, plus 8 CSS px (24 px at scale 3) on each side
         assert png.size == (768, 288)
-    assert 'style="width:256px"' in out
+    assert " width=256}" in out
     assert len(fake_cli.calls) == 1
 
 
@@ -194,11 +196,11 @@ def test_strip_comments_keeps_directives() -> None:
     ("options", "style"),
     [
         ({}, None),
-        ({"mermaid.max_height": "48px"}, "width:128.00px"),  # 256x96 diagram
+        ({"mermaid.max_height": "48px"}, "128"),  # 256x96 diagram
         ({"mermaid.max_height": "10cm"}, None),
     ],
 )
-def test_max_height_sets_css_width(
+def test_max_height_sets_width_attribute(
     tmp_path: Path,
     fake_cli: FakeMermaidCli,
     options: dict[str, str],
@@ -207,9 +209,9 @@ def test_max_height_sets_css_width(
     out = render_mermaid_blocks(_block("graph LR\n  A-->B"), tmp_path, mermaid_settings(options))
     assert re.match(r"!\[\]\(mermaid-[0-9a-f]+\.svg\)", out)
     if style is None:
-        assert "style=" not in out
+        assert "width=" not in out
     else:
-        assert f'style="{style}"' in out
+        assert f" width={style}}}" in out
     assert len(fake_cli.calls) >= 1
 
 
@@ -384,3 +386,36 @@ def test_real_cli_renders_png(tmp_path: Path) -> None:
     image = re.search(r"mermaid-[0-9a-f]+\.png", out)
     assert image
     assert (tmp_path / image.group(0)).read_bytes().startswith(b"\x89PNG")
+
+
+@pytest.mark.parametrize(
+    ("code", "kind"),
+    [
+        ('pie\n  "A" : 1', "pie"),
+        ('pie title Fruit\n  "A" : 1', "pie"),
+        ("graph LR\n  A-->B", "flowchart"),
+        ("flowchart TD\n  A-->B", "flowchart"),
+        ("sequenceDiagram\n  A->>B: hi", "sequenceDiagram"),
+        ("quadrantChart\n  title Q", "quadrantChart"),
+        ("xychart-beta\n  x-axis [a, b]", "xychart-beta"),
+        ("---\ntitle: Plan\n---\n%% comment\n%%{init: {}}%%\n\ngantt\n  title G", "gantt"),
+        ("%% only a comment", ""),
+        ("---\ntitle: never closed", ""),
+        ("", ""),
+    ],
+)
+def test_diagram_type(code: str, kind: str) -> None:
+    assert mermaid.diagram_type(code) == kind
+
+
+def test_inlined_svg_gets_width_attribute_not_style(tmp_path: Path) -> None:
+    from obsidian_pdf_exporter.core.html_postprocess import inline_svg_images
+
+    (tmp_path / "d.svg").write_text('<svg width="300" viewBox="0 0 300 100"></svg>', "utf-8")
+    html = inline_svg_images(
+        '<img src="d.svg" class="mermaid mermaid-pie" width="128" />', tmp_path
+    )
+    assert html == (
+        '<svg class="mermaid mermaid-pie" style="max-width:100%;" width="128" '
+        'viewBox="0 0 300 100"></svg>'
+    )
