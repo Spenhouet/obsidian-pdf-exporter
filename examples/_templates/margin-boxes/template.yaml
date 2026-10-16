@@ -1,0 +1,4 @@
+name: margin-boxes
+description: Shows the name of each of the 16 page margin boxes in its place
+css: main.css
+page_css: page.css
