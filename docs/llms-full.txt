@@ -444,8 +444,8 @@ listed.
    highlights, `hard_line_breaks` for line breaks or `--mathml` for math.
 2. Obsidian core syntax ([`core/steps/`](https://github.com/Spenhouet/obsidian-pdf-exporter/tree/main/obsidian_pdf_exporter/core/steps/)).
    Every piece of syntax that Obsidian itself supports is a small step:
-   frontmatter, comments, Bases, PDF embeds, embeds, block IDs, callouts, heading links, wiki
-   links, image captions, headings, warnings about plugin code blocks,
+   frontmatter, comments, Bases, PDF embeds, embeds, block IDs, callouts, heading links,
+   Markdown images, wiki links, image captions, headings, warnings about plugin code blocks,
    highlights, line breaks, tasks, math, footnotes, Mermaid, landscape
    diagrams, SVG images and table fixes. All steps are listed in
    `CORE_STEPS` in [`core/steps/__init__.py`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/obsidian_pdf_exporter/core/steps/__init__.py).
@@ -1752,8 +1752,34 @@ PDF:
 - A single italic line right below an image becomes its caption.
 - Image sizes and the full embed syntax are on the [Embeds](../obsidian/embeds.md) page.
 
-!!! warning "Relative paths in Markdown images"
-    A Markdown image with a relative path, such as `![Chart](../img/chart.png)`, is not looked up from the note's folder yet, so the image is missing in the PDF. Use an Obsidian embed (`![[chart.png]]`), which is looked up in the whole vault.
+## Local images
+
+Markdown:
+
+````markdown
+A path relative to the folder of the note:
+
+![Visits per month](../_attachments/chart.png)
+
+A width after the alt text:
+
+![Visits per month|200](../_attachments/chart.png)
+
+An HTML image:
+
+<img src="../_attachments/chart.png" width="120">
+````
+
+PDF:
+
+![Markdown images with relative paths](../img/features/markdown-images.png)
+
+- The path of `![alt](path)` and of `<img src="path">` is looked up from the folder of the note it is written in, as in Obsidian. In an embedded note, that is the folder of the embedded note.
+- A path that starts with `/` is looked up from the vault root. When the path does not exist, the file name is looked up in the whole vault, as for `![[image.png]]`.
+- Encoded characters (`my%20chart.png`) and paths in angle brackets (`![alt](<my chart.png>)`) work. A title (`![alt](path "Title")`) is kept.
+- A width or a width and height after the alt text, `![alt|300](path)` or `![alt|300x200](path)`, sets the size, as in Obsidian.
+- Images with a URL, such as `https://...` or `data:...`, stay as written.
+- A Markdown image that cannot be found becomes the italic text *[Image: path]*, an HTML image stays as written. Both give a warning.
 
 ---
 
