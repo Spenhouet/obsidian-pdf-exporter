@@ -1,0 +1,9 @@
+/* Copy the title and the version line of the title block into named strings. */
+header#title-block-header .title { string-set: doc-title content(); }
+header#title-block-header .author { string-set: doc-meta content(); }
+
+@page {
+  @bottom-left { font-family: Arial, Helvetica, sans-serif; content: string(doc-title) " · " string(doc-meta); font-size: 7pt; color: #606872; }
+  @bottom-center { font-family: Arial, Helvetica, sans-serif; content: "Internal draft, do not forward"; font-size: 7pt; color: #c53030; }
+  @bottom-right { font-family: Arial, Helvetica, sans-serif; content: "Page " counter(page) " of " counter(pages); font-size: 7pt; color: #606872; }
+}

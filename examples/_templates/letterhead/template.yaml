@@ -1,0 +1,5 @@
+name: letterhead
+description: Logo on every page, address on the first page
+css: main.css
+running_html: header.html
+page_css: page.css

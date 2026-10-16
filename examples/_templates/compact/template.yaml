@@ -1,0 +1,4 @@
+name: compact
+description: Smaller text and margins
+css: main.css
+page_css: page.css
