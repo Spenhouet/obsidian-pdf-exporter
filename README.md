@@ -20,6 +20,7 @@
 - Obsidian callouts styled per type, YAML frontmatter parsed and stripped.
 - [Bases](https://help.obsidian.md/bases) (`.base` files and ` ```base ` blocks) rendered as static tables and lists. See [MARKDOWN.md](MARKDOWN.md#bases).
 - Built-in support for [Folder Notes](https://github.com/LostPaul/obsidian-folder-notes), [Dataview](https://github.com/blacksmithgu/obsidian-dataview), [Meta Bind](https://github.com/mProjectsCode/obsidian-meta-bind-plugin), [Block Link Plus](https://github.com/Jasper-1024/block-link-plus), [Excalidraw](https://github.com/zsviczian/obsidian-excalidraw-plugin) drawings and draw.io SVG exports; third-party plugin support is pip-installable. See [PLUGINS.md](PLUGINS.md).
+- Pandoc citations (`[@key]`) with a reference list, from a BibTeX or CSL JSON bibliography. See [MARKDOWN.md](MARKDOWN.md#citations).
 - **Redline** PDFs: tracked-changes diff between two git commits.
 - Pluggable PDF templates (CSS + running header/footer + paged-media `@page` rules). Two ship in the box: `default` and `redline`. See [TEMPLATING.md](TEMPLATING.md).
 - Wide tables auto-rotated to landscape pages.

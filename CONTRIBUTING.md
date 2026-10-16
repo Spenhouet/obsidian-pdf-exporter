@@ -127,7 +127,8 @@ listed.
    `CORE_STEPS` in [`core/steps/__init__.py`](obsidian_pdf_exporter/core/steps/__init__.py).
 3. Community plugins ([`plugins/`](obsidian_pdf_exporter/plugins/)).
    Support for syntax from community Obsidian plugins and other tools:
-   Folder Notes, Dataview, Excalidraw, Meta Bind, Block Link Plus and draw.io. Plugins
+   Folder Notes, Dataview, Excalidraw, Meta Bind, Block Link Plus, draw.io
+   and pandoc citations. Plugins
    are found through an entry point, listed by `list-plugins` and can be
    turned off with `--disable-plugin`. They run inside the `plugins` step
    of layer 2.
@@ -157,7 +158,8 @@ obsidian_pdf_exporter/
 │   ├── folder_notes/, dataview/, meta_bind/
 │   ├── excalidraw/         # Excalidraw drawings drawn as SVG
 │   ├── block_link_plus/    # ![[Note#^id-id]] ranges
-│   └── drawio/             # draw.io SVG labels
+│   ├── drawio/             # draw.io SVG labels
+│   └── citations/          # [@key] citations with pandoc citeproc
 └── templates/              # PDF templates (CSS, header, footer)
 ```
 
@@ -270,6 +272,7 @@ The currently bundled plugins are:
 | `meta_bind`    | Resolve Meta Bind ``VIEW`` widgets, strip INPUT/BUTTON   |
 | `block_link_plus` | Resolve ``![[Note#^id-id]]`` range embeds             |
 | `drawio`       | Turn draw.io HTML labels in SVG images into SVG text     |
+| `citations`    | Render ``[@key]`` citations with ``pandoc --citeproc``   |
 
 ### Walkthrough — adding a new plugin
 
@@ -388,6 +391,7 @@ this file under "supported plugins" if the support is partial.
 | `meta_bind`    | 20       |
 | `block_link_plus` | 30    |
 | `drawio`       | 40       |
+| `citations`    | 50       |
 
 Pick a value that respects your dependencies (e.g. if your plugin
 substitutes frontmatter fields like Meta Bind, run after Dataview so any
@@ -403,8 +407,10 @@ implements `process_markdown` keeps working:
 | Hook                 | Stage                                | Used by                        |
 |----------------------|--------------------------------------|--------------------------------|
 | `find_folder_note`   | Tree building                        | `folder_notes`                 |
-| `process_markdown`   | Per-page markdown rewrite            | `dataview`, `meta_bind`        |
+| `process_markdown`   | Per-page markdown rewrite            | `dataview`, `meta_bind`, `excalidraw` |
 | `extract_block`      | Resolving `![[Note#^id]]` embeds     | `block_link_plus`              |
+| `process_document`   | Assembled markdown of the whole document | `citations`                |
+| `reader_extensions`, `pandoc_args` | Building the pandoc call (after `process_document`) | `citations` |
 | `process_svg`        | Inlining SVG images into the HTML    | `drawio`                       |
 | `process_html`       | HTML of the whole document           | none yet                       |
 
@@ -426,6 +432,12 @@ stripped and before callouts / wiki links / image promotion. The
 `extract_block(body, block_id)` returns the text that `![[Note#^block_id]]`
 selects in the note body, or ``None``. Plugins are asked in priority
 order before core looks for a block marked ``^block_id``.
+
+`process_document(markdown, context)` gets the assembled markdown of the
+whole document, after the markdown hook ran on every page. The plugin can
+then return pandoc reader extensions and arguments from
+`reader_extensions(context)` and `pandoc_args(context)`, for example
+`--citeproc` when it found citations.
 
 `process_svg(svg, context)` rewrites each SVG image while it is inlined
 into the HTML. `process_html(html, context)` gets the HTML of the whole
