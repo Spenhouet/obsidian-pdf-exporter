@@ -3,29 +3,21 @@
 from __future__ import annotations
 
 import subprocess
-from typing import TYPE_CHECKING
+from pathlib import Path
 
-if TYPE_CHECKING:
-    from pathlib import Path
+from obsidian_pdf_exporter.core.dialect import TOC_ARGS
+from obsidian_pdf_exporter.core.dialect import Dialect
 
-_TOC_ARGS: tuple[str, ...] = ("--toc", "--toc-depth=4")
-# Obsidian (like CommonMark) lets a list start right after a paragraph and
-# renders ``==text==`` as a highlight. Raw TeX is off: the HTML writer drops it,
-# so text like ``A\B`` would lose ``\B``. Obsidian shows it as written.
-READER = (
-    "markdown+raw_html+fenced_divs+bracketed_spans+lists_without_preceding_blankline+mark-raw_tex"
-)
-_BASE_ARGS: tuple[str, ...] = (
-    "--standalone",
-    "--embed-resources",
-    "--number-sections",
-    # Pandoc gives pipe tables with source lines longer than ``--columns``
-    # relative column widths taken from the dash counts. Obsidian sizes
-    # columns by their content, so keep pandoc from ever doing that.
-    "--columns=100000",
-    # MathML keeps the formula structure; math_render turns it into SVG.
-    "--mathml",
-)
+
+def default_dialect(*, hard_line_breaks: bool = False) -> Dialect:
+    """The dialect of the core steps, without an export context."""
+    from obsidian_pdf_exporter.core.pipeline import markdown_dialect
+    from obsidian_pdf_exporter.core.steps import core_steps
+    from obsidian_pdf_exporter.core.steps.base import DocumentContext
+
+    line_breaks = "hard" if hard_line_breaks else "soft"
+    context = DocumentContext(build_dir=Path(), options={"line_breaks": line_breaks})
+    return markdown_dialect(context, core_steps())
 
 
 def render_html(
@@ -34,35 +26,42 @@ def render_html(
     title: str,
     build_dir: Path,
     *,
+    dialect: Dialect | None = None,
     extra_metadata: dict[str, str] | None = None,
     toc: bool = True,
     hard_line_breaks: bool = False,
 ) -> str:
     """Run pandoc on ``markdown`` and return the resulting standalone HTML.
 
-    Set ``toc=False`` to leave out the table of contents. Set
-    ``hard_line_breaks=True`` to render every newline inside a paragraph as a
-    line break, as Obsidian does unless "Strict line breaks" is on.
+    ``dialect`` sets the reader extensions and pandoc arguments. Without
+    it, the dialect of the core steps is used, and ``hard_line_breaks=True``
+    renders every newline inside a paragraph as a line break, as Obsidian
+    does unless "Strict line breaks" is on. Set ``toc=False`` to leave out
+    the table of contents.
     """
     import pypandoc
 
-    reader = READER + ("+hard_line_breaks" if hard_line_breaks else "")
-    extras = [*_BASE_ARGS, "--from", reader]
-    if toc:
-        extras += _TOC_ARGS
-    extras += [f"--css={css_filename}", "--metadata", f"title={title}"]
-    if extra_metadata:
-        for key, value in extra_metadata.items():
-            extras += ["--metadata", f"{key}={value}"]
+    if dialect is None:
+        dialect = default_dialect(hard_line_breaks=hard_line_breaks)
+
+    def argv(d: Dialect) -> list[str]:
+        extras = [*d.args, "--from", d.reader]
+        if toc:
+            extras += TOC_ARGS
+        extras += [f"--css={css_filename}", "--metadata", f"title={title}"]
+        if extra_metadata:
+            for key, value in extra_metadata.items():
+                extras += ["--metadata", f"{key}={value}"]
+        return [*extras, "-o", str(html_path)]
 
     pandoc_path = pypandoc.get_pandoc_path()
     html_path = build_dir / "output.html"
 
-    result = _run(pandoc_path, [*extras, "-o", str(html_path)], markdown, build_dir)
-    if result.returncode != 0 and b"mark" in result.stderr:
-        # Pandoc before 3.0 does not know the ``mark`` extension.
-        extras[extras.index(reader)] = reader.replace("+mark", "")
-        result = _run(pandoc_path, [*extras, "-o", str(html_path)], markdown, build_dir)
+    result = _run(pandoc_path, argv(dialect), markdown, build_dir)
+    rejected = [e for e in dialect.optional if e.encode() in result.stderr]
+    if result.returncode != 0 and rejected:
+        # An older pandoc does not know the extension (``mark`` needs 3.0).
+        result = _run(pandoc_path, argv(dialect.without(rejected)), markdown, build_dir)
     if result.returncode != 0:
         stderr = result.stderr.decode("utf-8", errors="replace")
         msg = f"Pandoc failed:\n{stderr}"

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from obsidian_pdf_exporter.core.exporter import _landscape_settings
 from obsidian_pdf_exporter.core.html_postprocess import table_needs_width
 from obsidian_pdf_exporter.core.html_postprocess import wrap_wide_tables
+from obsidian_pdf_exporter.core.steps.tables import landscape_settings
 
 
 def _table(rows: list[list[str]]) -> str:
@@ -79,8 +79,8 @@ def test_unknown_mode_raises() -> None:
         ({"tables.landscape": "on", "tables.landscape_min_cols": "8"}, (8, "on")),
     ],
 )
-def test_landscape_settings(options: dict[str, str], expected: tuple[int, str]) -> None:
-    assert _landscape_settings(options, log=lambda _msg: None) == expected
+def testlandscape_settings(options: dict[str, str], expected: tuple[int, str]) -> None:
+    assert landscape_settings(options, log=lambda _msg: None) == expected
 
 
 @pytest.mark.parametrize(
@@ -93,6 +93,6 @@ def test_landscape_settings(options: dict[str, str], expected: tuple[int, str]) 
 )
 def test_landscape_settings_warn_on_bad_values(options: dict[str, str]) -> None:
     messages: list[str] = []
-    assert _landscape_settings(options, log=messages.append) == (6, "auto")
+    assert landscape_settings(options, log=messages.append) == (6, "auto")
     assert messages
     assert "Warning" in messages[0]
