@@ -22,6 +22,7 @@ from __future__ import annotations
 import difflib
 import html
 import io
+import json
 import re
 import subprocess
 import zipfile
@@ -33,12 +34,14 @@ from obsidian_pdf_exporter.core.headings import RE_HEADING_LINE
 SIMILARITY_THRESHOLD = 0.5
 MOVE_THRESHOLD = 0.75
 MOVE_MIN_WORDS = 6
+DIAGRAM_LANGS = {"mermaid"}
 RE_FENCE = re.compile(r"^(`{3,}|~{3,})")
 RE_DIV_FENCE = re.compile(r"^\s*:{3,}")
 # Indentation, quote markers and a list marker (with an optional task checkbox).
 RE_LINE_PREFIX = re.compile(
     r"^[ \t]*(?:>[ \t]?)*[ \t]*(?:(?:[-*+]|\d+[.)])[ \t]+(?:\[.\][ \t]+)?)?"
 )
+RE_CHECKBOX = re.compile(r"\[.\][ \t]+")
 RE_LIST_LINE = re.compile(r"^[ \t]*(?:[-*+]|\d+[.)])[ \t]+")
 RE_IMAGE_ONLY = re.compile(r"^\s*(?:!\[[^\]]*\]\([^)]*\)(?:\{[^}]*\})?\s*)+$")
 RE_FOOTNOTE_DEF = re.compile(r"^\[\^[^\]]+\]:")
@@ -87,6 +90,46 @@ def extract_commit(commit: str, target_dir: Path, repo_root: Path) -> None:
         zf.extractall(target_dir)
 
 
+def _git(repo_root: Path, *args: str) -> str:
+    result = subprocess.run(  # noqa: S603 - fixed git subcommands
+        ["git", *args],  # noqa: S607
+        capture_output=True,
+        text=True,
+        cwd=str(repo_root),
+        check=False,
+    )
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def redline_source_info(repo_root: Path, from_ref: str, to_ref: str, path: Path) -> dict[str, str]:
+    """Describe both commits and the commits between them, as template options."""
+    info: dict[str, str] = {}
+    for side, ref in (("from", from_ref), ("to", to_ref)):
+        line = _git(repo_root, "show", "-s", "--format=%h%x09%ad%x09%an", "--date=short", ref)
+        short, date, author = ([*line.split("\t"), "", ""])[:3]
+        label = ref if ref != short else short
+        info[f"redline.{side}_ref"] = ref
+        info[f"redline.{side}_label"] = label
+        info[f"redline.{side}_hash"] = short
+        detail = f"commit {short}" if label != short else "commit"
+        info[f"redline.{side}_detail"] = f"({detail}, {date}, {author})" if date else ""
+    log = _git(
+        repo_root,
+        "log",
+        "--format=%h%x09%ad%x09%an%x09%s",
+        "--date=short",
+        f"{from_ref}..{to_ref}",
+        "--",
+        str(path) if str(path) != "." else ".",
+    )
+    commits = []
+    for line in log.splitlines():
+        h, d, a, subj = ([*line.split("\t", 3), "", "", ""])[:4]
+        commits.append({"hash": h, "date": d, "author": a, "subject": subj})
+    info["redline.commits"] = json.dumps(commits)
+    return info
+
+
 # ---------------------------------------------------------------------------
 # Blocks
 # ---------------------------------------------------------------------------
@@ -107,6 +150,8 @@ def _kind(text: str) -> str:  # noqa: PLR0911 - one branch per kind of block
         return "code"
     if "\n" not in text.strip() and RE_HEADING_LINE.match(text.strip()):
         return "heading"
+    if RE_DIV_FENCE.match(text) and _div_depth(text) == 0:
+        return "callout"
     if any(RE_DIV_FENCE.match(line) for line in text.split("\n")):
         return "fence"
     if first.startswith("|"):
@@ -115,7 +160,7 @@ def _kind(text: str) -> str:  # noqa: PLR0911 - one branch per kind of block
         return "footnote"
     if RE_IMAGE_ONLY.match(text):
         return "image"
-    if RE_LIST_LINE.match(text.split("\n")[0]):
+    if RE_LIST_LINE.match(text.split("\n", maxsplit=1)[0]):
         return "list"
     if first.startswith(">"):
         return "quote"
@@ -180,14 +225,57 @@ def _split_blocks(text: str) -> list[str]:
     if current:
         blocks.append("\n".join(current))
 
-    return [b for b in blocks if b.strip()]
+    return _join_divs([b for b in blocks if b.strip()])
+
+
+def _div_depth(block: str) -> int:
+    """Return how many fenced divs ``block`` opens minus how many it closes."""
+    depth = 0
+    in_code = False
+    for line in block.split("\n"):
+        stripped = line.strip()
+        if RE_FENCE.match(stripped):
+            in_code = not in_code
+        if in_code:
+            continue
+        if re.match(r"^:{3,}\s*\S", stripped):
+            depth += 1
+        elif re.match(r"^:{3,}\s*$", stripped):
+            depth -= 1
+    return depth
+
+
+def _join_divs(blocks: list[str]) -> list[str]:
+    """Join the blocks of a fenced div (a callout, for example) into one block."""
+    out: list[str] = []
+    pending: list[str] = []
+    depth = 0
+    for block in blocks:
+        if depth > 0:
+            pending.append(block)
+            depth += _div_depth(block)
+            if depth <= 0:
+                out.append("\n\n".join(pending))
+                pending, depth = [], 0
+            continue
+        d = _div_depth(block)
+        if d > 0:
+            pending, depth = [block], d
+        else:
+            out.append(block)
+    out.extend(pending)
+    return out
 
 
 def _similarity(a: Block, b: Block) -> float:
     if a.kind != b.kind and {a.kind, b.kind} != {"para", "quote"}:
         return 0.0
-    if a.kind == "image":
+    if a.kind == "image" or _is_diagram(a) or _is_diagram(b):
         return 0.0
+    if a.kind == "callout":
+        if a.text.split("\n")[0] != b.text.split("\n")[0]:
+            return 0.0
+        return max(0.5, difflib.SequenceMatcher(None, a.key.split(), b.key.split()).ratio())
     if a.kind == "table":
         ra, rb = a.key.split("\n"), b.key.split("\n")
         if ra and rb and _header_overlap(ra[0], rb[0]) >= SIMILARITY_THRESHOLD:
@@ -220,30 +308,44 @@ class Op:
     move: int = 0
 
 
-def _align(old: list[Block], new: list[Block]) -> list[Op]:
-    """Pair the blocks of a replaced group by similarity, keeping their order."""
-    n, m = len(old), len(new)
-    sim = [[_similarity(old[i], new[j]) for j in range(m)] for i in range(n)]
+def _pair(n: int, m: int, sim) -> list[tuple[str, int, int]]:  # noqa: ANN001
+    """Pair ``n`` old and ``m`` new items in order, maximising their summed similarity.
+
+    Returns ``("mod", i, j)``, ``("del", i, -1)`` and ``("ins", -1, j)`` steps.
+    """
+    s = [[sim(i, j) for j in range(m)] for i in range(n)]
     best = [[0.0] * (m + 1) for _ in range(n + 1)]
     for i in range(n - 1, -1, -1):
         for j in range(m - 1, -1, -1):
-            take = sim[i][j] + best[i + 1][j + 1] if sim[i][j] >= SIMILARITY_THRESHOLD else -1
+            take = s[i][j] + best[i + 1][j + 1] if s[i][j] >= SIMILARITY_THRESHOLD else -1
             best[i][j] = max(take, best[i + 1][j], best[i][j + 1])
-    ops: list[Op] = []
+    steps: list[tuple[str, int, int]] = []
     i = j = 0
     while i < n and j < m:
-        if sim[i][j] >= SIMILARITY_THRESHOLD and best[i][j] == sim[i][j] + best[i + 1][j + 1]:
-            ops.append(Op("mod", old[i], new[j]))
-            i += 1
-            j += 1
+        if s[i][j] >= SIMILARITY_THRESHOLD and best[i][j] == s[i][j] + best[i + 1][j + 1]:
+            steps.append(("mod", i, j))
+            i, j = i + 1, j + 1
         elif best[i][j] == best[i + 1][j]:
-            ops.append(Op("del", old[i]))
+            steps.append(("del", i, -1))
             i += 1
         else:
-            ops.append(Op("ins", new=new[j]))
+            steps.append(("ins", -1, j))
             j += 1
-    ops.extend(Op("del", b) for b in old[i:])
-    ops.extend(Op("ins", new=b) for b in new[j:])
+    steps.extend(("del", k, -1) for k in range(i, n))
+    steps.extend(("ins", -1, k) for k in range(j, m))
+    return steps
+
+
+def _align(old: list[Block], new: list[Block]) -> list[Op]:
+    """Pair the blocks of a replaced group by similarity, keeping their order."""
+    ops: list[Op] = []
+    for kind, i, j in _pair(len(old), len(new), lambda i, j: _similarity(old[i], new[j])):
+        if kind == "mod":
+            ops.append(Op("mod", old[i], new[j]))
+        elif kind == "del":
+            ops.append(Op("del", old[i]))
+        else:
+            ops.append(Op("ins", new=new[j]))
     return ops
 
 
@@ -335,6 +437,8 @@ def _wrap(block: Block, change: str, body: str, *, move: int = 0, edited: bool =
             f'::: {{.rl-block .rl-{change} .rl-heading data-rl-kind="heading" '
             f'data-level="{level}"}}\n{text}\n:::'
         )
+    if block.kind == "callout" and change == "mod":
+        return body
     if block.kind in {"footnote", "fence"}:
         if change == "mod":
             return body
@@ -349,9 +453,17 @@ def _wrap(block: Block, change: str, body: str, *, move: int = 0, edited: bool =
         srcs = RE_IMG_SRC.findall(block.text)
         if srcs:
             attrs += f' data-rl-src="{html.escape(srcs[0].rsplit("/", 1)[-1])}"'
-    if block.kind == "code" and change in {"ins", "del", "move-from"}:
+    if _is_diagram(block):
+        attrs = attrs.replace('data-rl-kind="code"', 'data-rl-kind="image"')
+        attrs += ' data-rl-src="Mermaid diagram"'
+    elif block.kind == "code" and change in {"ins", "del", "move-from"}:
         body = _code_html(block.text, change)
     return f"::: {{{attrs}}}\n{body}\n:::"
+
+
+def _is_diagram(block: Block) -> bool:
+    """Return True for code blocks that are drawn as a picture (Mermaid)."""
+    return block.kind == "code" and _code_parts(block.text)[0].lower() in DIAGRAM_LANGS
 
 
 def _heading_with_class(line: str, cls: str) -> str:
@@ -369,7 +481,17 @@ def _diff_block(old: Block, new: Block) -> str:
         if om and nm:
             anchor_m = re.search(r"\{(#[^}]+)\}", new.text)
             anchor = f" {{{anchor_m.group(1)}}}" if anchor_m else ""
-            return f"{nm.group(1)} {_word_diff(om.group(2), nm.group(2))}{anchor}"
+            level = ""
+            if len(om.group(1)) != len(nm.group(1)):
+                level = (
+                    f'<span class="rl-level" data-old-level="{len(om.group(1))}" '
+                    f'data-new-level="{len(nm.group(1))}"></span>'
+                )
+            return f"{nm.group(1)} {_word_diff(om.group(2), nm.group(2))}{level}{anchor}"
+    if new.kind == "callout":
+        old_lines, new_lines = old.text.split("\n"), new.text.split("\n")
+        inner = diff_markdown("\n".join(old_lines[1:-1]), "\n".join(new_lines[1:-1]))
+        return f"{new_lines[0]}\n{inner}\n{new_lines[-1]}"
     if new.kind == "table":
         return _table_diff(old.text, new.text)
     if new.kind == "code":
@@ -417,12 +539,15 @@ def _list_diff(old_text: str, new_text: str) -> str:
         news = [it for it in new_items[j1:j2] if _item_key(it) not in old_keys]
         moved_old = [it for it in old_items[i1:i2] if _item_key(it) in new_keys]
         moved_new = [it for it in new_items[j1:j2] if _item_key(it) in old_keys]
-        k = 0
-        while k < min(len(olds), len(news)) and _item_similar(olds[k], news[k]):
-            out.append(("mod", _line_word_diff(olds[k], news[k])))
-            k += 1
-        out.extend(("del", it) for it in moved_old + olds[k:])
-        out.extend(("ins", it) for it in moved_new + news[k:])
+        out.extend(("del", it) for it in moved_old)
+        for kind, i, j in _pair(len(olds), len(news), lambda i, j: _item_sim(olds[i], news[j])):
+            if kind == "mod":
+                out.append(("mod", _line_word_diff(olds[i], news[j])))
+            elif kind == "del":
+                out.append(("del", olds[i]))
+            else:
+                out.append(("ins", news[j]))
+        out.extend(("ins", it) for it in moved_new)
     # Items deleted in one place and inserted in another of the same list were moved.
     dels = {_item_key(it): n for n, (c, it) in enumerate(out) if c == "del"}
     for n, (change, item) in enumerate(out):
@@ -441,18 +566,25 @@ def _list_diff(old_text: str, new_text: str) -> str:
     return "\n".join(lines)
 
 
-def _item_similar(old: str, new: str) -> bool:
-    if _split_line_prefix(old)[0] != _split_line_prefix(new)[0]:
-        return False
+def _item_sim(old: str, new: str) -> float:
+    if RE_CHECKBOX.sub("", _split_line_prefix(old)[0]) != RE_CHECKBOX.sub(
+        "", _split_line_prefix(new)[0]
+    ):
+        return 0.0
     a = _item_key(_split_line_prefix(old)[1]).split()
     b = _item_key(_split_line_prefix(new)[1]).split()
-    return difflib.SequenceMatcher(None, a, b, autojunk=False).ratio() >= SIMILARITY_THRESHOLD
+    return difflib.SequenceMatcher(None, a, b, autojunk=False).ratio()
 
 
 def _line_word_diff(old_line: str, new_line: str) -> str:
     old_prefix, old_body = _split_line_prefix(old_line)
     new_prefix, new_body = _split_line_prefix(new_line)
     if old_prefix.strip() != new_prefix.strip():
+        if RE_CHECKBOX.sub("", old_prefix) == RE_CHECKBOX.sub("", new_prefix):
+            # Only the task checkbox changed: keep the new marker, flag the change.
+            state = "checked" if "[ ]" in old_prefix else "unchecked"
+            body = _word_diff(old_body, new_body)
+            return f'{new_prefix}<span class="rl-task" data-rl-task="{state}"></span>{body}'
         return _word_diff(old_line, new_line)
     return new_prefix + _word_diff(old_body, new_body)
 
@@ -478,8 +610,7 @@ def _split_line_prefix(line: str) -> tuple[str, str]:
 
 def _cells(line: str) -> list[str]:
     line = line.strip()
-    if line.startswith("|"):
-        line = line[1:]
+    line = line.removeprefix("|")
     if line.endswith("|") and not line.endswith("\\|"):
         line = line[:-1]
     return [c.strip() for c in re.split(r"(?<!\\)\|", line)]
@@ -511,7 +642,7 @@ def _table_diff(old_text: str, new_text: str) -> str:  # noqa: C901 - one table 
         ]
 
     def key(row: list[str]) -> str:
-        return "|".join(_norm_cell(c) for c in row)
+        return "|".join(_norm_cell(c) for j, c in enumerate(row) if j not in added_cols)
 
     def cell_row(old: list[str] | None, new: list[str], row_kind: str) -> str:
         cells = []
@@ -573,8 +704,8 @@ def _code_parts(text: str) -> tuple[str, list[str]]:
 def _code_html(text: str, change: str) -> str:
     lang, body = _code_parts(text)
     cls = "rl-line-ins" if change in {"ins", "move-to"} else "rl-line-del"
-    lines = "\n".join(f'<span class="rl-line {cls}">{html.escape(ln)}</span>' for ln in body)
-    return f'<pre class="rl-code" data-lang="{html.escape(lang)}"><code>{lines}\n</code></pre>'
+    lines = "".join(f'<span class="rl-line {cls}">{html.escape(ln)}</span>' for ln in body)
+    return f'<pre class="rl-code" data-lang="{html.escape(lang)}"><code>{lines}</code></pre>'
 
 
 def _code_diff_html(old_text: str, new_text: str) -> str:
@@ -600,8 +731,8 @@ def _code_diff_html(old_text: str, new_text: str) -> str:
             f'<span class="rl-line rl-line-ins"><ins>{html.escape(ln)}</ins></span>'
             for ln in new_lines[j1:j2]
         )
-    body = "\n".join(out)
-    return f'<pre class="rl-code" data-lang="{html.escape(lang)}"><code>{body}\n</code></pre>'
+    body = "".join(out)
+    return f'<pre class="rl-code" data-lang="{html.escape(lang)}"><code>{body}</code></pre>'
 
 
 def _code_words(old: str, new: str, side: str) -> str:
@@ -670,7 +801,16 @@ def _cleanup(
             if cur[0] != "equal" or prev[0] == "equal" or nxt[0] == "equal":
                 continue
             eq = "".join(new[cur[3] : cur[4]])
-            if eq.isspace() or (len(eq.split()) <= 1 and len(eq.strip()) < min(size(prev), size(nxt))):
+            if any(
+                _special_change(
+                    "".join(old[o[1] : o[2]]).strip(), "".join(new[o[3] : o[4]]).strip()
+                )
+                for o in (prev, nxt)
+            ):
+                continue
+            if eq.isspace() or (
+                len(eq.split()) <= 1 and len(eq.strip()) < min(size(prev), size(nxt))
+            ):
                 merged[k - 1 : k + 2] = [["replace", prev[1], nxt[2], prev[3], nxt[4]]]
                 changed = True
                 break

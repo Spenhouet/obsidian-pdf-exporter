@@ -224,6 +224,14 @@ def export(  # noqa: PLR0913 - typer commands enumerate every CLI flag
         "--toc/--no-toc",
         help="Include a table of contents at the start of the document",
     ),
+    blame: bool = typer.Option(
+        False,
+        "--blame",
+        help=(
+            "Add a column with the last commit that changed each block "
+            "(layout: -O blame.layout=margin|wide)"
+        ),
+    ),
     debug: bool = typer.Option(
         False,
         "--debug",
@@ -255,6 +263,7 @@ def export(  # noqa: PLR0913 - typer commands enumerate every CLI flag
         disabled_plugins=set(disable_plugin),
         debug=debug,
         toc=toc,
+        blame=blame,
     )
     _run(lambda: export_pdf(request, log=_log))
 
@@ -310,6 +319,14 @@ def redline(  # noqa: PLR0913 - typer commands enumerate every CLI flag
         "--toc/--no-toc",
         help="Include a table of contents at the start of the document",
     ),
+    blame: bool = typer.Option(
+        False,
+        "--blame",
+        help=(
+            "Add a column with the last commit that changed each block "
+            "(layout: -O blame.layout=margin|wide)"
+        ),
+    ),
     debug: bool = typer.Option(
         False,
         "--debug",
@@ -346,6 +363,7 @@ def redline(  # noqa: PLR0913 - typer commands enumerate every CLI flag
         disabled_plugins=set(disable_plugin),
         debug=debug,
         toc=toc,
+        blame=blame,
     )
     _run(lambda: export_redline(request, log=_log))
 

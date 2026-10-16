@@ -1,0 +1,40 @@
+/* ---- Style D: side by side ----
+   Unchanged text runs full width. Each group of changed blocks becomes a two
+   column table, the old version on the left and the new one on the right, with
+   word changes marked in both. */
+
+del { color: var(--del); text-decoration: line-through; }
+ins { color: var(--ins); text-decoration: underline; }
+.rl-fmt, .rl-link a { border-bottom: 0.8pt dotted var(--fmt); }
+
+table.rl-sbs { width: 100%; table-layout: fixed; margin: 0.6em 0 1em; font-size: 0.95em; border-top: 1pt solid var(--color-dark); }
+table.rl-sbs > thead th.rl-sbs-h {
+  font-size: 0.7em; font-weight: bold; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--color-grey); border-bottom: 0.75pt solid var(--color-mid-grey); padding: 0.25em 3mm 0.2em 0;
+}
+table.rl-sbs > thead th.rl-sbs-h + th { padding-left: 3mm; }
+table.rl-sbs > tbody > tr > td { border-bottom: 0.5pt dotted var(--color-mid-grey); padding: 0.45em 3mm 0.2em 0; }
+table.rl-sbs > tbody > tr > td.rl-sbs-r { padding-left: 3mm; border-left: 0.75pt solid var(--color-mid-grey); }
+table.rl-sbs > tbody > tr:last-child > td { border-bottom: none; }
+table.rl-sbs > thead > tr > th:first-child { border-right: 0.75pt solid var(--color-mid-grey); }
+table.rl-sbs tr { page-break-inside: auto; }
+.rl-sbs td > :first-child { margin-top: 0; }
+.rl-sbs td > :last-child { margin-bottom: 0.2em; }
+.rl-sbs td table { font-size: 0.92em; margin: 0.2em 0; }
+.rl-sbs td h1, .rl-sbs td h2, .rl-sbs td h3, .rl-sbs td h4, .rl-sbs .rl-fake-h { margin-top: 0.1em; break-before: auto; }
+.rl-sbs-empty { display: block; color: #9aa0a6; font-style: italic; font-size: 0.85em; padding-top: 0.2em; }
+.rl-sbs-del > .rl-sbs-l .rl-block > :not(.rl-img-label), .rl-sbs-del .rl-sbs-l .rl-heading { color: var(--del); text-decoration: line-through; }
+.rl-sbs-ins > .rl-sbs-r .rl-block > :not(.rl-img-label), .rl-sbs-ins > .rl-sbs-r > h1, .rl-sbs-ins > .rl-sbs-r > h2, .rl-sbs-ins > .rl-sbs-r > h3 { color: var(--ins); }
+.rl-sbs-move-from .rl-sbs-l .rl-block > :not(.rl-move-label), .rl-sbs-move-to .rl-sbs-r .rl-block > :not(.rl-move-label) { color: var(--move); }
+.rl-sbs-del .rl-sbs-l img, .rl-sbs-del .rl-sbs-l svg { opacity: 0.45; }
+.rl-sbs pre { font-size: 0.8em; padding: 0.4em 0.6em; }
+pre.rl-code .rl-line-del { color: var(--del); }
+pre.rl-code .rl-line-ins { color: var(--ins); }
+.rl-sbs .callout { margin: 0.2em 0; }
+.rl-sbs ul, .rl-sbs ol { margin-left: 5mm; }
+tr.rl-tr-ins td { color: var(--ins); }
+tr.rl-tr-del td { color: var(--del); text-decoration: line-through; }
+.rl-sbs-rep .rl-sbs-l .rl-block > :not(.rl-img-label), .rl-sbs-rep .rl-sbs-l .rl-heading { color: var(--del); text-decoration: line-through; }
+.rl-sbs-rep .rl-sbs-r .rl-block > :not(.rl-img-label) { color: var(--ins); }
+.rl-sbs-rep .rl-sbs-l .rl-block[data-rl-kind="image"] > :not(.rl-img-label) { opacity: 0.45; text-decoration: none; }
+.rl-sbs-rep .rl-sbs-l .rl-block .callout, .rl-sbs-rep .rl-sbs-r .rl-block .callout { color: inherit; }

@@ -222,6 +222,19 @@ Reviews by email are not accepted, because the comments cannot be traced to the 
 > [!warning] Before release
 > The document must not be released before all approvals are present.
 
+> [!note] Paper review
+> A printed copy may be used for the review if the comments are transferred to the draft.
+
+### Release tasks
+
+- [ ] Training is planned
+- [ ] Old copies are withdrawn
+- [x] Register entry is updated
+
+### Escalation
+
+Disagreements between author and reviewer are escalated to the owner.
+
 ## Numbering
 
 Every document gets a number when its first draft is created.
@@ -259,7 +272,12 @@ RECORDS_V1 = f"""## Record types
 
 ## Workflow
 
-![[workflow-v1.png]]
+![[workflow-v1.png|420]]
+
+```mermaid
+flowchart LR
+  A[Draft] --> B[Review] --> C[Release]
+```
 
 ## Open records
 
@@ -346,6 +364,20 @@ Approval is given in the document system with an electronic signature. The appro
 > [!warning] Before release
 > The document must not be released before all required approvals are recorded in the document system.
 
+> [!tip] Faster reviews
+> Small reviews go faster when the author names the sections that changed.
+
+### Release tasks
+
+- [x] Training is planned
+- [ ] Affected records are identified
+- [ ] Old copies are withdrawn from all sites
+- [x] Register entry is updated
+
+## Escalation
+
+Disagreements between author and reviewer are escalated to the owner.
+
 ## Numbering
 
 Every document gets a number when its first draft is created.
@@ -391,7 +423,12 @@ RECORDS_V2 = """## Record types
 
 ## Workflow
 
-![[workflow-v2.png]]
+![[workflow-v2.png|420]]
+
+```mermaid
+flowchart LR
+  A[Draft] --> B[Review] --> D[Approve] --> C[Release]
+```
 
 ## Open records
 
@@ -451,18 +488,18 @@ def commit(root: Path, message: str, author: str, email: str, date: str) -> None
         GIT_COMMITTER_EMAIL=email,
         GIT_COMMITTER_DATE=date,
     )
-    subprocess.run(["git", "add", "-A"], cwd=root, check=True)  # noqa: S607
-    subprocess.run(["git", "commit", "-q", "-m", message], cwd=root, check=True, env=env)  # noqa: S607
+    subprocess.run(["git", "add", "-A"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", message], cwd=root, check=True, env=env)
 
 
 def tag(root: Path, name: str) -> None:
-    subprocess.run(["git", "tag", name], cwd=root, check=True)  # noqa: S607
+    subprocess.run(["git", "tag", name], cwd=root, check=True)
 
 
 def build(root: Path) -> None:
     """Create the vault and its history in ``root``."""
     root.mkdir(parents=True)
-    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=root, check=True)  # noqa: S607
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=root, check=True)
     (root / ".obsidian").mkdir()
     (root / ".obsidian" / "app.json").write_text("{}\n", encoding="utf-8")
     att = root / "Handbook" / "_attachments"
@@ -478,14 +515,30 @@ def build(root: Path) -> None:
             "Handbook/Procedures/Procedures.md": PROCEDURES_V1,
         },
     )
-    commit(root, "Add first draft of the handbook", "Alex Example", "alex@example.com",
-           "2025-09-03T10:00:00+02:00")
+    commit(
+        root,
+        "Add first draft of the handbook",
+        "Alex Example",
+        "alex@example.com",
+        "2025-09-03T10:00:00+02:00",
+    )
 
     # 2. Records and glossary by a second author.
-    write(root, {"Handbook/Records/Records.md": RECORDS_V1, "Handbook/Terms and Definitions/Terms and Definitions.md": glossary(None)})
+    write(
+        root,
+        {
+            "Handbook/Records/Records.md": RECORDS_V1,
+            "Handbook/Terms and Definitions/Terms and Definitions.md": glossary(None),
+        },
+    )
     write(root, RECORD_FILES_V1)
-    commit(root, "Add records chapter and glossary", "Sam Sample", "sam@example.com",
-           "2025-11-18T14:30:00+01:00")
+    commit(
+        root,
+        "Add records chapter and glossary",
+        "Sam Sample",
+        "sam@example.com",
+        "2025-11-18T14:30:00+01:00",
+    )
     tag(root, "v1.0")
 
     # 3. Revision of purpose and procedures.
@@ -496,18 +549,33 @@ def build(root: Path) -> None:
             "Handbook/Procedures/Procedures.md": PROCEDURES_V2,
         },
     )
-    commit(root, "Revise review procedure and move training text", "Kim Reviewer",
-           "kim@example.com", "2026-03-09T09:15:00+01:00")
+    commit(
+        root,
+        "Revise review procedure and move training text",
+        "Kim Reviewer",
+        "kim@example.com",
+        "2026-03-09T09:15:00+01:00",
+    )
 
     # 4. Records, image and glossary updates.
     workflow_image(att / "workflow-v2.png", ["Draft", "Review", "Approve", "Release"])
     (att / "workflow-v1.png").unlink()
-    write(root, {"Handbook/Records/Records.md": RECORDS_V2, "Handbook/Terms and Definitions/Terms and Definitions.md":
-                 glossary(GLOSSARY_V2_EDITS)})
+    write(
+        root,
+        {
+            "Handbook/Records/Records.md": RECORDS_V2,
+            "Handbook/Terms and Definitions/Terms and Definitions.md": glossary(GLOSSARY_V2_EDITS),
+        },
+    )
     (root / "_records" / "REC-02 Training plan.md").unlink()
     write(root, RECORD_FILES_V2)
-    commit(root, "Update records, workflow figure and glossary", "Alex Example",
-           "alex@example.com", "2026-05-21T16:40:00+02:00")
+    commit(
+        root,
+        "Update records, workflow figure and glossary",
+        "Alex Example",
+        "alex@example.com",
+        "2026-05-21T16:40:00+02:00",
+    )
     tag(root, "v2.0")
 
 

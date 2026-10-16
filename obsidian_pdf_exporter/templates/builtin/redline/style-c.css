@@ -1,0 +1,62 @@
+/* ---- Style C: clean copy with change notes ----
+   The text reads as the new version. Inserted text is lightly highlighted.
+   Deleted text leaves a numbered mark; its words are in a note at the foot of
+   the page (long deletions go to an annex). Every change has a change bar and a
+   change number in the left margin, listed in the change index at the start. */
+
+ins { background: var(--ins-bg); border-bottom: 0.6pt solid var(--ins); text-decoration: none; padding: 0 0.05em; }
+ins.rl-moved { background: var(--move-bg); border-bottom-color: var(--move); }
+.rl-fmt, .rl-link { border-bottom: 0.6pt dotted var(--fmt); }
+
+.rl-cnote {
+  float: footnote; footnote-display: inline; color: var(--color-dark);
+  font-size: 7.5pt; font-weight: normal; font-style: normal; line-height: 1.35;
+  text-decoration: none; text-transform: none; letter-spacing: normal; margin-right: 1.2em;
+}
+.rl-cnote::footnote-call {
+  content: attr(data-mark); color: var(--del); font-weight: bold; font-size: 0.62em;
+  vertical-align: super; line-height: 0; margin-left: 0.08em; background: none;
+}
+.rl-cnote::footnote-marker { content: attr(data-mark) "  "; color: var(--del); font-weight: bold; }
+.rl-cnote code { font-size: 0.95em; }
+
+.rl-placeholder { font-size: 0.86em; color: var(--color-grey); font-style: italic; margin: 0.2em 0 0.7em; }
+.rl-ph-icon { color: var(--del); font-style: normal; font-weight: bold; }
+.rl-ph-move .rl-ph-icon { color: var(--move); }
+
+.rl-block[data-rl-kind="image"].rl-ins .rl-img-label { color: var(--ins); }
+pre.rl-code .rl-line-ins ins { background: var(--ins-strong); border: none; }
+li.rl-li-ins, li.rl-li-move-to { }
+
+/* Change bars and change numbers. */
+.rl-hunk { margin-left: -7mm; padding-left: calc(7mm - 1.3pt); border-left: 1.3pt solid var(--bar); }
+.rl-hunk[data-rl-changes="ins"] { border-left-color: var(--ins); }
+.rl-hunk[data-rl-changes~="move-to"], .rl-hunk[data-rl-changes~="move-from"] { border-left-color: var(--move); }
+.rl-cnum {
+  float: left; width: 11mm; margin-left: -20mm; margin-right: 9mm; text-align: right;
+  font-size: 7pt; font-weight: bold; color: var(--color-grey); line-height: 1.8; font-style: normal;
+}
+.rl-move-label { display: none; }
+.rl-block.rl-move-to::before {
+  content: "\21c4  Moved from " attr(data-rl-target);
+  display: block; font-size: 0.78em; font-weight: bold; color: var(--move);
+}
+
+/* Change index and annex. */
+table.rl-index thead th { font-size: 0.8em; color: var(--color-grey); border-bottom: 1pt solid var(--color-dark); padding: 0.2em 0.5em 0.2em 0; }
+.rl-ci-n { width: 7%; font-weight: bold; }
+.rl-ci-n a { color: var(--color-dark); }
+.rl-ci-sec { width: 27%; color: var(--color-grey); }
+.rl-ci-det { font-size: 0.85em; color: var(--color-grey); }
+tr.rl-ci-del .rl-ci-n a { color: var(--del); }
+tr.rl-ci-ins .rl-ci-n a { color: var(--ins); }
+tr.rl-ci-move .rl-ci-n a { color: var(--move); }
+.rl-url { font-family: var(--font-mono); font-size: 0.92em; }
+.rl-annex { break-before: page; }
+.rl-annex-title { font-size: 1.4em; }
+.rl-annex-item { margin: 0.8em 0 1.2em; padding-left: 4mm; border-left: 1.3pt solid var(--del); color: #444; }
+.rl-annex-head { font-size: 0.8em; font-weight: bold; color: var(--del); margin-bottom: 0.3em; }
+.rl-annex-item .rl-block { margin: 0; }
+
+/* A bar inside a callout lines up with the other bars, outside the callout. */
+.callout .rl-hunk { margin-left: calc(-7mm - 0.9em - 3pt); padding-left: calc(7mm + 0.9em + 3pt - 1.3pt); }

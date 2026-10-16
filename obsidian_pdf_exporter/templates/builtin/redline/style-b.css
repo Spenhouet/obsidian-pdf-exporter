@@ -1,0 +1,69 @@
+/* ---- Style B: track changes with balloons ----
+   Word-processor look: coloured insertions (underlined) and deletions (struck)
+   in the text, a thin change bar on the left, and one balloon per change in a
+   margin column on the right that says what happened to the block. */
+
+@page { margin: 25mm 12mm 22mm 20mm; }
+body { margin-right: 58mm; }
+.rl-summary, nav#TOC, header#title-block-header { margin-right: -58mm; }
+
+ins { color: var(--ins); text-decoration: underline; text-decoration-color: var(--ins); }
+del { color: var(--del); text-decoration: line-through; text-decoration-color: var(--del); }
+ins.rl-moved, del.rl-moved { color: var(--move); }
+.rl-fmt { border-bottom: 0.8pt dotted var(--fmt); }
+.rl-link a { border-bottom: 0.8pt dotted var(--fmt); }
+
+.rl-block.rl-ins > :not(.rl-img-label):not(.rl-move-label):not(.rl-balloon) { color: var(--ins); text-decoration: underline; }
+.rl-block.rl-del > :not(.rl-img-label):not(.rl-move-label) { color: var(--del); text-decoration: line-through; }
+.rl-block.rl-move-from > :not(.rl-move-label) { color: var(--move); text-decoration: line-through; }
+.rl-block.rl-move-to > :not(.rl-move-label) { color: var(--move); }
+h1.rl-ins, h2.rl-ins, h3.rl-ins, h4.rl-ins { color: var(--ins); text-decoration: underline; }
+.rl-block.rl-del.rl-heading { color: var(--del); text-decoration: line-through; }
+.rl-block.rl-del td, .rl-block.rl-del th { text-decoration: line-through; color: var(--del); }
+tr.rl-tr-ins td { color: var(--ins); }
+tr.rl-tr-del td { color: var(--del); }
+.rl-block[data-rl-kind="image"].rl-del > :not(.rl-img-label) { opacity: 0.35; text-decoration: none; }
+.rl-block[data-rl-kind="image"].rl-ins > :not(.rl-img-label) { text-decoration: none; }
+.rl-block[data-rl-kind="code"] pre { text-decoration: none; }
+pre.rl-code .rl-line-del { color: var(--del); }
+pre.rl-code .rl-line-ins { color: var(--ins); }
+.rl-block.rl-del pre.rl-code .rl-line { text-decoration: line-through; }
+
+/* Thin change bar. */
+.rl-hunk { margin-left: -6mm; padding-left: calc(6mm - 1pt); border-left: 1pt solid #8a9097; }
+
+/* Balloons. */
+.rl-balloon {
+  float: right;
+  clear: right;
+  width: 53mm;
+  margin: 0 -58mm 1.5mm 0;
+  padding: 1.2mm 2mm 1.4mm 2.2mm;
+  font-size: 7.3pt;
+  line-height: 1.32;
+  color: var(--color-dark);
+  background: #f3f4f6;
+  border-left: 2pt solid #8a9097;
+  border-radius: 0 2pt 2pt 0;
+  text-decoration: none;
+  font-weight: normal;
+  font-style: normal;
+}
+.rl-bl-head { font-weight: bold; }
+.rl-bl-n {
+  display: inline-block; min-width: 1.5em; margin-right: 0.4em; padding: 0 0.25em;
+  border-radius: 0.7em; background: white; text-align: center; font-size: 0.9em;
+}
+.rl-bl-line { color: #3d434a; }
+.rl-bl-meta { margin-top: 0.4mm; color: var(--color-grey); font-style: italic; }
+.rl-bl-ins { background: var(--ins-bg); border-left-color: var(--ins); }
+.rl-bl-ins .rl-bl-head { color: var(--ins); }
+.rl-bl-del { background: var(--del-bg); border-left-color: var(--del); }
+.rl-bl-del .rl-bl-head { color: var(--del); }
+.rl-bl-move { background: var(--move-bg); border-left-color: var(--move); }
+.rl-bl-move .rl-bl-head { color: var(--move); }
+.rl-bl-rep { border-left-color: var(--color-dark); }
+.rl-url { font-family: var(--font-mono); font-size: 0.92em; word-break: break-all; }
+
+/* A bar inside a callout lines up with the other bars, outside the callout. */
+.callout .rl-hunk { margin-left: calc(-6mm - 0.9em - 3pt); padding-left: calc(6mm + 0.9em + 3pt - 1pt); }
