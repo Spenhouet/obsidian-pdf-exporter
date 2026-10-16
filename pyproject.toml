@@ -20,6 +20,7 @@ dependencies = [
     "pypandoc",
     "pyyaml",
     "ziamath>=0.13",
+    "pillow>=9.1",
 ]
 
 

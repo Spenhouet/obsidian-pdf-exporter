@@ -59,6 +59,8 @@ Options (`-O key=value`):
 | `mermaid.theme=NAME`             | Shortcut for the `theme` key (`default`, `neutral`, `dark`, `forest`, `base`). | none |
 | `mermaid.cli=COMMAND`            | Command that runs mermaid-cli, e.g. `"npx -y @mermaid-js/mermaid-cli@11.4.2"`. | auto |
 | `mermaid.puppeteer_config=PATH`  | Puppeteer config passed to mermaid-cli as `-p`.                        | none    |
+| `mermaid.trim=on\|off`           | Trim the empty space around diagrams. See [Diagram size](#diagram-size). | on    |
+| `mermaid.max_height=LENGTH`      | Largest height of a diagram, e.g. `10cm`. Taller diagrams are scaled down. | none |
 
 A template can set a base config with the `mermaid` key in `template.yaml` or by overriding `Template.mermaid_config()` (see [TEMPLATING.md](TEMPLATING.md)). `mermaid.config` is merged over it, then `mermaid.theme`.
 
@@ -69,6 +71,29 @@ ope export ./Notes -O mermaid.config=mermaid.json
 ```json
 { "theme": "base", "themeVariables": { "primaryColor": "#e8eef5", "pie1": "#2c5282" } }
 ```
+
+### Diagram size
+
+A diagram keeps its natural size and only shrinks when it is wider than the page. A comment line that starts with `%% ope:` sets the size of one diagram. Mermaid and Obsidian ignore `%%` lines, so the note looks the same in Obsidian.
+
+````markdown
+```mermaid
+%% ope: width=8cm
+pie title Time spent
+    "Planning" : 20
+    "Building" : 50
+    "Testing" : 30
+```
+````
+
+| Setting         | Effect                                                                          |
+| --------------- | ------------------------------------------------------------------------------- |
+| `width=LENGTH`  | Width of the diagram. A percentage is relative to the text width.               |
+| `height=LENGTH` | Height of the diagram. The width follows from the aspect ratio.                 |
+
+Lengths use the units `cm`, `mm`, `in`, `pt`, `pc` and `px`; a number without unit means `px`. Settings are separated by spaces or commas, for example `%% ope: width=12cm, height=6cm`. With both, the diagram is as large as possible inside that box and keeps its aspect ratio. A diagram never gets wider than the text width. `mermaid.max_height` applies to diagrams without a size setting. Unknown settings and invalid lengths are ignored with a warning.
+
+Mermaid leaves empty space around some diagram types. The exporter trims it, so the size applies to the visible diagram, with a margin of 8px. PNG images are cropped. For SVG, mermaid-cli renders a second, transparent PNG of each diagram to find the visible area, and the exporter shrinks the `viewBox` to it. This second run takes a few seconds; `-O mermaid.trim=off` skips it.
 
 Notes:
 
