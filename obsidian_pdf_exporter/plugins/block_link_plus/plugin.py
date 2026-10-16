@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from obsidian_pdf_exporter.core.code import code_mask
 from obsidian_pdf_exporter.core.embeds import RE_LINE_BLOCK_ID
 from obsidian_pdf_exporter.core.embeds import block_bounds
-from obsidian_pdf_exporter.core.embeds import code_mask
 from obsidian_pdf_exporter.core.embeds import find_block_line
 from obsidian_pdf_exporter.plugins.base import ObsidianPlugin
 

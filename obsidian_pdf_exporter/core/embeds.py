@@ -36,6 +36,8 @@ from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from obsidian_pdf_exporter.core.code import code_mask
+from obsidian_pdf_exporter.core.code import outside_code
 from obsidian_pdf_exporter.core.frontmatter import parse_frontmatter
 from obsidian_pdf_exporter.core.frontmatter import strip_frontmatter
 from obsidian_pdf_exporter.core.tree import lookup_page
@@ -43,7 +45,6 @@ from obsidian_pdf_exporter.core.wiki_links import RE_WIKI_EMBED_IMAGE
 from obsidian_pdf_exporter.core.wiki_links import is_image_target
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
     from collections.abc import Sequence
 
     from obsidian_pdf_exporter.core.steps.base import PageContext
@@ -61,7 +62,6 @@ RE_TRAILING_BLOCK_ID = re.compile(rf"[ \t]+\^{_BLOCK_ID}[ \t]*$")
 RE_OBSIDIAN_COMMENT = re.compile(r"%%.*?%%", re.DOTALL)
 RE_HEADING = re.compile(r"^(#{1,6})[ \t]+(.*?)[ \t]*$")
 RE_LIST_ITEM = re.compile(r"^([ \t]*)(?:[-*+]|\d+[.)])[ \t]")
-RE_FENCE = re.compile(r"^[ \t]*(```|~~~)")
 RE_EMBED_LINE_PREFIX = re.compile(r"^[ \t>]*$")
 
 
@@ -69,29 +69,25 @@ def expand_note_embeds(content: str, source_file: Path, ctx: PageContext) -> str
     """Replace every note embed in ``content`` (from ``source_file``) with its content.
 
     ``ctx.embed_stack`` holds the embeds that are being expanded right now.
+    Embeds inside fenced code blocks and inline code spans stay as written.
     """
-    lines = content.split("\n")
-    out: list[str] = []
-    in_fence = False
     current_level = 1
-    for line in lines:
-        if RE_FENCE.match(line):
-            in_fence = not in_fence
-            out.append(line)
-            continue
-        if in_fence:
-            out.append(line)
-            continue
-        heading = RE_HEADING.match(line)
-        if heading:
-            current_level = len(heading.group(1))
-            out.append(line)
-            continue
-        if "![[" not in line:
-            out.append(line)
-            continue
-        out.extend(_expand_line(line, source_file, ctx, current_level, ctx.embed_stack))
-    return "\n".join(out)
+
+    def expand(text: str) -> str:
+        nonlocal current_level
+        out: list[str] = []
+        for line in text.split("\n"):
+            heading = RE_HEADING.match(line)
+            if heading:
+                current_level = len(heading.group(1))
+                out.append(line)
+            elif "![[" not in line:
+                out.append(line)
+            else:
+                out.extend(_expand_line(line, source_file, ctx, current_level, ctx.embed_stack))
+        return "\n".join(out)
+
+    return outside_code(content, expand)
 
 
 def _expand_line(
@@ -283,19 +279,6 @@ def extract_fragment(
     return extract_heading_section(body, [p for p in fragment.split("#") if p.strip()])
 
 
-def code_mask(lines: list[str]) -> list[bool]:
-    """True for every line inside (or delimiting) a fenced code block."""
-    mask: list[bool] = []
-    in_fence = False
-    for line in lines:
-        if RE_FENCE.match(line):
-            mask.append(True)
-            in_fence = not in_fence
-        else:
-            mask.append(in_fence)
-    return mask
-
-
 def _heading_text(text: str) -> str:
     text = RE_TRAILING_BLOCK_ID.sub("", text)
     text = re.sub(r"\s*\{[^}]*\}\s*$", "", text)
@@ -443,32 +426,13 @@ def rebase_headings(content: str, top_level: int) -> str:
     return "\n".join(lines)
 
 
-def _outside_fences(content: str, fn: Callable[[str], str]) -> str:
-    """Apply ``fn`` to every run of lines that is not inside a fenced code block."""
-    lines = content.split("\n")
-    mask = code_mask(lines)
-    out: list[str] = []
-    chunk: list[str] = []
-    for line, in_code in zip(lines, mask, strict=True):
-        if in_code:
-            if chunk:
-                out.append(fn("\n".join(chunk)))
-                chunk = []
-            out.append(line)
-        else:
-            chunk.append(line)
-    if chunk:
-        out.append(fn("\n".join(chunk)))
-    return "\n".join(out)
-
-
 def strip_obsidian_comments(content: str) -> str:
-    """Remove Obsidian ``%% comments %%`` outside fenced code blocks."""
-    return _outside_fences(content, lambda text: RE_OBSIDIAN_COMMENT.sub("", text))
+    """Remove Obsidian ``%% comments %%`` outside code."""
+    return outside_code(content, lambda text: RE_OBSIDIAN_COMMENT.sub("", text))
 
 
 def strip_block_ids(content: str) -> str:
-    """Remove ``^id`` and ``^id-id`` block ID markers outside fenced code blocks."""
+    """Remove ``^id`` and ``^id-id`` block ID markers outside code."""
 
     def strip(text: str) -> str:
         kept = []
@@ -478,4 +442,4 @@ def strip_block_ids(content: str) -> str:
             kept.append(RE_TRAILING_BLOCK_ID.sub("", line))
         return "\n".join(kept)
 
-    return _outside_fences(content, strip)
+    return outside_code(content, strip)
