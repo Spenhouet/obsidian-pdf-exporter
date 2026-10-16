@@ -1,0 +1,78 @@
+# obsidian-pdf-exporter
+
+> obsidian-pdf-exporter (`ope`) is a command-line tool that exports a folder of an Obsidian vault to one PDF. It handles wiki links, embeds, callouts, Mermaid, math, footnotes, Bases and community plugin syntax (Dataview, Meta Bind, Excalidraw, draw.io, citations), makes redline PDFs between two git commits, and styles the PDF with CSS templates. Install with `uv tool install obsidian-pdf-exporter && ope setup --yes`.
+
+- `ope` and `obsidian-pdf-exporter` are the same command. `ope <command> --help` is authoritative.
+- The PDF is laid out by WeasyPrint from HTML written by pandoc. Templates are CSS Paged Media.
+- A Claude Code plugin with an agent skill lives in the repository: `/plugin marketplace add Spenhouet/obsidian-pdf-exporter`.
+
+## Overview
+
+- [obsidian-pdf-exporter](https://spenhouet.com/obsidian-pdf-exporter/): Export Obsidian vaults to PDF with plugin support. Runs locally or in CI.
+- [Introduction](https://spenhouet.com/obsidian-pdf-exporter/intro/): What obsidian-pdf-exporter does, how it works and when to use it.
+- [Redline](https://spenhouet.com/obsidian-pdf-exporter/redline/): A tracked-changes PDF between two git commits of a vault.
+- [Use with AI agents](https://spenhouet.com/obsidian-pdf-exporter/agents/): Use ope with AI coding agents. Install the Claude Code plugin and skill, copy the skill by hand, or point any agent at llms.txt and AGENTS.md.
+- [Contributing](https://spenhouet.com/obsidian-pdf-exporter/contributing/): Development setup, architecture, tests, docs and pull request guidelines for obsidian-pdf-exporter.
+
+## Getting started
+
+- [Installation](https://spenhouet.com/obsidian-pdf-exporter/getting-started/installation/): Install obsidian-pdf-exporter on Linux, macOS or Windows, with the native libraries WeasyPrint and pandoc need.
+- [Quick start](https://spenhouet.com/obsidian-pdf-exporter/getting-started/quick-start/): Export a vault folder to PDF, set title and version, pick a template and inspect the result.
+- [CLI reference](https://spenhouet.com/obsidian-pdf-exporter/reference/cli/): Every ope command, argument, option, environment variable and exit code.
+
+## Markdown
+
+- [Markdown](https://spenhouet.com/obsidian-pdf-exporter/markdown/): The Markdown dialect ope reads, based on pandoc's markdown reader, and how plain Markdown looks in the PDF.
+- [Headings and text](https://spenhouet.com/obsidian-pdf-exporter/markdown/text/): How headings, emphasis and horizontal rules look in the PDF.
+- [Lists](https://spenhouet.com/obsidian-pdf-exporter/markdown/lists/): Bullet lists, numbered lists, nested lists and lists right after a paragraph.
+- [Tables](https://spenhouet.com/obsidian-pdf-exporter/markdown/tables/): Table alignment, column widths and wide tables on landscape pages.
+- [Code blocks](https://spenhouet.com/obsidian-pdf-exporter/markdown/code/): Fenced code blocks with syntax highlighting, and inline code.
+- [Block quotes](https://spenhouet.com/obsidian-pdf-exporter/markdown/quotes/): Block quotes and nested block quotes.
+- [Footnotes](https://spenhouet.com/obsidian-pdf-exporter/markdown/footnotes/): Footnotes with labels, numbers and inline footnotes, shown at the bottom of the page.
+- [Links and images](https://spenhouet.com/obsidian-pdf-exporter/markdown/links-images/): Markdown links, bare URLs and images with captions.
+- [Inline HTML](https://spenhouet.com/obsidian-pdf-exporter/markdown/html/): HTML tags inside notes are passed through to the PDF.
+- [Math](https://spenhouet.com/obsidian-pdf-exporter/markdown/math/): Inline and display LaTeX math, rendered to SVG without a TeX install.
+
+## Obsidian
+
+- [Obsidian](https://spenhouet.com/obsidian-pdf-exporter/obsidian/): The Obsidian core syntax ope supports, one step per feature, and the order the steps run in.
+- [Folder structure](https://spenhouet.com/obsidian-pdf-exporter/obsidian/structure/): How a vault folder becomes a document, with sections, folder notes, a table of contents and numbering.
+- [Wiki links](https://spenhouet.com/obsidian-pdf-exporter/obsidian/wiki-links/): How Obsidian wiki links to pages and headings become links inside the PDF.
+- [Embeds](https://spenhouet.com/obsidian-pdf-exporter/obsidian/embeds/): Embedding images with a size, SVG files, whole notes, headings and blocks.
+- [Block IDs](https://spenhouet.com/obsidian-pdf-exporter/obsidian/block-ids/): Block IDs mark paragraphs, list items and tables for embeds and are removed from the PDF.
+- [Callouts](https://spenhouet.com/obsidian-pdf-exporter/obsidian/callouts/): All Obsidian callout types, custom titles, foldable, nested and inline callouts.
+- [Highlights and comments](https://spenhouet.com/obsidian-pdf-exporter/obsidian/highlights-comments/): ==Highlights== become marked text, %% comments %% and HTML comments are removed.
+- [Tags](https://spenhouet.com/obsidian-pdf-exporter/obsidian/tags/): Inline tags stay in the text as written.
+- [Properties](https://spenhouet.com/obsidian-pdf-exporter/obsidian/properties/): YAML frontmatter is parsed, used by plugins and removed from the PDF.
+- [Tasks](https://spenhouet.com/obsidian-pdf-exporter/obsidian/tasks/): Task list items become check boxes.
+- [Line breaks](https://spenhouet.com/obsidian-pdf-exporter/obsidian/line-breaks/): A single newline is a line break, as in Obsidian, unless strict line breaks are on.
+- [Mermaid](https://spenhouet.com/obsidian-pdf-exporter/obsidian/mermaid/): Mermaid code blocks rendered to SVG or PNG diagrams with mermaid-cli.
+- [Bases](https://spenhouet.com/obsidian-pdf-exporter/obsidian/bases/): Obsidian Bases (.base files and base code blocks) rendered as static tables and lists.
+
+## Plugins
+
+- [Plugins](https://spenhouet.com/obsidian-pdf-exporter/plugins/): Support for community Obsidian plugins, how to turn it off, pass options and install third-party plugin support.
+- [Folder Notes](https://spenhouet.com/obsidian-pdf-exporter/plugins/folder-notes/): The folder note convention, Folder/Folder.md as the text of its folder.
+- [Dataview](https://spenhouet.com/obsidian-pdf-exporter/plugins/dataview/): Dataview TABLE and LIST queries rendered to static tables and lists.
+- [Excalidraw](https://spenhouet.com/obsidian-pdf-exporter/plugins/excalidraw/): Excalidraw drawings embedded as images, from the auto-export files or drawn from the scene.
+- [Meta Bind](https://spenhouet.com/obsidian-pdf-exporter/plugins/meta-bind/): Meta Bind VIEW fields filled from the frontmatter, inputs and buttons removed.
+- [Block Link Plus](https://spenhouet.com/obsidian-pdf-exporter/plugins/block-link-plus/): Range embeds from ^id to ^id-id, as written by the Block Link Plus plugin.
+- [draw.io](https://spenhouet.com/obsidian-pdf-exporter/plugins/drawio/): draw.io SVG exports with HTML labels made printable.
+- [Citations](https://spenhouet.com/obsidian-pdf-exporter/plugins/citations/): Pandoc citations like [@key] rendered with a reference list from a BibTeX or CSL bibliography.
+- [Write a plugin](https://spenhouet.com/obsidian-pdf-exporter/plugins/write-a-plugin/): Add support for another Obsidian community plugin, in this repository or as a separate Python package.
+
+## Templates and styling
+
+- [Templates and styling](https://spenhouet.com/obsidian-pdf-exporter/templating/): How ope templates control the look of the PDF, which templates exist and how a template is found.
+- [Template folders](https://spenhouet.com/obsidian-pdf-exporter/templating/folders/): Templates made of files, without Python. A single CSS file, or a folder with template.yaml, CSS, header HTML, page CSS and assets.
+- [Header and footer](https://spenhouet.com/obsidian-pdf-exporter/templating/header-footer/): Running headers and footers with CSS paged media - margin boxes, running elements, named strings, page counters, first pages and landscape pages.
+- [CSS reference](https://spenhouet.com/obsidian-pdf-exporter/templating/css-reference/): Every element and class ope emits that a template can style, the colour variables of the default template, and the base CSS.
+- [Python templates](https://spenhouet.com/obsidian-pdf-exporter/templating/python/): The Template class, ExportContext and Decorations, hooks for Markdown and HTML, and how to register and publish a template.
+- [Recipes](https://spenhouet.com/obsidian-pdf-exporter/templating/recipes/): Complete templates for a company letterhead, a new footer, a confidentiality label, and compact and dark variants, each with before and after.
+- [Debugging](https://spenhouet.com/obsidian-pdf-exporter/templating/debugging/): Inspect the Markdown and HTML of an export with --debug, open final.html in a browser and find why a template rule does not apply.
+
+## Optional
+
+- [Full text of these docs](https://spenhouet.com/obsidian-pdf-exporter/llms-full.txt): every page in one file
+- [Source code](https://github.com/Spenhouet/obsidian-pdf-exporter)
+- [Example vault](https://github.com/Spenhouet/obsidian-pdf-exporter/tree/main/examples)
