@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://github.com/Spenhouet/obsidian-pdf-exporter"><img src="https://raw.githubusercontent.com/Spenhouet/obsidian-pdf-exporter/9cd947d57a49e7d5eb6d4ee519bc4fa9a764a95e/logo.png" alt="obsidian-pdf-exporter"></a>
+  <a href="https://spenhouet.com/obsidian-pdf-exporter/"><img src="https://raw.githubusercontent.com/Spenhouet/obsidian-pdf-exporter/9cd947d57a49e7d5eb6d4ee519bc4fa9a764a95e/logo.png" alt="obsidian-pdf-exporter"></a>
 </p>
 <p align="center">
   <em>Export Obsidian vaults to PDF with plugin support. Runs locally or in CI.</em>
@@ -10,100 +10,65 @@
   <a href="https://pypi.org/project/obsidian-pdf-exporter" target="_blank">
     <img src="https://img.shields.io/pypi/v/obsidian-pdf-exporter?color=%2334D058&label=PyPI%20package" alt="Package version">
    </a>
+  <a href="https://spenhouet.com/obsidian-pdf-exporter/" target="_blank">
+    <img src="https://img.shields.io/badge/docs-online-blue" alt="Documentation">
+   </a>
 </p>
 
-## Features
+**Documentation: https://spenhouet.com/obsidian-pdf-exporter/**
 
-- Folder-tree → single PDF, preserving Obsidian's folder-note convention.
-- Wiki links and embedded images resolved against a one-pass vault index.
-- Embedded notes, headings, blocks and Block Link Plus ranges (`![[Note#^id]]`) are transcluded.
-- Obsidian callouts styled per type, YAML frontmatter parsed and stripped.
-- [Bases](https://help.obsidian.md/bases) (`.base` files and ` ```base ` blocks) rendered as static tables and lists. See [MARKDOWN.md](MARKDOWN.md#bases).
-- Built-in support for [Folder Notes](https://github.com/LostPaul/obsidian-folder-notes), [Dataview](https://github.com/blacksmithgu/obsidian-dataview), [Meta Bind](https://github.com/mProjectsCode/obsidian-meta-bind-plugin), [Block Link Plus](https://github.com/Jasper-1024/block-link-plus), [Excalidraw](https://github.com/zsviczian/obsidian-excalidraw-plugin) drawings and draw.io SVG exports; third-party plugin support is pip-installable. See [PLUGINS.md](PLUGINS.md).
-- Pandoc citations (`[@key]`) with a reference list, from a BibTeX or CSL JSON bibliography. See [MARKDOWN.md](MARKDOWN.md#citations).
-- **Redline** PDFs: tracked-changes diff between two git commits.
-- Pluggable PDF templates (CSS + running header/footer + paged-media `@page` rules). Two ship in the box: `default` and `redline`. See [TEMPLATING.md](TEMPLATING.md).
-- Wide tables auto-rotated to landscape pages.
-- Mermaid diagrams rendered to SVG or PNG with mermaid-cli. See [MARKDOWN.md](MARKDOWN.md#mermaid-diagrams).
+`ope` turns a folder of an Obsidian vault into one PDF. Every folder becomes a numbered section, and the Obsidian syntax in the notes is rendered: wiki links, embeds of notes, headings, blocks and images, callouts, highlights, tasks, footnotes, math, Mermaid and Bases. Community plugin syntax from Dataview, Meta Bind, Folder Notes, Block Link Plus, Excalidraw, draw.io and pandoc citations is rendered too. It also makes redline PDFs between two git commits, and templates control the look with CSS. It runs on the command line, without Obsidian, so it works in CI.
+
+Each feature page of the docs shows the Markdown next to the rendered PDF.
 
 ## Install
 
 **macOS / Linux**
 
 ```bash
-curl -LsSf uvx.sh/obsidian-pdf-exporter/install.sh | sh && obsidian-pdf-exporter setup --yes
+curl -LsSf uvx.sh/obsidian-pdf-exporter/install.sh | sh && ope setup --yes
 ```
 
 **Windows**
 
 ```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://uvx.sh/obsidian-pdf-exporter/install.ps1 | iex; obsidian-pdf-exporter setup --yes"
+powershell -ExecutionPolicy ByPass -c "irm https://uvx.sh/obsidian-pdf-exporter/install.ps1 | iex; ope setup --yes"
 ```
 
-The chained `setup --yes` installs the native runtime dependencies (Pango/HarfBuzz/Fontconfig and pandoc) through your OS package manager. For per-OS commands, pinned versions, and CI usage see [INSTALLATION.md](INSTALLATION.md).
-
-The shorter alias `ope` is identical to `obsidian-pdf-exporter`.
+`ope setup` installs the native libraries WeasyPrint needs and pandoc. See [Installation](https://spenhouet.com/obsidian-pdf-exporter/getting-started/installation/) for every OS, uv, pip and CI.
 
 ## Quick start
 
 ```bash
-# Standard export
-ope export ./MyVault/SpaceA
-
-# Custom title, version, output path
-ope export ./MyVault/SpaceA \
-  --title "Quality Manual" --version 3.1.0 \
-  --output ./out/quality-manual.pdf
-
-# Redline between two commits (must run inside a git repo)
-ope redline ./MyVault/SpaceA \
-  --from-commit v3.0.0 --to-commit HEAD
-
-# Discovery
-ope list-templates
-ope list-plugins
+ope export ./MyVault/Handbook --title "Team handbook" --version 1.2.0
+ope redline ./MyVault/Handbook --from-commit v1.1.0 --to-commit HEAD
+ope export ./MyVault/Handbook --template ./my-template/
 ope --help
 ```
 
-Full flag reference: [COMMANDS.md](COMMANDS.md).
-
-## Vault layout
-
-The exporter walks a _space folder_ (the `ROOT` argument) and turns every subfolder into a section. A folder note named after its folder is the section's body:
-
-```text
-SpaceA/
-├── SpaceA.md            ← root note (becomes the document's intro page)
-├── images/              ← attachments folder name is irrelevant
-│   └── logo.png
-├── Chapter A/
-│   ├── Chapter A.md     ← folder note for "Chapter A"
-│   ├── img/             ← scoped attachments — picked over top-level on ties
-│   │   └── logo.png
-│   └── Section 1/
-│       └── Section 1.md
-└── Chapter B/
-    └── Chapter B.md
-```
-
-Three roots are recognised:
-
-1. `Space/Space.md` exists → used as the root note.
-2. `Space/Space/Space.md` → the inner folder is the root, its siblings become children.
-3. Neither → an anonymous root, immediate child folders are sections.
-
-Folders without markdown are pruned automatically. `.git`, `.obsidian`, `.vscode` and other dotfile folders are skipped.
-
 ## Documentation
 
-| Topic                                                       | Where                              |
-| ----------------------------------------------------------- | ---------------------------------- |
-| Installing the CLI and native deps; per-OS package commands | [INSTALLATION.md](INSTALLATION.md) |
-| Every command, flag, env var, and exit code                 | [COMMANDS.md](COMMANDS.md)         |
-| Obsidian-specific markdown features the exporter handles    | [MARKDOWN.md](MARKDOWN.md)         |
-| Built-in plugins, options, authoring third-party plugins    | [PLUGINS.md](PLUGINS.md)           |
-| Custom PDF templates (no-Python recipes + full Python spec) | [TEMPLATING.md](TEMPLATING.md)     |
-| Development setup, testing, PR guidelines                   | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Topic | Link |
+| ----- | ---- |
+| Install on every OS, quick start | [Getting started](https://spenhouet.com/obsidian-pdf-exporter/getting-started/installation/) |
+| Every command, flag, `-O` option, env var and exit code | [CLI reference](https://spenhouet.com/obsidian-pdf-exporter/reference/cli/) |
+| Markdown: tables, code, footnotes, math | [Markdown](https://spenhouet.com/obsidian-pdf-exporter/markdown/) |
+| Obsidian syntax: wiki links, embeds, callouts, Mermaid | [Obsidian](https://spenhouet.com/obsidian-pdf-exporter/obsidian/) |
+| Dataview, Meta Bind, Excalidraw, draw.io, writing a plugin | [Plugins](https://spenhouet.com/obsidian-pdf-exporter/plugins/) |
+| Tracked-changes PDFs | [Redline](https://spenhouet.com/obsidian-pdf-exporter/redline/) |
+| Templates, header and footer, CSS classes, recipes | [Templates and styling](https://spenhouet.com/obsidian-pdf-exporter/templating/) |
+| Claude Code plugin, skill, llms.txt | [Use with AI agents](https://spenhouet.com/obsidian-pdf-exporter/agents/) |
+| Development setup, architecture, tests | [Contributing](CONTRIBUTING.md) |
+
+## Use with AI agents
+
+The repository is a Claude Code plugin marketplace with a skill for `ope`:
+
+```text
+/plugin install obsidian-pdf-exporter --marketplace Spenhouet/obsidian-pdf-exporter
+```
+
+On older Claude Code versions, run `/plugin marketplace add Spenhouet/obsidian-pdf-exporter` and then `/plugin install obsidian-pdf-exporter@obsidian-pdf-exporter`. Other agents can read [llms.txt](https://spenhouet.com/obsidian-pdf-exporter/llms.txt).
 
 ## License
 
