@@ -30,7 +30,7 @@ ope redline ./Policy --from-commit v1.0.0 --to-commit v1.1.0
 ```
 
 <p align="center">
-  <a href="https://spenhouet.com/obsidian-pdf-exporter/redline/"><img src="https://raw.githubusercontent.com/Spenhouet/obsidian-pdf-exporter/0dff35ac101fab00a28395e92e89c21522e96983/docs/img/redline/redline-three-up.png" alt="The same policy before and after a change, and the redline PDF with inserted, removed and changed text"></a>
+  <a href="https://spenhouet.com/obsidian-pdf-exporter/redline/"><img src="https://raw.githubusercontent.com/Spenhouet/obsidian-pdf-exporter/c8ea25fdd403f990cfbdba2d54ac5800adac597d/docs/img/redline/redline-three-up.png" alt="The same policy before and after a change, and the redline PDF with inserted, removed and changed text"></a>
 </p>
 
 Tags, branches, commit hashes and `HEAD~n` work as versions, and the docs have GitHub Actions workflows that attach a redline to every pull request or release. See [Redline](https://spenhouet.com/obsidian-pdf-exporter/redline/).
