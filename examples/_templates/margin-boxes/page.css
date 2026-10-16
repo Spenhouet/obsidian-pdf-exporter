@@ -1,0 +1,24 @@
+/* Demo template for the docs: every margin box shows its own name.
+   Wide margins make the boxes visible. The three boxes of the top and the
+   bottom edge get a third of the width each, because a margin box is only
+   as wide as its content otherwise. */
+@page {
+  size: A4;
+  margin: 22mm 24mm;
+  @top-left-corner { content: "@top-left-corner"; background: #fde2e4; border: 0.5pt solid #9aa3ad; font-family: Arial, Helvetica, sans-serif; font-size: 8pt; color: #3b4450; text-align: center; vertical-align: middle; }
+  @top-left { width: 33.333%; content: "@top-left"; background: #e2ecfd; border: 0.5pt solid #9aa3ad; font-family: Arial, Helvetica, sans-serif; font-size: 8pt; color: #3b4450; text-align: center; vertical-align: middle; }
+  @top-center { width: 33.333%; content: "@top-center"; background: #e2f5ea; border: 0.5pt solid #9aa3ad; font-family: Arial, Helvetica, sans-serif; font-size: 8pt; color: #3b4450; text-align: center; vertical-align: middle; }
+  @top-right { width: 33.333%; content: "@top-right"; background: #fff1d6; border: 0.5pt solid #9aa3ad; font-family: Arial, Helvetica, sans-serif; font-size: 8pt; color: #3b4450; text-align: center; vertical-align: middle; }
+  @top-right-corner { content: "@top-right-corner"; background: #fde2e4; border: 0.5pt solid #9aa3ad; font-family: Arial, Helvetica, sans-serif; font-size: 8pt; color: #3b4450; text-align: center; vertical-align: middle; }
+  @left-top { content: "@left-top"; background: #efe2fd; border: 0.5pt solid #9aa3ad; font-family: Arial, Helvetica, sans-serif; font-size: 8pt; color: #3b4450; text-align: center; vertical-align: middle; padding: 0 1mm; }
+  @left-middle { content: "@left-middle"; background: #e2f5ea; border: 0.5pt solid #9aa3ad; font-family: Arial, Helvetica, sans-serif; font-size: 8pt; color: #3b4450; text-align: center; vertical-align: middle; padding: 0 1mm; }
+  @left-bottom { content: "@left-bottom"; background: #e2ecfd; border: 0.5pt solid #9aa3ad; font-family: Arial, Helvetica, sans-serif; font-size: 8pt; color: #3b4450; text-align: center; vertical-align: middle; padding: 0 1mm; }
+  @right-top { content: "@right-top"; background: #efe2fd; border: 0.5pt solid #9aa3ad; font-family: Arial, Helvetica, sans-serif; font-size: 8pt; color: #3b4450; text-align: center; vertical-align: middle; padding: 0 1mm; }
+  @right-middle { content: "@right-middle"; background: #e2f5ea; border: 0.5pt solid #9aa3ad; font-family: Arial, Helvetica, sans-serif; font-size: 8pt; color: #3b4450; text-align: center; vertical-align: middle; padding: 0 1mm; }
+  @right-bottom { content: "@right-bottom"; background: #e2ecfd; border: 0.5pt solid #9aa3ad; font-family: Arial, Helvetica, sans-serif; font-size: 8pt; color: #3b4450; text-align: center; vertical-align: middle; padding: 0 1mm; }
+  @bottom-left-corner { content: "@bottom-left-corner"; background: #fde2e4; border: 0.5pt solid #9aa3ad; font-family: Arial, Helvetica, sans-serif; font-size: 8pt; color: #3b4450; text-align: center; vertical-align: middle; }
+  @bottom-left { width: 33.333%; content: "@bottom-left"; background: #e2ecfd; border: 0.5pt solid #9aa3ad; font-family: Arial, Helvetica, sans-serif; font-size: 8pt; color: #3b4450; text-align: center; vertical-align: middle; }
+  @bottom-center { width: 33.333%; content: "@bottom-center"; background: #e2f5ea; border: 0.5pt solid #9aa3ad; font-family: Arial, Helvetica, sans-serif; font-size: 8pt; color: #3b4450; text-align: center; vertical-align: middle; }
+  @bottom-right { width: 33.333%; content: "@bottom-right"; background: #fff1d6; border: 0.5pt solid #9aa3ad; font-family: Arial, Helvetica, sans-serif; font-size: 8pt; color: #3b4450; text-align: center; vertical-align: middle; }
+  @bottom-right-corner { content: "@bottom-right-corner"; background: #fde2e4; border: 0.5pt solid #9aa3ad; font-family: Arial, Helvetica, sans-serif; font-size: 8pt; color: #3b4450; text-align: center; vertical-align: middle; }
+}
