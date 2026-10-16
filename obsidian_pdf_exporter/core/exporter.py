@@ -257,7 +257,7 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
                 missing=f"  Note: path not found in {from_hash}",
                 plugins=plugins,
                 plugin_options=request.options,
-                steps=steps,
+                steps=core_steps(),
             )
             new_md = _assemble_if_present(
                 new_root,
