@@ -68,10 +68,17 @@ def normalize_colgroups(html: str, min_pct: float = 20.0) -> str:
     Pandoc derives column widths from the markdown source and can assign as
     little as 2% to image-only columns. This function:
 
-    1. Raises any column below ``min_pct`` to ``min_pct``, redistributing the
-       deficit proportionally across wider columns.
-    2. Adds ``table-layout: fixed`` to the enclosing ``<table>`` so WeasyPrint
+    1. Scales the widths so they add up to 100%.
+    2. Raises any column below the minimum to the minimum and takes the
+       difference from the wider columns, in proportion to how much wider
+       they are. The minimum is ``min_pct``, but never more than half of an
+       equal share (``100 / n / 2`` for ``n`` columns), so it always fits.
+    3. Adds ``table-layout: fixed`` to the enclosing ``<table>`` so WeasyPrint
        actually honours the colgroup widths.
+
+    A colgroup where every width is 0% (pandoc's grid tables with a very
+    large ``--columns``) is removed together with the table's ``width:0%``,
+    so the table is sized by its content.
     """
 
     def fix(m: re.Match) -> str:
@@ -81,17 +88,12 @@ def normalize_colgroups(html: str, min_pct: float = 20.0) -> str:
         widths = [float(w) for w in re.findall(r'<col[^>]*style="width:\s*([\d.]+)%"', cg)]
         if not widths:
             return m.group(0)
-
-        for i, w in enumerate(widths):
-            if w < min_pct:
-                deficit = min_pct - w
-                larger = [j for j, w2 in enumerate(widths) if j != i and w2 > min_pct]
-                if not larger:
-                    continue
-                total_larger = sum(widths[j] for j in larger)
-                for j in larger:
-                    widths[j] -= deficit * widths[j] / total_larger
-                widths[i] = min_pct
+        total = sum(widths)
+        if total <= 0:
+            # Pandoc also sets the table itself to ``width:0%``.
+            table_open = re.sub(r"\bwidth:\s*0(?:\.0+)?%;?\s*", "", table_open)
+            return re.sub(r'\s*style=""', "", table_open)
+        widths = _apply_min_width([w * 100 / total for w in widths], min_pct)
 
         col_lines = "\n".join(f'<col style="width: {w:.1f}%" />' for w in widths)
         new_cg = f"<colgroup>\n{col_lines}\n</colgroup>"
@@ -114,6 +116,20 @@ def normalize_colgroups(html: str, min_pct: float = 20.0) -> str:
         html,
         flags=re.DOTALL,
     )
+
+
+def _apply_min_width(widths: list[float], min_pct: float) -> list[float]:
+    """Raise widths below the minimum; take the difference from wider columns.
+
+    ``widths`` add up to 100. The minimum is capped at half of an equal share,
+    so the wider columns always have enough room to give.
+    """
+    floor = min(min_pct, 100 / len(widths) / 2)
+    deficit = sum(floor - w for w in widths if w < floor)
+    excess = sum(w - floor for w in widths if w > floor)
+    if deficit <= 0 or excess <= 0:
+        return widths
+    return [floor if w <= floor else w - deficit * (w - floor) / excess for w in widths]
 
 
 def wrap_wide_tables(html: str, min_cols: int = 6) -> tuple[str, bool]:
