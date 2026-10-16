@@ -28,7 +28,6 @@ description: What a redline does not show, the known issues, and how to write an
 | A changed footnote leaves two empty boxes | [#87](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/87) |
 | The title block shows the commit range twice | [#88](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/88) |
 | A changed paragraph or list item next to an inserted or removed one loses its word-level diff | [#89](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/89) |
-| A Dataview table can show the old results in both versions | [#90](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/90) |
 | With `.` as `ROOT` the default file name is `export_redline.pdf` | [#91](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/91) |
 
 ## Tips for a clean redline

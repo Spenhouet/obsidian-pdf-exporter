@@ -211,10 +211,16 @@ def _split_line_prefix(line: str) -> tuple[str, str]:
     return prefix, line[len(prefix) :]
 
 
+# Words are separated by whitespace. An HTML tag (such as the spans that
+# plugins write into table cells) is one token, so its attributes are never
+# split by the markup.
+_RE_WORD_SPLIT = re.compile(r"(<[A-Za-z/!][^<>]*>|\s+)")
+
+
 def _word_diff(old_text: str, new_text: str) -> str:
     """Return ``new_text`` annotated with ``<del>`` / ``<ins>`` for word-level changes."""
-    old_tokens = re.split(r"(\s+)", old_text)
-    new_tokens = re.split(r"(\s+)", new_text)
+    old_tokens = _RE_WORD_SPLIT.split(old_text)
+    new_tokens = _RE_WORD_SPLIT.split(new_text)
 
     matcher = difflib.SequenceMatcher(None, old_tokens, new_tokens, autojunk=False)
     out: list[str] = []

@@ -35,4 +35,3 @@ flowchart LR
 
 - Not an Obsidian plugin. It runs outside Obsidian and reads the files on disk.
 - Not a pixel copy of the Obsidian reading view. The PDF is styled by its template, and some interactive features (folding, input fields, buttons) have no PDF form.
-- Not a full Dataview engine. It renders a subset of DQL, see [Dataview](plugins/dataview.md).

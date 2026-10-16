@@ -52,7 +52,7 @@
 
 - [Plugins](https://spenhouet.com/obsidian-pdf-exporter/plugins/): Support for community Obsidian plugins, how to turn it off, pass options and install third-party plugin support.
 - [Folder Notes](https://spenhouet.com/obsidian-pdf-exporter/plugins/folder-notes/): How a vault folder becomes a document, with sections, folder notes (Folder/Folder.md), a table of contents and numbering.
-- [Dataview](https://spenhouet.com/obsidian-pdf-exporter/plugins/dataview/): Dataview TABLE and LIST queries rendered to static tables and lists.
+- [Dataview](https://spenhouet.com/obsidian-pdf-exporter/plugins/dataview/): Dataview queries (TABLE, LIST, TASK, CALENDAR), inline queries, inline fields and DataviewJS, run at export time.
 - [Excalidraw](https://spenhouet.com/obsidian-pdf-exporter/plugins/excalidraw/): Excalidraw drawings embedded as images, from the auto-export files or drawn from the scene.
 - [Meta Bind](https://spenhouet.com/obsidian-pdf-exporter/plugins/meta-bind/): Meta Bind VIEW fields filled from the frontmatter, inputs and buttons removed.
 - [Block Link Plus](https://spenhouet.com/obsidian-pdf-exporter/plugins/block-link-plus/): Range embeds from ^id to ^id-id, as written by the Block Link Plus plugin.

@@ -18,7 +18,6 @@ from obsidian_pdf_exporter.core.math_render import render_math
 from obsidian_pdf_exporter.core.pandoc import render_html
 from obsidian_pdf_exporter.core.steps.line_breaks import hard_line_breaks
 from obsidian_pdf_exporter.core.util import obsidian_hard_line_breaks
-from obsidian_pdf_exporter.plugins.dataview.engine import _render_table
 from obsidian_pdf_exporter.plugins.drawio.svg import clean_drawio_svg
 
 if TYPE_CHECKING:
@@ -234,17 +233,6 @@ def test_render_math_falls_back_to_source(monkeypatch: pytest.MonkeyPatch) -> No
     out = render_math(html, log=logs.append)
     assert '<span class="math display math-source"><code>a &lt; b</code></span>' in out
     assert any("a < b" in line for line in logs)
-
-
-# ---- Dataview ---------------------------------------------------------------
-
-
-def test_dataview_table_without_fields_has_only_file_column() -> None:
-    pages = [{"name": "Alpha", "fm": {"status": "x"}}]
-    out = _render_table(pages, [], without_id=False)
-    assert out.splitlines()[0].split("|")[1].strip() == "File"
-    assert "Name" not in out
-    assert "Status" not in out
 
 
 # ---- draw.io SVG ------------------------------------------------------------

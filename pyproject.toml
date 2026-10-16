@@ -22,6 +22,7 @@ dependencies = [
     "ziamath>=0.13",
     "pillow>=9.1",
     "pypdfium2>=4.20",
+    "mini-racer>=0.12",
 ]
 
 
@@ -75,6 +76,7 @@ include = [
   "obsidian_pdf_exporter/**/*.py",
   "obsidian_pdf_exporter/**/*.css",
   "obsidian_pdf_exporter/**/*.svg",
+  "obsidian_pdf_exporter/**/*.js",
 ]
 
 [tool.ruff]
@@ -214,6 +216,25 @@ skip-magic-trailing-comma = false # respects magic trailing commas
 "obsidian_pdf_exporter/core/bases/evaluate.py" = [
   "ARG001",  # unused function argument
   "ARG005",  # unused lambda argument
+]
+# The Dataview port mirrors the structure of the Dataview sources: values of
+# the query language are dynamic, the function library and the grammar are
+# tables of small functions, and the dispatch functions branch per type like
+# the originals. The setting names are the keys of Dataview's data.json.
+"obsidian_pdf_exporter/plugins/dataview/**/*.py" = [
+  "ANN401",  # Dataview values are of any type
+  "ARG001",  # library functions share one signature
+  "ARG005",  # lambdas of the function tables share one signature
+  "C901",    # one branch per value type, as in Dataview
+  "FBT001",  # boolean arguments of the ported Dataview API
+  "FBT002",
+  "FBT003",
+  "N815",    # Dataview setting names (data.json keys)
+  "PLR0911", # one return per value type, as in Dataview
+  "PLR0912",
+  "PLR0913",
+  "PLR0915",
+  "PLR2004", # date, number and token limits of the ported code
 ]
 # Docs scripts print progress and run trusted tools (git, pdftoppm).
 "scripts/**/*.py" = [

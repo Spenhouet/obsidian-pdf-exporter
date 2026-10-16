@@ -12,7 +12,7 @@ The third layer handles syntax and files from community Obsidian plugins and oth
 | Name | Obsidian plugin | What it does | Priority |
 | ---- | --------------- | ------------ | -------- |
 | `folder_notes` | [Folder Notes](https://github.com/LostPaul/obsidian-folder-notes) | `Folder/Folder.md` is the text of its folder. [More](folder-notes.md) | 5 |
-| `dataview` | [Dataview](https://github.com/blacksmithgu/obsidian-dataview) | Renders `TABLE` and `LIST` queries as static tables and lists. [More](dataview.md) | 10 |
+| `dataview` | [Dataview](https://github.com/blacksmithgu/obsidian-dataview) | Runs DQL queries (`TABLE`, `LIST`, `TASK`, `CALENDAR`), inline queries, inline fields and DataviewJS. [More](dataview.md) | 10 |
 | `excalidraw` | [Excalidraw](https://github.com/zsviczian/obsidian-excalidraw-plugin) | Turns drawing embeds into images. [More](excalidraw.md) | 15 |
 | `meta_bind` | [Meta Bind](https://github.com/mProjectsCode/obsidian-meta-bind-plugin) | Fills `VIEW[...]` fields from the frontmatter, removes inputs and buttons. [More](meta-bind.md) | 20 |
 | `block_link_plus` | [Block Link Plus](https://github.com/Jasper-1024/block-link-plus) | Resolves `![[Note#^id-id]]` range embeds. [More](block-link-plus.md) | 30 |
@@ -34,7 +34,7 @@ ope export ./Vault --disable-plugin dataview --disable-plugin meta_bind
 ## Pass options
 
 ```bash
-ope export ./Vault -O dataview.limit=200
+ope export ./Vault -O dataview.js-timeout=30
 ```
 
 `-O key=value` reaches every plugin hook as `context.options`. Plugin options use the name of the plugin as prefix: `<plugin>.<key>`.
