@@ -12,7 +12,8 @@ from obsidian_pdf_exporter.core.embeds import strip_obsidian_comments
 from obsidian_pdf_exporter.core.frontmatter import parse_frontmatter
 from obsidian_pdf_exporter.core.frontmatter import strip_frontmatter
 from obsidian_pdf_exporter.core.frontmatter import strip_html_comments
-from obsidian_pdf_exporter.core.headings import offset_headings
+from obsidian_pdf_exporter.core.heading_links import mark_same_page_links
+from obsidian_pdf_exporter.core.headings import normalize_heading_levels
 from obsidian_pdf_exporter.core.headings import strip_title_heading
 from obsidian_pdf_exporter.core.wiki_links import convert_wiki_links
 from obsidian_pdf_exporter.core.wiki_links import normalize_bracket_links
@@ -78,13 +79,14 @@ def process_page(
     content = strip_obsidian_comments(content)
     content = strip_block_ids(content)
     content = convert_callouts(content)
+    content = mark_same_page_links(content, node.anchor if node.depth > 0 else "")
     content = convert_wiki_links(content, node.md_file.parent, page_index, build_dir, vault_index)
     content = normalize_bracket_links(content)
     content = promote_image_captions(content)
     content = strip_title_heading(content, node.name)
 
-    heading_offset = max(node.depth - 1, 0)
-    content = offset_headings(content, heading_offset)
+    # Page content nests under the page heading (level ``depth``).
+    content = normalize_heading_levels(content, node.depth + 1 if node.depth > 0 else 1)
 
     return content.strip()
 

@@ -19,6 +19,7 @@ dependencies = [
     "weasyprint",
     "pypandoc",
     "pyyaml",
+    "ziamath>=0.13",
 ]
 
 

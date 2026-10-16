@@ -10,10 +10,14 @@ from dataclasses import field
 from pathlib import Path
 
 from obsidian_pdf_exporter.core.assemble import assemble_document
+from obsidian_pdf_exporter.core.heading_links import resolve_heading_links
+from obsidian_pdf_exporter.core.html_postprocess import add_base_css
 from obsidian_pdf_exporter.core.html_postprocess import inline_svg_images
 from obsidian_pdf_exporter.core.html_postprocess import normalize_colgroups
 from obsidian_pdf_exporter.core.html_postprocess import remove_empty_table_headers
+from obsidian_pdf_exporter.core.html_postprocess import render_task_checkboxes
 from obsidian_pdf_exporter.core.html_postprocess import wrap_wide_tables
+from obsidian_pdf_exporter.core.math_render import render_math
 from obsidian_pdf_exporter.core.mermaid import mermaid_settings
 from obsidian_pdf_exporter.core.mermaid import render_mermaid_blocks
 from obsidian_pdf_exporter.core.pandoc import render_html
@@ -27,6 +31,7 @@ from obsidian_pdf_exporter.core.tree import collect_page_index
 from obsidian_pdf_exporter.core.util import git_root
 from obsidian_pdf_exporter.core.util import git_short_hash
 from obsidian_pdf_exporter.core.util import is_git_repo
+from obsidian_pdf_exporter.core.util import obsidian_hard_line_breaks
 from obsidian_pdf_exporter.core.util import today_iso
 from obsidian_pdf_exporter.core.util import vault_root as find_vault_root
 from obsidian_pdf_exporter.core.vault_index import VaultIndex
@@ -162,10 +167,9 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
             build_dir,
             extra_metadata=extra_meta,
             toc=request.toc,
+            hard_line_breaks=_hard_line_breaks(root_folder, request.options),
         )
-        html = remove_empty_table_headers(html)
-        html = normalize_colgroups(html)
-        html = inline_svg_images(html, build_dir)
+        html = _postprocess_html(html, build_dir, log)
         html, has_wide = wrap_wide_tables(html)
         if has_wide:
             log("  Wide tables detected — landscape orientation applied for those pages")
@@ -283,10 +287,15 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
             log("  Converting to HTML...")
             css_filename = _write_template_assets(request.template, build_dir)
 
-            html = render_html(markdown, css_filename, title, build_dir, toc=request.toc)
-            html = remove_empty_table_headers(html)
-            html = normalize_colgroups(html)
-            html = inline_svg_images(html, build_dir)
+            html = render_html(
+                markdown,
+                css_filename,
+                title,
+                build_dir,
+                toc=request.toc,
+                hard_line_breaks=_hard_line_breaks(root_folder, request.options),
+            )
+            html = _postprocess_html(html, build_dir, log)
             html = request.template.process_html(html, ctx)
             html = apply_decorations(html, request.template.decorations(ctx))
 
@@ -328,6 +337,33 @@ def _prepend_metadata(
     elif date:
         lines.append(f"% {date}")
     return "\n".join(lines) + "\n\n" + body
+
+
+def _hard_line_breaks(root_folder: Path, options: dict[str, str]) -> bool:
+    """Decide whether single newlines become line breaks.
+
+    ``-O line_breaks=hard|soft`` wins. Otherwise the vault's "Strict line
+    breaks" setting decides, like in Obsidian.
+    """
+    choice = options.get("line_breaks", "").strip().lower()
+    if choice in ("hard", "soft"):
+        return choice == "hard"
+    return obsidian_hard_line_breaks(root_folder)
+
+
+def _postprocess_html(
+    html: str,
+    build_dir: Path,
+    log,  # noqa: ANN001 - log is any callable(str)
+) -> str:
+    """HTML fixes shared by ``export`` and ``redline`` before the template runs."""
+    html = add_base_css(html)
+    html = remove_empty_table_headers(html)
+    html = normalize_colgroups(html)
+    html = inline_svg_images(html, build_dir)
+    html = resolve_heading_links(html)
+    html = render_task_checkboxes(html)
+    return render_math(html, log=log)
 
 
 def _render_mermaid(
