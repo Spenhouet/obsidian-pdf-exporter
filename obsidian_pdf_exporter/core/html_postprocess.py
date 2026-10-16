@@ -6,6 +6,44 @@ import base64
 import re
 from pathlib import Path
 
+from obsidian_pdf_exporter.core.drawio import clean_drawio_svg
+
+# Defaults for markup the exporter adds. They come before the template's CSS,
+# so a template can restyle all of it.
+BASE_CSS = """
+ul.task-list, ol.task-list { list-style: none; }
+ul.task-list > li, ol.task-list > li { list-style: none; }
+.task-checkbox { display: inline; margin-right: 0.4em; font-family: "DejaVu Sans", sans-serif; }
+span.math.display { display: block; text-align: center; margin: 0.6em 0; }
+svg.math-svg { display: inline; overflow: visible; }
+.math-source code { white-space: pre-wrap; }
+td, th { overflow-wrap: break-word; }
+"""
+
+_CHECKBOX = re.compile(r'<input\b([^>]*\btype="checkbox"[^>]*)>(?:\s*</input>)?')
+
+
+def add_base_css(html: str) -> str:
+    """Insert :data:`BASE_CSS` at the start of ``<head>``."""
+    style = f'<style id="obsidian-pdf-exporter-base">{BASE_CSS}</style>'
+    new_html, count = re.subn(r"<head\b[^>]*>", lambda m: m.group(0) + style, html, count=1)
+    return new_html if count else style + html
+
+
+def render_task_checkboxes(html: str) -> str:
+    """Replace task list ``<input type="checkbox">`` with inline glyphs.
+
+    WeasyPrint draws form inputs as a block box, so the text of the task
+    ends up on the next line. A ``☐`` or ``☑`` character stays on the line.
+    """
+
+    def replace(m: re.Match) -> str:
+        if re.search(r"\bchecked\b", m.group(1)):
+            return '<span class="task-checkbox checked">\u2611</span>'
+        return '<span class="task-checkbox">\u2610</span>'
+
+    return _CHECKBOX.sub(replace, html)
+
 
 def remove_empty_table_headers(html: str) -> str:
     """Drop ``<thead>`` blocks where every ``<th>`` is empty.
@@ -93,9 +131,9 @@ def wrap_wide_tables(html: str, min_cols: int = 6) -> tuple[str, bool]:
         table_html = m.group(0)
         col_count = len(re.findall(r"<col\b", table_html))
         if col_count < 1:
-            hdr = re.search(r"<thead\b[^>]*>.*?<tr\b[^>]*>(.*?)</tr>", table_html, re.DOTALL)
-            if hdr:
-                col_count = len(re.findall(r"<th\b", hdr.group(1)))
+            row = re.search(r"<tr\b[^>]*>(.*?)</tr>", table_html, re.DOTALL)
+            if row:
+                col_count = len(re.findall(r"<t[hd]\b", row.group(1)))
         if col_count >= min_cols:
             has_wide = True
             return f'<div class="wide-table-section">\n{table_html}\n</div>'
@@ -149,7 +187,7 @@ def inline_svg_images(html: str, build_dir: Path) -> str:  # noqa: C901 - small 
             svg_text,
             flags=re.DOTALL,
         )
-        svg_text = svg_text.strip()
+        svg_text = clean_drawio_svg(svg_text).strip()
         cls_m = re.search(r'\bclass=["\']([^"\']*)["\']', tag, re.IGNORECASE)
         cls = cls_m.group(1) if cls_m else "doc-image"
         style_m = re.search(r'\bstyle=["\']([^"\']*)["\']', tag, re.IGNORECASE)

@@ -2,24 +2,45 @@
 
 Anything pandoc's GFM dialect understands works as-is. Obsidian-specific features are handled too:
 
-| Feature                                          | What happens                                                                                                                                                                                                    |
+| Feature                                      | What happens                                                                                                                                                                                                    |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `[[Page]]`, `[[Page#section\|alias]]`        | Resolved to an in-document anchor if the page exists in the tree, otherwise rendered as italic text.                                                                                                            |
 | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `[[Page]]`, `[[Page#section\|alias]]`            | Resolved to an in-document anchor if the page exists in the tree, otherwise rendered as italic text.                                                                                                            |
-| `![[image.png]]`, `![[image.png\|alt text]]`     | Resolved against the vault index by filename. When several files share a name, the one with the deepest common ancestor with the referencing page wins. SVGs are inlined.                                       |
 | `![[Note]]`                                      | Embeds the whole note without its frontmatter. See [Note embeds](#note-embeds).                                                                                                                                 |
 | `![[Note#Heading]]`                              | Embeds the heading and its content up to the next heading of the same or a higher level. `![[Note#A#B]]` picks heading `B` inside section `A`.                                                                  |
 | `![[Note#^id]]`                                  | Embeds the block marked `^id`: a paragraph, list item or heading whose line ends in ` ^id`, or the block (table, list, quote, callout) directly above a line holding only `^id`.                                |
 | `![[Note#^id-id]]`                               | Embeds a [Block Link Plus](https://github.com/Jasper-1024/block-link-plus) range: from the block marked `^id` to the block or line marked `^id-id`.                                                             |
-| `![[image.png\|430]]`, `![[image.png\|430x200]]` | Width (and height) in pixels, as in Obsidian. A caption can come first: `![[image.png\|caption\|430]]`.                                                                                                         |
-| `> [!note] Title …` callouts                     | Converted to fenced divs with a class per type (`note`, `tip`, `warning`, `danger`, `info`, `important`, `example`, `abstract`, `todo`, `success`/`check`/`done`, `question`/`help`, `failure`/`bug`, `quote`). |
-| Inline `> [!note] text` (single line)            | Converted to an inline `<span class="callout …">`.                                                                                                                                                              |
-| YAML frontmatter                                 | Parsed (used by Meta Bind) and stripped before rendering.                                                                                                                                                       |
-| HTML comments `<!-- … -->`                       | Stripped.                                                                                                                                                                                                       |
 | Block IDs `^id`, `^id-id`                        | Removed from the output.                                                                                                                                                                                        |
-| Comments `%% … %%`                               | Stripped (outside code blocks).                                                                                                                                                                                 |
-| Wide tables                                      | Auto-detected; rendered on landscape pages.                                                                                                                                                                     |
-| Image followed by a single italic line           | The italic line is promoted to the image's caption.                                                                                                                                                             |
-| ` ```mermaid ` code blocks                       | Rendered to an SVG (or PNG) diagram with mermaid-cli. See [Mermaid diagrams](#mermaid-diagrams).                                                                                                                |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------- |
+| `![[image.png\|430]]`, `![[image.png\|430x200]]` | Width (and height) in pixels, as in Obsidian. A caption can come first: `![[image.png\|caption\|430]]`.                                                                                                     |
+| `> [!note] Title …` callouts                 | Converted to fenced divs. Blank `>` lines stay inside the callout, nested callouts and the foldable markers `[!note]+` / `[!note]-` work (the callout is always shown open). See [Callouts](#callouts). |
+| Inline `> [!note] text` (single line)        | Converted to an inline `<span class="callout …">` when it is not at the start of a line (for example inside a table cell).                                                                                     |
+| `[[#Heading]]`, `[[#Heading\|alias]]`        | Linked to the heading on the same page. When several pages share a heading name, the one on the linking page wins.                                                                                             |
+| Line breaks                                  | A single newline is a line break, as in Obsidian, unless "Strict line breaks" is on in the vault (`strictLineBreaks` in `.obsidian/app.json`). Override with `-O line_breaks=hard` or `-O line_breaks=soft`. |
+| Lists right after a paragraph                | Recognized without a blank line in between.                                                                                                                                                                     |
+| `==highlight==`                              | Rendered as `<mark>`.                                                                                                                                                                                           |
+| `- [ ] task`, `- [x] done`                   | Rendered as ☐ / ☑ on the same line as the text, in a `ul.task-list` without bullets.                                                                                                                           |
+| `$...$`, `$$...$$` math                      | Rendered to SVG with [ziamath](https://github.com/cdelker/ziamath) (no TeX needed). Display math is centered. A formula that fails to render is shown as code and the export prints a warning.                 |
+| Headings                                     | Each page's headings nest under the page heading. Skipped levels (a page starting with `###`) are closed, so section numbers never contain `0`.                                                                 |
+| Tables                                       | Columns are sized by their content, as in Obsidian, also for tables with long source lines.                                                                                                                    |
+| draw.io SVGs                                 | HTML labels are turned into SVG text and the "Text is not SVG - cannot display" note is removed. See [draw.io diagrams](#drawio-diagrams).                                                                     |
+| YAML frontmatter                             | Parsed (used by Meta Bind) and stripped before rendering.                                                                                                                                                       |
+| HTML comments `<!-- … -->`                   | Stripped.                                                                                                                                                                                                       |
+| Wide tables                                  | Auto-detected; rendered on landscape pages.                                                                                                                                                                     |
+| Image followed by a single italic line       | The italic line is promoted to the image's caption.                                                                                                                                                             |
+| ` ```mermaid ` code blocks                   | Rendered to an SVG (or PNG) diagram with mermaid-cli. See [Mermaid diagrams](#mermaid-diagrams).                                                                                                                |
+
+## Callouts
+
+Every callout type works. The known types get the class of their style group, plus their own name for aliases (`[!caution]` becomes `callout callout-warning callout-caution`). Any other type, such as `[!information]`, gets `callout callout-information callout-note`, so it looks like a note unless the template styles it. The div also carries `data-callout="<type>"`, and the title is a `span.callout-title`.
+
+## draw.io diagrams
+
+draw.io stores labels as HTML in `<foreignObject>`, which WeasyPrint does not draw. The exporter replaces each label with SVG `<text>`, one line per `<tspan>`. This is a best effort:
+
+- Mixed formatting inside one label (a bold word, a second color) is flattened to the label's main style.
+- Labels with word wrap are wrapped again with an estimated character width, so line breaks can differ a little from draw.io.
+- For full fidelity, export the diagram from draw.io with "Convert labels to SVG" turned on, or as PNG.
 
 ## Mermaid diagrams
 
@@ -29,15 +50,15 @@ The default output is SVG, so text stays sharp and searchable. Mermaid normally 
 
 Options (`-O key=value`):
 
-| Option                          | Effect                                                                                                         | Default |
-| ------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------- |
-| `mermaid=off`                   | Keep Mermaid blocks as code.                                                                                   | on      |
-| `mermaid.format=svg\|png`       | Output format.                                                                                                 | `svg`   |
-| `mermaid.scale=N`               | Pixel density for PNG output. The image keeps its natural size.                                                | `3`     |
-| `mermaid.config=PATH`           | JSON [Mermaid config](https://mermaid.js.org/config/schema-docs/config.html) (`theme`, `themeVariables`, ...). | none    |
-| `mermaid.theme=NAME`            | Shortcut for the `theme` key (`default`, `neutral`, `dark`, `forest`, `base`).                                 | none    |
-| `mermaid.cli=COMMAND`           | Command that runs mermaid-cli, e.g. `"npx -y @mermaid-js/mermaid-cli@11.4.2"`.                                 | auto    |
-| `mermaid.puppeteer_config=PATH` | Puppeteer config passed to mermaid-cli as `-p`.                                                                | none    |
+| Option                           | Effect                                                                 | Default |
+| -------------------------------- | ---------------------------------------------------------------------- | ------- |
+| `mermaid=off`                    | Keep Mermaid blocks as code.                                           | on      |
+| `mermaid.format=svg\|png`        | Output format.                                                         | `svg`   |
+| `mermaid.scale=N`                | Pixel density for PNG output. The image keeps its natural size.        | `3`     |
+| `mermaid.config=PATH`            | JSON [Mermaid config](https://mermaid.js.org/config/schema-docs/config.html) (`theme`, `themeVariables`, ...). | none |
+| `mermaid.theme=NAME`             | Shortcut for the `theme` key (`default`, `neutral`, `dark`, `forest`, `base`). | none |
+| `mermaid.cli=COMMAND`            | Command that runs mermaid-cli, e.g. `"npx -y @mermaid-js/mermaid-cli@11.4.2"`. | auto |
+| `mermaid.puppeteer_config=PATH`  | Puppeteer config passed to mermaid-cli as `-p`.                        | none    |
 
 A template can set a base config with the `mermaid` key in `template.yaml` or by overriding `Template.mermaid_config()` (see [TEMPLATING.md](TEMPLATING.md)). `mermaid.config` is merged over it, then `mermaid.theme`.
 
