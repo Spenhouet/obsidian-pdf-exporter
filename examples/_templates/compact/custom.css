@@ -1,0 +1,8 @@
+html { font-size: 10pt; }
+body { line-height: 1.35; }
+@page { margin: 14mm 14mm 16mm 14mm; }
+@page landscape-page { margin: 14mm; }
+h1, h2, h3, h4 { margin-top: 0.9em; margin-bottom: 0.3em; }
+p { margin-bottom: 0.45em; }
+th, td { padding: 3px 6px; }
+.callout { padding: 6px 10px; margin: 0.6em 0; }

@@ -1,0 +1,4 @@
+name: footer-text
+description: Title, version and page count in the footer
+css: main.css
+page_css: page.css

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "obsidian-pdf-exporter"
-version = "0.7.0"
+version = "0.6.0"
 description = "Export Obsidian vaults to PDF with plugin support. Runs locally or in CI."
 keywords = ["obsidian", "pdf", "export", "markdown", "vault"]
 readme = "README.md"
@@ -28,6 +28,10 @@ dependencies = [
 dev = [
     "pytest>=8.4.1",
     "ruff>=0.11.13",
+]
+docs = [
+    "mkdocs-material>=9.5",
+    "zensical>=0.0.50",
 ]
 
 [project.urls]
@@ -210,6 +214,14 @@ skip-magic-trailing-comma = false # respects magic trailing commas
   "ARG001",  # unused function argument
   "ARG005",  # unused lambda argument
 ]
+# Docs scripts print progress and run trusted tools (git, pdftoppm).
+"scripts/**/*.py" = [
+  "T201",    # print is the output of these scripts
+  "S603",    # subprocess with arguments built by the script
+  "S607",    # git and pdftoppm are found on PATH
+]
+# Markdown tables of the generated page are kept on one line each.
+"scripts/gen_cli_docs.py" = ["T201", "E501"]
 # Typer's option-as-default pattern is idiomatic; lint rules that fight it
 # only add noise in the CLI module.
 "obsidian_pdf_exporter/main.py" = [
