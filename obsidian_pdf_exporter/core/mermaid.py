@@ -37,6 +37,14 @@ RE_MERMAID_BLOCK = re.compile(
 # off the first letter of every tick label.
 _WEASYPRINT_CSS_FIXES = ".grid .tick{opacity:1 !important;}"
 
+# Mermaid writes wrapped timeline labels as
+# ``<text dy="1em"><tspan dy="1em">``. Browsers apply only the tspan's dy to
+# the first line. WeasyPrint adds both, which moves the text one line down and
+# out of its box. Dropping the dy of the outer text element matches browsers.
+_RE_TEXT_DY_BEFORE_TSPAN_DY = re.compile(
+    r'(<text\b[^>]*?)\sdy="[^"]*"([^>]*>\s*<tspan\b[^>]*\sdy=)'
+)
+
 _FORMATS = ("svg", "png")
 _OFF_VALUES = {"0", "false", "no", "off"}
 _TIMEOUT_SECONDS = 600
@@ -233,7 +241,7 @@ def _store(path: Path, build_dir: Path, digest: str, image_format: str) -> None:
 
 
 def _tidy_svg(svg: str, digest: str) -> str:
-    """Give the SVG a unique id and a fixed size.
+    """Give the SVG a unique id and a fixed size, and fix text offsets for WeasyPrint.
 
     mermaid-cli names every diagram ``my-svg`` and scopes its CSS with that id,
     so inlined diagrams would share styles. It also sets ``width="100%"`` and
@@ -242,6 +250,7 @@ def _tidy_svg(svg: str, digest: str) -> str:
     the height follows from the ``viewBox``.
     """
     svg = svg.replace("my-svg", f"mermaid-{digest}")
+    svg = _RE_TEXT_DY_BEFORE_TSPAN_DY.sub(r"\1\2", svg)
     root = re.search(r"<svg\b[^>]*>", svg)
     if not root:
         return svg
