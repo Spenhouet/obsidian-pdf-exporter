@@ -404,8 +404,24 @@ The exporter relies on a stable set of class names emitted by pandoc + the post-
 | `.callout`, `.callout-note`, `.callout-info`, `.callout-tip`, `.callout-warning`, `.callout-danger`, `.callout-important`, `.callout-example`, `.callout-abstract`, `.callout-todo`, `.callout-success`, `.callout-question`, `.callout-quote` | Obsidian callout types. |
 | `.wide-table-section` | Wide table block (see `tables.landscape` in [MARKDOWN.md](MARKDOWN.md#wide-tables)). The exporter sets `page: landscape-page;` and `break-before/after: page;` on this class — your CSS should also declare a `@page landscape-page { size: A4 landscape; … }` rule with appropriate margins. |
 | `img.doc-image` | Embedded images (`![[…]]` and standard markdown images). |
+| `.mermaid`, `.mermaid-<type>` | Rendered Mermaid diagrams. See [Mermaid diagram sizes](#mermaid-diagram-sizes). |
 | `figure`, `figcaption` | Pandoc emits these when an image has alt text. |
 | `.header-section-number`, `nav#TOC .toc-section-number` | Pandoc's auto-numbered headings. |
+
+### Mermaid diagram sizes
+
+Every rendered Mermaid diagram has the classes `doc-image`, `mermaid` and `mermaid-<type>`. The type is the diagram keyword of the block: `mermaid-pie`, `mermaid-gantt`, `mermaid-timeline`, `mermaid-quadrantChart`, `mermaid-sequenceDiagram`, `mermaid-xychart-beta` and so on. `graph` blocks get `mermaid-flowchart`. Front matter and `%%` lines before the keyword are skipped. The keyword keeps its case, and CSS class names are case sensitive.
+
+The element is an inline `<svg>` for SVG output and an `<img>` for PNG output, so a selector without element name works for both:
+
+```css
+.mermaid-pie { height: 6cm; width: auto; }
+.mermaid-gantt { width: 100%; }
+```
+
+Any rule of the template wins over the size the exporter sets: the natural size, or the width from `-O mermaid.max_height`. The exporter gives this size as a `width` attribute and turns it into a CSS rule with zero specificity. A diagram is never wider than the text width (`max-width: 100%`).
+
+The default template styles images with `img:where(.doc-image)`, so a class rule such as `.mermaid-pie` also wins over its `height: auto`. A custom template that sets `height` on `img.doc-image` needs a selector at least as specific, for example `img.mermaid-pie`.
 
 For the redline pipeline, additionally:
 

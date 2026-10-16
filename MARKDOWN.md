@@ -89,7 +89,7 @@ ope export ./Notes -O mermaid.config=mermaid.json
 
 ### Diagram size
 
-A diagram keeps its natural size and only shrinks when it is wider than the page. `-O mermaid.max_height` scales down diagrams that are taller. Any other sizing belongs in the template's CSS, so the notes contain no export settings.
+A diagram keeps its natural size and only shrinks when it is wider than the page. `-O mermaid.max_height` scales down diagrams that are taller. Any other sizing belongs in the template's CSS, so the notes contain no export settings. Each diagram has a class per type, such as `mermaid-pie` or `mermaid-gantt`. See [Mermaid diagram sizes](TEMPLATING.md#mermaid-diagram-sizes).
 
 `%%` comment lines are allowed in a block. Mermaid ignores them, and the exporter removes them before rendering, so they do not change the diagram.
 
