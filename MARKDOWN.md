@@ -26,13 +26,28 @@ Anything pandoc's GFM dialect understands works as-is. Obsidian-specific feature
 | draw.io SVGs                                 | HTML labels are turned into SVG text and the "Text is not SVG - cannot display" note is removed. See [draw.io diagrams](#drawio-diagrams).                                                                     |
 | YAML frontmatter                             | Parsed (used by Meta Bind) and stripped before rendering.                                                                                                                                                       |
 | HTML comments `<!-- … -->`                   | Stripped.                                                                                                                                                                                                       |
-| Wide tables                                  | Auto-detected; rendered on landscape pages.                                                                                                                                                                     |
+| Wide tables                                  | Tables that need more width than a portrait page has are rendered on landscape pages. See [Wide tables](#wide-tables).                                                                                         |
 | Image followed by a single italic line       | The italic line is promoted to the image's caption.                                                                                                                                                             |
 | ` ```mermaid ` code blocks                   | Rendered to an SVG (or PNG) diagram with mermaid-cli. See [Mermaid diagrams](#mermaid-diagrams).                                                                                                                |
 
 ## Callouts
 
 Every callout type works. The known types get the class of their style group, plus their own name for aliases (`[!caution]` becomes `callout callout-warning callout-caution`). Any other type, such as `[!information]`, gets `callout callout-information callout-note`, so it looks like a note unless the template styles it. The div also carries `data-callout="<type>"`, and the title is a `span.callout-title`.
+
+## Wide tables
+
+A table goes to its own landscape page when it has at least 6 columns and its content does not fit the portrait width. The exporter estimates the width from the text: each column counts with its longest cell (at most 25 characters, because longer text wraps) or with its longest word, which can not wrap. Images count as a full cell. A table of short values, such as keys and numbers, stays in the text.
+
+Options (`-O key=value`):
+
+| Option                          | Effect                                                              | Default |
+| ------------------------------- | ------------------------------------------------------------------- | ------- |
+| `tables.landscape=auto\|on\|off` | `auto` uses the width estimate. `on` turns every table with enough columns to landscape. `off` keeps all tables on portrait pages. | `auto`  |
+| `tables.landscape_min_cols=N`   | Fewest columns a table needs to go to landscape.                    | `6`     |
+
+```bash
+ope export ./Notes -O tables.landscape=off
+```
 
 ## draw.io diagrams
 
