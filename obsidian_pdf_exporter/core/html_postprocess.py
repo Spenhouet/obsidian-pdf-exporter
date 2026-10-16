@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import html as html_lib
 import re
 from pathlib import Path
 
@@ -132,14 +133,38 @@ def _apply_min_width(widths: list[float], min_pct: float) -> list[float]:
     return [floor if w <= floor else w - deficit * (w - floor) / excess for w in widths]
 
 
-def wrap_wide_tables(html: str, min_cols: int = 6) -> tuple[str, bool]:
-    """Wrap tables with at least ``min_cols`` columns in a landscape ``<div>``.
+# Landscape decision for ``tables.landscape=auto``. Widths are counted in
+# characters of table text. A4 portrait with the default margins holds about
+# 90 of them per line.
+_PORTRAIT_CHARS = 90
+# A long cell wraps, so it counts with at most this many characters.
+_CELL_CHARS_CAP = 25
+# Padding and border of a cell, in characters.
+_CELL_PADDING_CHARS = 2
+
+LANDSCAPE_MODES = ("auto", "on", "off")
+
+
+def wrap_wide_tables(html: str, min_cols: int = 6, mode: str = "auto") -> tuple[str, bool]:
+    """Wrap wide tables in a landscape ``<div>``.
+
+    ``mode`` decides which tables count as wide:
+
+    * ``auto``: tables with at least ``min_cols`` columns whose content does
+      not fit the portrait width (see :func:`table_needs_width`).
+    * ``on``: every table with at least ``min_cols`` columns.
+    * ``off``: no table.
 
     The CSS template can use the ``.wide-table-section`` class together with a
     ``@page landscape-page`` rule to render the wide tables in landscape
     orientation. Returns a flag indicating whether at least one table was
     wrapped.
     """
+    if mode not in LANDSCAPE_MODES:
+        msg = f"unknown landscape mode {mode!r}, expected one of {', '.join(LANDSCAPE_MODES)}"
+        raise ValueError(msg)
+    if mode == "off":
+        return html, False
     has_wide = False
 
     def maybe_wrap(m: re.Match) -> str:
@@ -150,13 +175,43 @@ def wrap_wide_tables(html: str, min_cols: int = 6) -> tuple[str, bool]:
             row = re.search(r"<tr\b[^>]*>(.*?)</tr>", table_html, re.DOTALL)
             if row:
                 col_count = len(re.findall(r"<t[hd]\b", row.group(1)))
-        if col_count >= min_cols:
-            has_wide = True
-            return f'<div class="wide-table-section">\n{table_html}\n</div>'
-        return table_html
+        if col_count < min_cols or (mode == "auto" and not table_needs_width(table_html)):
+            return table_html
+        has_wide = True
+        return f'<div class="wide-table-section">\n{table_html}\n</div>'
 
     result = re.sub(r"<table\b[^>]*>.*?</table>", maybe_wrap, html, flags=re.DOTALL)
     return result, has_wide
+
+
+def table_needs_width(table_html: str) -> bool:
+    """Estimate whether a table is too wide for a portrait page.
+
+    Each column counts with its longest cell text, capped at
+    ``_CELL_CHARS_CAP`` characters because long text wraps. A column also
+    needs room for its longest word, which can not wrap. The table needs the
+    width when either sum is larger than ``_PORTRAIT_CHARS``. Images count as
+    a full capped cell.
+    """
+    longest: list[int] = []
+    longest_word: list[int] = []
+    for row in re.findall(r"<tr\b[^>]*>(.*?)</tr>", table_html, re.DOTALL):
+        cells = re.findall(r"<t[hd]\b[^>]*>(.*?)</t[hd]>", row, re.DOTALL)
+        for i, cell in enumerate(cells):
+            text = " ".join(html_lib.unescape(re.sub(r"<[^>]+>", " ", cell)).split())
+            size = len(text)
+            word = max((len(w) for w in text.split()), default=0)
+            if re.search(r"<(?:img|svg)\b", cell):
+                size = word = _CELL_CHARS_CAP
+            if i == len(longest):
+                longest.append(0)
+                longest_word.append(0)
+            longest[i] = max(longest[i], size)
+            longest_word[i] = max(longest_word[i], word)
+    pad = _CELL_PADDING_CHARS * len(longest)
+    wrapped = sum(min(n, _CELL_CHARS_CAP) for n in longest) + pad
+    words = sum(longest_word) + pad
+    return max(wrapped, words) > _PORTRAIT_CHARS
 
 
 def inline_svg_images(html: str, build_dir: Path) -> str:  # noqa: C901 - small SVG handler

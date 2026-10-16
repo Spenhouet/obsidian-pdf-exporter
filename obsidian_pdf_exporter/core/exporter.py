@@ -11,6 +11,7 @@ from pathlib import Path
 
 from obsidian_pdf_exporter.core.assemble import assemble_document
 from obsidian_pdf_exporter.core.heading_links import resolve_heading_links
+from obsidian_pdf_exporter.core.html_postprocess import LANDSCAPE_MODES
 from obsidian_pdf_exporter.core.html_postprocess import add_base_css
 from obsidian_pdf_exporter.core.html_postprocess import inline_svg_images
 from obsidian_pdf_exporter.core.html_postprocess import normalize_colgroups
@@ -170,7 +171,7 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
             hard_line_breaks=_hard_line_breaks(root_folder, request.options),
         )
         html = _postprocess_html(html, build_dir, log)
-        html, has_wide = wrap_wide_tables(html)
+        html, has_wide = wrap_wide_tables(html, *_landscape_settings(request.options, log))
         if has_wide:
             log("  Wide tables detected — landscape orientation applied for those pages")
 
@@ -349,6 +350,25 @@ def _hard_line_breaks(root_folder: Path, options: dict[str, str]) -> bool:
     if choice in ("hard", "soft"):
         return choice == "hard"
     return obsidian_hard_line_breaks(root_folder)
+
+
+def _landscape_settings(
+    options: dict[str, str],
+    log,  # noqa: ANN001 - log is any callable(str)
+) -> tuple[int, str]:
+    """Read ``-O tables.landscape=auto|on|off`` and ``tables.landscape_min_cols=N``."""
+    mode = options.get("tables.landscape", "auto").strip().lower() or "auto"
+    if mode not in LANDSCAPE_MODES:
+        log(f"  Warning: unknown tables.landscape={mode!r}, using 'auto'")
+        mode = "auto"
+    raw = options.get("tables.landscape_min_cols", "").strip()
+    min_cols = 6
+    if raw:
+        if raw.isdigit() and int(raw) >= 1:
+            min_cols = int(raw)
+        else:
+            log(f"  Warning: tables.landscape_min_cols={raw!r} is not a positive number, using 6")
+    return min_cols, mode
 
 
 def _postprocess_html(
