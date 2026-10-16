@@ -499,3 +499,297 @@ body.bl-wide .bl-key, body.bl-wide nav#TOC, body.bl-wide header#title-block-head
 .bl-wide .bl-label.bl-hl .bl-subj { color: var(--bl-hl); }
 .bl-wide .bl-label.bl-hl::before { content: "IN RANGE  "; font-weight: bold; color: var(--bl-hl); }
 """
+
+
+# ---------------------------------------------------------------------------
+# Blame strip outside the page (round 2)
+# ---------------------------------------------------------------------------
+
+STRIP_VARIANTS = ("bracket", "leader", "bands", "agebar", "legend")
+STRIP_WIDTH_MM = {"bracket": 64, "leader": 62, "bands": 62, "agebar": 62, "legend": 58}
+PX_PER_MM = 96 / 25.4
+MAX_SUBJECT = 50
+
+
+def _match_units(body, index: BlameIndex) -> list[tuple[object, str | None]]:  # noqa: ANN001
+    found: list[tuple[object, str | None]] = []
+    prefer = ""
+    for el in _units(body):
+        text = _unit_text(el)
+        if not normalize(text):
+            continue
+        hit = index.match(text, prefer)
+        if hit is None:
+            found.append((el, None))
+            continue
+        prefer = hit[1]
+        found.append((el, hit[0]))
+    for k, (el, sha) in enumerate(found):
+        if sha is not None:
+            continue
+        prev = next((x for _, x in reversed(found[:k]) if x), None)
+        nxt = next((x for _, x in found[k + 1 :] if x), None)
+        if prev is not None and prev == nxt:
+            found[k] = (el, prev)
+    return found
+
+
+def _boxes(box, out: dict, page: int) -> None:  # noqa: ANN001
+    el = getattr(box, "element", None)
+    if el is not None and hasattr(el, "get"):
+        k = el.get("data-bl")
+        tag = getattr(box, "element_tag", "")
+        if k is not None and not tag.endswith("::marker"):
+            top = box.position_y + box.margin_top
+            bottom = top + box.border_height()
+            cur = out.get((int(k), page))
+            out[(int(k), page)] = (
+                (min(cur[0], top), max(cur[1], bottom)) if cur else (top, bottom)
+            )
+    for child in getattr(box, "children", ()) or ():
+        _boxes(child, out, page)
+
+
+@dataclass
+class _Group:
+    sha: str
+    top: float
+    bottom: float
+
+
+def _subject(text: str) -> str:
+    return text if len(text) <= MAX_SUBJECT else text[: MAX_SUBJECT - 1].rstrip() + "…"
+
+
+def render_with_strip(  # noqa: C901, PLR0912, PLR0913, PLR0914, PLR0915
+    html_text: str,
+    output_path: Path,
+    base_url: str,
+    index: BlameIndex,
+    *,
+    variant: str = "bracket",
+    highlight: set[str] | None = None,
+    range_label: str = "",
+) -> float:
+    """Write the PDF unchanged and add a blame strip to the right of every page.
+
+    Returns the share of blocks that matched a source line.
+    """
+    import weasyprint  # noqa: PLC0415
+
+    from obsidian_pdf_exporter.core.pdf import svg_current_color  # noqa: PLC0415
+
+    variant = variant if variant in STRIP_VARIANTS else "bracket"
+    highlight = highlight or set()
+    tree = HtmlTree(html_text)
+    found = _match_units(tree.body, index)
+    for k, (el, _sha) in enumerate(found):
+        el.set("data-bl", str(k))
+    with svg_current_color():
+        document = weasyprint.HTML(string=tree.serialize(), base_url=base_url or None).render()
+    positions: dict[tuple[int, int], tuple[float, float]] = {}
+    sizes = []
+    for p, page in enumerate(document.pages):
+        _boxes(page._page_box, positions, p)  # noqa: SLF001
+        sizes.append((page.width, page.height))
+    document.write_pdf(str(output_path))
+
+    used = [s for _, s in found if s]
+    ages = _ages(index, set(used))
+    numbers: dict[str, int] = {}
+    for s in sorted(set(used), key=lambda s: index.commits[s].time):
+        numbers[s] = len(numbers) + 1
+    sw = STRIP_WIDTH_MM[variant] * PX_PER_MM
+    pages_html = []
+    css_pages = []
+    for p, (w, h) in enumerate(sizes):
+        groups: list[_Group] = []
+        items = sorted(
+            ((k, positions[(k, p)]) for k in range(len(found)) if (k, p) in positions),
+            key=lambda kv: (kv[1][0], kv[0]),
+        )
+        for k, (top, bottom) in items:
+            sha = found[k][1]
+            if sha is None:
+                continue
+            if groups and groups[-1].sha == sha and top <= groups[-1].bottom + 28:
+                groups[-1].bottom = max(groups[-1].bottom, bottom)
+            elif groups and groups[-1].sha == sha:
+                groups.append(_Group(sha, top, bottom))
+            else:
+                groups.append(_Group(sha, top, bottom))
+        pages_html.append(_strip_page(p, groups, index, variant, sw, h, ages, numbers, highlight, range_label))
+        css_pages.append(f"@page s{p} {{ size: {sw:.2f}px {h:.2f}px; margin: 0; }}")
+    strip_html = (
+        "<!doctype html><html><head><meta charset='utf-8'><style>"
+        + STRIP_CSS
+        + "\n".join(css_pages)
+        + "</style></head><body>"
+        + "".join(pages_html)
+        + "</body></html>"
+    )
+    strip_pdf = weasyprint.HTML(string=strip_html).write_pdf()
+
+    # Widen every page and draw the strip next to it. The page content stream is kept as it
+    # is (pypdf wraps it), so links, bookmarks and the page itself do not change.
+    import io  # noqa: PLC0415
+
+    from pypdf import PdfReader  # noqa: PLC0415
+    from pypdf import PdfWriter  # noqa: PLC0415
+    from pypdf import Transformation  # noqa: PLC0415
+
+    writer = PdfWriter(clone_from=PdfReader(io.BytesIO(output_path.read_bytes())))
+    strip = PdfReader(io.BytesIO(strip_pdf))
+    extra = sw * 0.75
+    for p, page in enumerate(writer.pages):
+        x0, y0, x1, y1 = (float(v) for v in page.mediabox)
+        if p < len(strip.pages):
+            page.merge_transformed_page(strip.pages[p], Transformation().translate(x1, y0))
+        page.mediabox.upper_right = (x1 + extra, y1)
+        page.cropbox.upper_right = (x1 + extra, y1)
+    with output_path.open("wb") as fh:
+        writer.write(fh)
+    total = len(found)
+    return (sum(1 for _, s in found if s) / total) if total else 0.0
+
+
+def _strip_page(  # noqa: C901, PLR0912, PLR0913, PLR0915
+    p: int,
+    groups: list[_Group],
+    index: BlameIndex,
+    variant: str,
+    sw: float,
+    h: float,
+    ages: dict[str, int],
+    numbers: dict[str, int],
+    highlight: set[str],
+    range_label: str,
+) -> str:
+    """HTML of one strip page: absolutely positioned labels and an SVG for lines."""
+    label_h = 27.0
+    gap = 5.0
+    x_label = {"bracket": 9, "leader": 11, "bands": 4, "agebar": 4, "legend": 9}[variant] * PX_PER_MM
+    svg: list[str] = []
+    labels: list[str] = []
+    prev_bottom = -1e9
+    seen_on_page: list[str] = []
+    for n, g in enumerate(groups):
+        c = index.commits[g.sha]
+        hl = g.sha in highlight
+        cls = " hl" if hl else ""
+        y_label = max(g.top - 1, prev_bottom + gap)
+        if variant == "legend":
+            y_label = g.top
+        name = escape(c.author)
+        date = escape(c.date)
+        subj = escape(_subject(c.subject))
+        tag = ""
+        if variant == "bracket":
+            x = 4 * PX_PER_MM
+            colr = "#c26a00" if hl else "#6b7380"
+            svg.append(
+                f'<path d="M{x + 6:.1f},{g.top + 1:.1f} H{x:.1f} V{g.bottom - 1:.1f} H{x + 6:.1f}" '
+                f'fill="none" stroke="{colr}" stroke-width="1"/>'
+            )
+            if y_label > g.top + 2:
+                svg.append(
+                    f'<path d="M{x + 6:.1f},{g.top + 1:.1f} L{x_label - 3:.1f},{y_label + 6:.1f}" '
+                    f'fill="none" stroke="{colr}" stroke-width="0.6" stroke-dasharray="1.5,1.5"/>'
+                )
+        elif variant == "leader":
+            colr = "#c26a00" if hl else "#8a929c"
+            ys = g.top + 6
+            svg.append(f'<circle cx="2.2" cy="{ys:.1f}" r="1.8" fill="{colr}"/>')
+            svg.append(
+                f'<path d="M2,{ys:.1f} H{5 * PX_PER_MM:.1f} L{x_label - 4:.1f},{y_label + 6:.1f} H{x_label - 1:.1f}" '
+                f'fill="none" stroke="{colr}" stroke-width="0.7"/>'
+            )
+        elif variant == "bands":
+            fill = ("#fbead2" if hl else "#eef0f3") if n % 2 == 0 else ("#fdf3e4" if hl else "#f7f8fa")
+            svg.append(
+                f'<rect x="0" y="{g.top:.1f}" width="{sw:.1f}" height="{max(g.bottom - g.top, 6):.1f}" fill="{fill}"/>'
+            )
+        elif variant == "agebar":
+            age = ages.get(g.sha, 0)
+            length = (4 + 3 * age) * PX_PER_MM
+            shade = ["#c3c9d1", "#9ba6b5", "#72829a", "#4a5f7e", "#22385c"][age]
+            if hl:
+                shade = "#c26a00"
+            svg.append(f'<path d="M0,{g.top + 1:.1f} H{3 * PX_PER_MM:.1f}" stroke="#aab1ba" stroke-width="0.7"/>')
+            labels.append(
+                f'<div class="ab" style="top:{y_label + 2:.1f}px;left:{x_label:.1f}px;width:{length:.1f}px;background:{shade}"></div>'
+            )
+            y_label += 10
+        elif variant == "legend":
+            num = numbers[g.sha]
+            colr = "#c26a00" if hl else "#4a5462"
+            svg.append(
+                f'<path d="M{3 * PX_PER_MM:.1f},{g.top + 9:.1f} V{g.bottom:.1f}" stroke="{colr}" stroke-width="0.8"/>'
+            )
+            labels.append(
+                f'<div class="num{cls}" style="top:{g.top - 1:.1f}px;left:{1.2 * PX_PER_MM:.1f}px">{num}</div>'
+            )
+            if g.sha not in seen_on_page:
+                seen_on_page.append(g.sha)
+            prev_bottom = g.top + 14
+            continue
+        labels.append(
+            f'<div class="lb{cls}" style="top:{y_label:.1f}px;left:{x_label:.1f}px;'
+            f'width:{sw - x_label - 3 * PX_PER_MM:.1f}px"><div class="nm">{name}'
+            f'<span class="dt"> \u00b7 {date}</span></div><div class="sj">{subj}</div>{tag}</div>'
+        )
+        prev_bottom = y_label + label_h + (10 if tag else 0)
+    if variant == "legend" and seen_on_page:
+        rows = "".join(
+            f'<div class="lg{" hl" if s in highlight else ""}"><span class="num{" hl" if s in highlight else ""}">{numbers[s]}</span>'
+            f'<div class="nm">{escape(index.commits[s].author)}</div><div class="dt">{escape(index.commits[s].date)}</div>'
+            f'<div class="sj">{escape(_subject(index.commits[s].subject))}</div></div>'
+            for s in sorted(seen_on_page, key=lambda s: numbers[s])
+        )
+        labels.append(
+            f'<div class="legend" style="bottom:{20 * PX_PER_MM:.1f}px;left:{9 * PX_PER_MM:.1f}px;'
+            f'width:{sw - 12 * PX_PER_MM:.1f}px">{rows}</div>'
+        )
+    if p == 0:
+        key = "Last change per block: author, date, commit message."
+        if highlight and range_label:
+            key += f' <span class="hlk">Amber</span>: changed in {escape(range_label)}.'
+        labels.append(f'<div class="key" style="top:{8 * PX_PER_MM:.1f}px;left:{4 * PX_PER_MM:.1f}px;width:{sw - 8 * PX_PER_MM:.1f}px">{key}</div>')
+    svg_html = (
+        f'<svg class="lines" width="{sw:.1f}" height="{h:.1f}" viewBox="0 0 {sw:.1f} {h:.1f}">'
+        + "".join(svg)
+        + "</svg>"
+    )
+    return (
+        f'<div class="sp sp-{variant}" style="page: s{p}; width:{sw:.1f}px; height:{h:.1f}px">'
+        + svg_html
+        + "".join(labels)
+        + "</div>"
+    )
+
+
+STRIP_CSS = """
+body { margin: 0; font-family: Arial, 'Liberation Sans', sans-serif; }
+.sp { position: relative; break-after: page; overflow: hidden; background: #f6f7f9;
+  border-left: 0.75pt solid #b4bac2; box-sizing: border-box; }
+.sp:last-child { break-after: auto; }
+.sp-bands { background: #fafbfc; }
+svg.lines { position: absolute; left: 0; top: 0; }
+.lb { position: absolute; font-size: 6.6pt; line-height: 1.28; color: #2f353d; }
+.lb .nm { font-weight: bold; color: #1d232b; }
+.lb .dt { color: #5f6670; }
+.lb .sj { color: #4a5059; font-style: italic; }
+.lb.hl { border-left: 1.6pt solid #c26a00; padding-left: 1.2mm; margin-left: -2.8mm; }
+.key { position: absolute; font-size: 6.4pt; line-height: 1.3; color: #5f6670; border-bottom: 0.6pt solid #c5cad1; padding-bottom: 1mm; }
+.hlk { color: #a65a00; font-weight: bold; }
+.lb .dt { font-weight: normal; }
+.rng { font-size: 0.9em; font-weight: bold; color: #a65a00; font-style: normal; }
+.ab { position: absolute; height: 1.6mm; border-radius: 0.8mm; }
+.num { position: absolute; width: 3.6mm; height: 3.6mm; border-radius: 50%; background: #4a5462; color: white;
+  font-size: 6pt; font-weight: bold; text-align: center; line-height: 3.6mm; }
+.num.hl { background: #c26a00; }
+.legend { position: absolute; font-size: 6.4pt; line-height: 1.25; border-top: 0.75pt solid #b4bac2; padding-top: 1.5mm; }
+.legend .lg { position: relative; padding-left: 5.5mm; margin-bottom: 1.6mm; }
+.legend .lg .num { left: 0; top: 0; }
+.legend .nm { font-weight: bold; } .legend .dt { color: #5f6670; } .legend .sj { color: #4a5059; font-style: italic; }
+"""

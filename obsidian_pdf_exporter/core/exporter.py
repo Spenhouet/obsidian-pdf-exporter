@@ -12,7 +12,9 @@ from pathlib import Path
 from obsidian_pdf_exporter.core.assemble import assemble_document
 from obsidian_pdf_exporter.core.blame import annotate
 from obsidian_pdf_exporter.core.blame import build_index
+from obsidian_pdf_exporter.core.blame import STRIP_VARIANTS
 from obsidian_pdf_exporter.core.blame import range_commits
+from obsidian_pdf_exporter.core.blame import render_with_strip
 from obsidian_pdf_exporter.core.pandoc import render_html
 from obsidian_pdf_exporter.core.pdf import apply_decorations
 from obsidian_pdf_exporter.core.pdf import html_to_pdf
@@ -183,13 +185,14 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
         html = run_html(html, doc_ctx, steps)
         html = request.template.process_html(html, ctx)
         html = apply_decorations(html, request.template.decorations(ctx))
-        if request.blame:
+        if request.blame and not _is_strip(request.options):
             html = _apply_blame(html, root_folder, "", request.options, log)
 
         (build_dir / "final.html").write_text(html, encoding="utf-8")
 
         log("  Generating PDF...")
-        html_to_pdf(html, output_path, base_url=build_dir.as_uri())
+        if not _strip_blame(html, output_path, build_dir, root_folder, "", request, log):
+            html_to_pdf(html, output_path, base_url=build_dir.as_uri())
 
         size_kb = output_path.stat().st_size / 1024
         log(f"\n  PDF created: {output_path}")
@@ -327,7 +330,7 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
             html = run_html(html, doc_ctx, steps)
             html = request.template.process_html(html, ctx)
             html = apply_decorations(html, request.template.decorations(ctx))
-            if request.blame:
+            if request.blame and not _is_strip(request.options):
                 html = _apply_blame(
                     html,
                     repo / rel_path,
@@ -341,7 +344,12 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
             (build_dir / "redline_final.html").write_text(html, encoding="utf-8")
 
             log("  Generating PDF...")
-            html_to_pdf(html, output_path, base_url=build_dir.as_uri())
+            if not _strip_blame(
+                html, output_path, build_dir, repo / rel_path, request.to_commit, request, log,
+                highlight=range_commits(repo, request.from_commit, request.to_commit),
+                range_label=f"{request.from_commit} \u2192 {request.to_commit}",
+            ):
+                html_to_pdf(html, output_path, base_url=build_dir.as_uri())
 
             size_kb = output_path.stat().st_size / 1024
             log(f"\n  Redline PDF created: {output_path}")
@@ -349,6 +357,41 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
             return output_path
     finally:
         _cleanup(build_dir, output_path, debug=request.debug, log=log)
+
+
+def _is_strip(options: dict[str, str]) -> bool:
+    return options.get("blame.layout", "margin") in STRIP_VARIANTS
+
+
+def _strip_blame(  # noqa: PLR0913
+    html: str,
+    output_path: Path,
+    build_dir: Path,
+    folder: Path,
+    commit: str,
+    request,  # noqa: ANN001
+    log,  # noqa: ANN001
+    *,
+    highlight: set[str] | None = None,
+    range_label: str = "",
+) -> bool:
+    """Write the PDF with a blame strip outside the page; False when not asked for."""
+    if not request.blame or not _is_strip(request.options):
+        return False
+    repo = git_root(folder if folder.exists() else Path.cwd())
+    log("  Blaming source files...")
+    index = build_index(repo, folder, commit)
+    share = render_with_strip(
+        html,
+        output_path,
+        build_dir.as_uri(),
+        index,
+        variant=request.options.get("blame.layout", "bracket"),
+        highlight=highlight,
+        range_label=range_label,
+    )
+    log(f"  Blame: {share:.0%} of the blocks matched a source line")
+    return True
 
 
 def _apply_blame(

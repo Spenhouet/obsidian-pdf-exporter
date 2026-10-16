@@ -1,0 +1,31 @@
+/* ---- diff4: deletion gutter ----
+   The text reads as the new version with insertions marked. Every deletion leaves
+   a small numbered mark; the deleted words sit, struck, in a tinted gutter left of
+   the block they were removed from. */
+@page {
+  margin: 25mm 18mm 22mm 64mm;
+  background: linear-gradient(to right, white 0, white 8mm, #f9eee8 8mm, #f9eee8 57mm, #e5c9bb 57mm, #e5c9bb 57.3mm, white 57.3mm);
+}
+.rl-summary, nav#TOC, header#title-block-header { margin-left: -50mm; }
+ins { background: #e8f0fb; text-decoration: underline; text-decoration-color: var(--ins); color: inherit; }
+ins.rl-moved { background: var(--move-bg); }
+.rl-fmt, .rl-link a { border-bottom: 0.8pt dotted var(--fmt); }
+.rl-block.rl-ins > :not(.rl-img-label):not(.rl-move-label) { text-decoration: underline; text-decoration-color: var(--ins); }
+h1.rl-ins, h2.rl-ins, h3.rl-ins { text-decoration: underline; text-decoration-color: var(--ins); }
+.rl-block.rl-move-to > :not(.rl-move-label) { color: var(--move); }
+sup.rl-gm, .rl-ph sup { color: var(--del); font-weight: bold; font-size: 0.62em; }
+.rl-ph { font-size: 0.85em; color: var(--color-grey); font-style: italic; margin: 0.1em 0 0.6em; }
+.rl-gutter {
+  float: left; clear: left; width: 45mm; margin-left: -52mm; margin-top: 0.15em;
+  font-size: 7.3pt; line-height: 1.35; color: #5a3a2c; font-weight: normal; font-style: normal; text-decoration: none;
+}
+.rl-gn { margin-bottom: 0.35em; }
+.rl-gn b { color: var(--del); margin-right: 0.3em; }
+.rl-gn s { text-decoration: line-through; text-decoration-color: var(--del); }
+.rl-gn-move b { color: var(--move); }
+.rl-gn-o { color: var(--fmt); font-style: italic; }
+pre.rl-code .rl-line-ins { background: #e8f0fb; }
+tr.rl-tr-ins td { background: #f0f5fc; }
+.rl-hunk { margin-left: -4mm; padding-left: calc(4mm - 1pt); border-left: 1pt solid #c9a18f; }
+.callout .rl-hunk { margin-left: calc(-4mm - 0.9em - 3pt); padding-left: calc(4mm + 0.9em + 3pt - 1pt); }
+.callout .rl-gutter { margin-left: calc(-52mm - 0.9em - 3pt); }

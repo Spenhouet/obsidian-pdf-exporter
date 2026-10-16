@@ -1,0 +1,41 @@
+/* ---- sbs2: facing pages ----
+   An A3 sheet shows the old and the new document as two facing A4 pages. Rows stay
+   level across the fold; a connector line across the fold and a sign mark each
+   changed block, a gap marks a block that exists on one side only. */
+@page {
+  size: A3 landscape; margin: 22mm 24mm 20mm 24mm;
+  background: linear-gradient(to right, #e3e5e9 -24mm, #e3e5e9 -17mm, white -17mm, white 183mm, #d5d8dd 183mm, #d5d8dd 189mm, white 189mm, white 389mm, #e3e5e9 389mm);
+}
+ins { color: var(--ins); text-decoration: underline; }
+del { color: var(--del); text-decoration: line-through; }
+ins.rl-moved, del.rl-moved { color: var(--move); }
+.rl-fmt, .rl-link a { border-bottom: 0.8pt dotted var(--fmt); }
+.rl-summary, nav#TOC, header#title-block-header { width: 45%; }
+table.rl-wd { width: 100%; table-layout: fixed; border-collapse: collapse; margin: 0; font-size: 1em; }
+table.rl-wd.rl-wd-break { break-before: page; }
+col.rl-col-l, col.rl-col-r { width: 45.16%; } col.rl-col-g { width: 9.68%; }
+table.rl-wd th.rl-wd-h { font-size: 0.72em; font-weight: bold; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--color-grey); border-bottom: 0.6pt solid #b9bec5; padding: 0 0 0.4em; text-align: center; }
+table.rl-wd th.rl-wd-hg { border: none; }
+table.rl-wd td { border: none; padding: 0; vertical-align: top; }
+td.rl-wd-g { text-align: center; }
+tr.rl-wd-row:not(.rl-wd-equal) td.rl-wd-g { border-top: 0.8pt solid #8a9097; }
+tr.rl-wd-move-from td.rl-wd-g, tr.rl-wd-move-to td.rl-wd-g { border-top: 0.8pt dashed var(--move); }
+tr.rl-wd-row:not(.rl-wd-equal) td.rl-wd-l, tr.rl-wd-row:not(.rl-wd-equal) td.rl-wd-r { border-top: 0.8pt solid #8a9097; padding-top: 0.25em; }
+tr.rl-wd-move-from td.rl-wd-l, tr.rl-wd-move-to td.rl-wd-r { border-top: 0.8pt dashed var(--move) !important; }
+tr.rl-wd-move-from td.rl-wd-r, tr.rl-wd-move-to td.rl-wd-l { border-top: 0.8pt dashed var(--move) !important; }
+.rl-sym { display: inline-block; margin-top: 0.15em; min-width: 1.6em; line-height: 1.6em; border-radius: 0.8em; background: white;
+  border: 0.8pt solid #8a9097; font-family: var(--font-mono); font-weight: bold; font-size: 0.85em; }
+.rl-sym-ins { color: var(--ins); border-color: var(--ins); } .rl-sym-del { color: var(--del); border-color: var(--del); }
+.rl-sym-move-from, .rl-sym-move-to { color: var(--move); border-color: var(--move); }
+td.rl-empty { background: #f6f7f8; }
+.rl-gap { color: #8a9097; font-style: italic; font-size: 0.8em; padding: 0.35em 0.4em; }
+.rl-wd h1, .rl-wd h2, .rl-wd h3, .rl-wd h4 { break-before: auto; margin-top: 0.5em; }
+td.rl-wd-l h1, td.rl-wd-l h2, td.rl-wd-l h3, td.rl-wd-l h4 { bookmark-level: none; }
+.rl-wd .rl-block.rl-del > :not(.rl-img-label):not(.rl-move-label), .rl-wd .rl-heading.rl-del { color: var(--del); text-decoration: line-through; }
+.rl-wd .rl-block.rl-ins > :not(.rl-img-label):not(.rl-move-label) { color: var(--ins); }
+.rl-wd .rl-block.rl-move-from > :not(.rl-move-label), .rl-wd .rl-block.rl-move-to > :not(.rl-move-label) { color: var(--move); }
+.rl-wd .rl-block[data-rl-kind="image"].rl-del img, .rl-wd .rl-block[data-rl-kind="image"].rl-del svg { opacity: 0.4; }
+tr.rl-tr-ins td { color: var(--ins); } tr.rl-tr-del td { color: var(--del); text-decoration: line-through; }
+pre.rl-code .rl-line-del { color: var(--del); } pre.rl-code .rl-line-ins { color: var(--ins); }
+html, body { background: transparent; }

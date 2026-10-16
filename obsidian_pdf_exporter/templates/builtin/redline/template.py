@@ -13,8 +13,9 @@ from __future__ import annotations
 
 from importlib import resources
 
-from obsidian_pdf_exporter.core.redline_html import STYLES
+from obsidian_pdf_exporter.core import redline_variants  # noqa: F401 - registers the styles
 from obsidian_pdf_exporter.core.redline_html import render_redline
+from obsidian_pdf_exporter.core.redline_html import style_key
 from obsidian_pdf_exporter.templates.base import Decorations
 from obsidian_pdf_exporter.templates.base import ExportContext
 from obsidian_pdf_exporter.templates.base import Template
@@ -32,8 +33,7 @@ class RedlineTemplate(Template):
     def process_html(self, html: str, context: ExportContext) -> str:
         if "redline.from_ref" not in context.options and "redline.style" not in context.options:
             return html
-        style = context.options.get("redline.style", "a").strip().lower()[:1]
-        style = style if style in STYLES else "a"
+        style = style_key(context.options)
         html = render_redline(html, context.options)
         css = _read(f"style-{style}.css")
         return html.replace("</head>", f"<style>{css}</style>\n</head>", 1)

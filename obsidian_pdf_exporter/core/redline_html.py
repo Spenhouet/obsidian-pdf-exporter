@@ -101,11 +101,15 @@ class Hunk:
 # ---------------------------------------------------------------------------
 
 
+def style_key(options: dict[str, str]) -> str:
+    """Return the chosen style, ``a`` when it is unknown."""
+    style = options.get("redline.style", "a").strip().lower()
+    return style if style in TRANSFORMS else "a"
+
+
 def render_redline(html_text: str, options: dict[str, str]) -> str:
     """Apply the redline style chosen in ``options['redline.style']`` to ``html_text``."""
-    style = options.get("redline.style", "a").strip().lower()[:1]
-    if style not in STYLES:
-        style = "a"
+    style = style_key(options)
     tree = HtmlTree(html_text)
     body = tree.body
     add_class(body, "rl-doc", f"rl-style-{style}")
@@ -702,6 +706,8 @@ def _fmt_date(iso: str) -> str:
 
 
 def _legend(style: str) -> str:
+    if style.startswith(("sbs", "diff")):
+        return LEGENDS.get(style, "")
     if style == "d":
         return (
             '<span class="rl-lg rl-lg-col">Before | After columns</span> '
@@ -793,7 +799,7 @@ def _summary(options: dict[str, str], hunks: list[Hunk], style: str) -> str:
   <table class="rl-sources">
     <tr><th>Before</th><td><span class="rl-src">{escape(src_from)}</span> {escape(from_detail)}</td></tr>
     <tr><th>After</th><td><span class="rl-src">{escape(src_to)}</span> {escape(to_detail)}</td></tr>
-    <tr><th>View</th><td>{escape(STYLE_NAMES[style])} · {_legend(style)}</td></tr>
+    <tr><th>View</th><td>{escape(STYLE_NAMES.get(style, style))} · {_legend(style)}</td></tr>
   </table>
   <div class="rl-tiles">{tiles}<div class="rl-tile rl-tile-total"><span class="rl-tile-n">{total.total}</span><span class="rl-tile-l">changes in {len(seen)} sections</span></div></div>
   <div class="rl-sum-sub">Changed sections</div>
@@ -1033,6 +1039,13 @@ def _html(el) -> str:  # noqa: ANN001
 def _side(el, keep: str):  # noqa: ANN001, ANN202
     """Copy of ``el`` that shows one side: ``old`` (no insertions) or ``new`` (no deletions)."""
     c = copy.deepcopy(el)
+    other = ("rl-ins", "rl-move-to") if keep == "old" else ("rl-del", "rl-move-from")
+    for e in list(c.iterdescendants()):
+        if (e.tag == "div" and has_class(e, "rl-block") and any(has_class(e, o) for o in other)) or (
+            e.tag in HEADINGS and keep == "old" and has_class(e, "rl-ins")
+        ):
+            if e.getparent() is not None:
+                drop(e)
     gone, stay = ("ins", "del") if keep == "old" else ("del", "ins")
     for e in c.xpath(f".//{gone}"):
         drop(e)
@@ -1271,4 +1284,5 @@ def _unify(el) -> None:  # noqa: ANN001
         add_class(tr, "rl-u-minus")
 
 
+LEGENDS: dict[str, str] = {}
 TRANSFORMS = {"a": _style_a, "b": _style_b, "c": _style_c, "d": _style_d, "e": _style_e}

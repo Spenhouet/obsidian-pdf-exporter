@@ -1,0 +1,32 @@
+/* ---- sbs4: margin parallel ----
+   The new document in its own column; beside every changed block the previous
+   wording in small type, like an annotated edition. */
+@page { margin: 25mm 10mm 22mm 20mm; }
+body { margin-right: 66mm; }
+.rl-summary, nav#TOC, header#title-block-header { margin-right: -66mm; }
+ins { color: var(--ins); text-decoration: underline; text-decoration-color: var(--ins); }
+.rl-fmt, .rl-link a { border-bottom: 0.8pt dotted var(--fmt); }
+.rl-hunk { margin-left: -6mm; padding-left: calc(6mm - 1.2pt); border-left: 1.2pt solid var(--bar); }
+.callout .rl-hunk { margin-left: calc(-6mm - 0.9em - 3pt); padding-left: calc(6mm + 0.9em + 3pt - 1.2pt); }
+.rl-block.rl-ins > :not(.rl-img-label):not(.rl-move-label) { color: var(--ins); }
+.rl-block.rl-move-to > :not(.rl-move-label) { color: var(--move); }
+.rl-par {
+  float: right; clear: right; width: 58mm; margin: 0 -64mm 2mm 0; padding-left: 2.5mm;
+  border-left: 0.8pt solid #b9bec5; font-size: 7.6pt; line-height: 1.38; color: #4a4f57;
+}
+.rl-par-label { font-weight: bold; text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.88em; color: var(--color-grey); margin-bottom: 0.15em; }
+.rl-par-text { margin-bottom: 0.5em; }
+.rl-par-text * { font-size: 1em !important; margin-top: 0 !important; }
+.rl-par-text del { color: var(--del); text-decoration: line-through; }
+.rl-par-text ins { display: none; }
+.rl-par-text h1, .rl-par-text h2, .rl-par-text h3, .rl-par-text .rl-fake-h { font-weight: bold; bookmark-level: none; break-before: auto; }
+.rl-par-text table { font-size: 0.95em; margin: 0.2em 0; }
+.rl-par-text td, .rl-par-text th { padding: 0.1em 0.3em; }
+.rl-par-text img, .rl-par-text svg { max-width: 100%; opacity: 0.6; }
+.rl-par-text ul, .rl-par-text ol { margin-left: 3.5mm; }
+.rl-par-text .callout { padding: 0.2em 0.5em; margin: 0.1em 0; }
+.rl-par-text pre { padding: 0.3em; }
+.rl-par-text .rl-img-label, .rl-par-text .rl-move-label { display: none; }
+.rl-ph { font-size: 0.85em; font-style: italic; color: var(--color-grey); margin: 0.2em 0 0.6em; }
+pre.rl-code .rl-line-ins { color: var(--ins); }
+tr.rl-tr-ins td { color: var(--ins); }

@@ -1,0 +1,42 @@
+/* ---- diff1: unified with margin signs ----
+   Each changed block is printed as its old version (grey, removed words struck)
+   followed by its new version (inserted words underlined). Signs - / + / ⇄ sit in
+   the left margin next to a thin change bar; no tints, no boxes. */
+ins { color: var(--ins); text-decoration: underline; text-decoration-color: var(--ins); }
+del { color: var(--del); text-decoration: line-through; }
+ins.rl-moved, del.rl-moved { color: var(--move); }
+.rl-fmt, .rl-link a { border-bottom: 0.8pt dotted var(--fmt); }
+.rl-hunk { margin: 0.3em 0 0.8em -5mm; padding-left: calc(5mm - 0.8pt); border-left: 0.8pt solid #9aa0a6; }
+.callout .rl-hunk { margin-left: calc(-5mm - 0.9em - 3pt); padding-left: calc(5mm + 0.9em + 3pt - 0.8pt); }
+.rl-u-row { position: relative; }
+.rl-u-row + .rl-u-row { margin-top: 0.15em; }
+.rl-u-sign { position: absolute; left: -10.5mm; top: 0; width: 4mm; text-align: center; font-family: var(--font-mono); font-weight: bold; font-size: 1.05em; line-height: 1.45; }
+.rl-u-old .rl-u-sign { color: var(--del); }
+.rl-u-new .rl-u-sign { color: var(--ins); }
+.rl-u-move .rl-u-sign { color: var(--move); }
+.rl-u-old > :not(.rl-u-sign) { color: #5d636b; }
+.rl-u-old p, .rl-u-new p { margin-bottom: 0.35em; }
+.rl-u-old .rl-block.rl-del > :not(.rl-img-label):not(.rl-move-label), .rl-u-old .rl-heading.rl-del { text-decoration: line-through; text-decoration-color: var(--del); color: #5d636b; }
+.rl-u-new .rl-block.rl-ins > :not(.rl-img-label):not(.rl-move-label) { text-decoration: underline; text-decoration-color: var(--ins); }
+.rl-u-move .rl-block > :not(.rl-move-label) { color: var(--move); }
+.rl-u-old img, .rl-u-old svg { opacity: 0.45; }
+.rl-u-row h1, .rl-u-row h2, .rl-u-row h3, .rl-u-row .rl-fake-h { margin-top: 0.2em; break-before: auto; }
+.rl-u-old .rl-fake-h { color: #5d636b; }
+/* Unified lists, tables and code: changed items twice, signs in the margin. */
+li.rl-u-minus, li.rl-u-plus { position: relative; }
+li.rl-u-minus { color: #5d636b; }
+li.rl-u-minus::after, li.rl-u-plus::after { position: absolute; left: -16.5mm; top: 0; width: 4mm; text-align: center; font-family: var(--font-mono); font-weight: bold; }
+li li.rl-u-minus::after, li li.rl-u-plus::after { left: -22.5mm; }
+li.rl-u-minus::after { content: "\2212"; color: var(--del); }
+li.rl-u-plus::after { content: "+"; color: var(--ins); }
+li.rl-li-move-from.rl-u-minus::after, li.rl-li-move-to.rl-u-plus::after { content: "\21c4"; color: var(--move); }
+tr.rl-u-minus td { color: #5d636b; }
+tr.rl-u-minus td:first-child, tr.rl-u-plus td:first-child { position: relative; }
+tr.rl-u-minus td:first-child::before, tr.rl-u-plus td:first-child::before { position: absolute; left: -10.5mm; width: 4mm; text-align: center; font-family: var(--font-mono); font-weight: bold; }
+tr.rl-u-minus td:first-child::before { content: "\2212"; color: var(--del); }
+tr.rl-u-plus td:first-child::before { content: "+"; color: var(--ins); }
+pre.rl-code { padding-left: 0; }
+pre.rl-code .rl-line { position: relative; padding-left: 0.9em; }
+pre.rl-code .rl-line-del { color: #5d636b; }
+pre.rl-code .rl-line-del::before { content: "\2212"; position: absolute; left: -12.3mm; color: var(--del); font-weight: bold; }
+pre.rl-code .rl-line-ins::before { content: "+"; position: absolute; left: -12.3mm; color: var(--ins); font-weight: bold; }

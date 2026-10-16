@@ -1,0 +1,26 @@
+/* ---- sbs5: split on change ----
+   The new document runs full width. Only a changed block splits into a quiet pair:
+   the previous wording smaller and grey on the left, the new wording on the right,
+   a hairline between them and a change bar in the margin. */
+ins { color: var(--ins); text-decoration: underline; }
+del { color: var(--del); text-decoration: line-through; }
+ins.rl-moved, del.rl-moved { color: var(--move); }
+.rl-fmt, .rl-link a { border-bottom: 0.8pt dotted var(--fmt); }
+.rl-hunk { margin: 0.4em 0 0.8em -6mm; padding-left: calc(6mm - 1.2pt); border-left: 1.2pt solid var(--bar); }
+.callout .rl-hunk { margin-left: calc(-6mm - 0.9em - 3pt); padding-left: calc(6mm + 0.9em + 3pt - 1.2pt); }
+table.rl-split { width: 100%; table-layout: fixed; border-collapse: collapse; margin: 0; font-size: 1em; }
+col.rl-split-l { width: 46%; } col.rl-split-r { width: 54%; }
+table.rl-split > tr > td, table.rl-split > tbody > tr > td { border: none; padding: 0 0 0.1em; vertical-align: top; }
+td.rl-split-l { padding-right: 3.5mm !important; border-right: 0.6pt solid #c9cdd2 !important; font-size: 0.9em; color: #4f545b; }
+td.rl-split-r { padding-left: 3.5mm !important; }
+.rl-split-tag { font-size: 0.68em; font-weight: bold; text-transform: uppercase; letter-spacing: 0.1em; color: #8a9097; margin-bottom: 0.1em; }
+.rl-gap { color: #9aa0a6; font-style: italic; font-size: 0.85em; padding-top: 0.2em; }
+td.rl-split-l h1, td.rl-split-l h2, td.rl-split-l h3, td.rl-split-l .rl-fake-h { bookmark-level: none; color: #4f545b; }
+.rl-split h1, .rl-split h2, .rl-split h3, .rl-split .rl-fake-h { margin-top: 0.1em; break-before: auto; }
+.rl-split .rl-block.rl-del > :not(.rl-img-label):not(.rl-move-label), .rl-split .rl-heading.rl-del { color: var(--del); text-decoration: line-through; }
+.rl-split .rl-block.rl-ins > :not(.rl-img-label):not(.rl-move-label) { color: var(--ins); }
+.rl-split .rl-block.rl-move-from > :not(.rl-move-label), .rl-split .rl-block.rl-move-to > :not(.rl-move-label) { color: var(--move); }
+.rl-split .rl-block[data-rl-kind="image"].rl-del img, .rl-split .rl-block[data-rl-kind="image"].rl-del svg { opacity: 0.45; }
+.rl-split table { font-size: 0.95em; }
+tr.rl-tr-ins td { color: var(--ins); } tr.rl-tr-del td { color: var(--del); text-decoration: line-through; }
+pre.rl-code .rl-line-del { color: var(--del); } pre.rl-code .rl-line-ins { color: var(--ins); }
