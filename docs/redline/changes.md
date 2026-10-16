@@ -33,7 +33,7 @@ Some cases do not come out well yet. They are marked below with a warning and a 
 | Code block, Mermaid diagram | `<del>` and `<ins>` as literal text | [#81](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/81) |
 | Meta Bind value | Inline marks | Good |
 | Property that is not shown in the text | Not shown | By design |
-| Dataview result | Can show the old result in both versions | [#90](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/90), [#80](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/80) |
+| Dataview result | Inline marks in the cells; a new or removed row breaks the table | [#80](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/80) |
 | Task checked | Brackets as text | [#85](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/85) |
 | Footnote text | Marks in the footnote area, plus empty boxes | [#87](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/87) |
 
@@ -548,8 +548,8 @@ The properties block is not part of the PDF, so a property change is only visibl
 
 Dataview queries run on each version of the vault before the comparison, so the result table is compared like a normal table: changed values are marked in their cells.
 
-!!! warning "Known issues #90 and #80"
-    The query of the newer version can return the results of the older version, so changes in the queried notes are missing. In this example `Alpha` changed to `done` and `Gamma` was added, but the redline shows the old table. See [#90](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/90). When it works, a new or removed row breaks the table, as for [table rows](#table-rows) ([#80](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/80)).
+!!! warning "Known issue #80"
+    In this example `Alpha` changed to `done` and `Gamma` was added. The changed value and the result count are marked, but the new row breaks the table, as for [table rows](#table-rows) ([#80](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/80)).
 
 <div class="ope-example ope-redline" markdown>
 <div markdown>
@@ -596,7 +596,7 @@ Dataview queries run on each version of the vault before the comparison, so the 
 <div markdown class="ope-redline-pdf">
 <p class="ope-label">Redline PDF</p>
 
-![A Dataview table that still shows the old results](../img/redline/dataview.png)
+![A Dataview table with the changed status and count marked and the new row](../img/redline/dataview.png)
 
 </div>
 </div>

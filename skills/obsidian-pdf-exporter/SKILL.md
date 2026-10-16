@@ -50,7 +50,7 @@ ope export ./Vault/Handbook --disable-plugin dataview
 - Other `-O` keys: `line_breaks=hard|soft`, `footnotes=page|end`, `mermaid=off`, `mermaid.format=svg|png`, `mermaid.landscape=off`, `excalidraw.auto_export=off`, `citations.bibliography=refs.bib`, `citations.csl=style.csl`, `tables.landscape_min_cols=N`. List: https://spenhouet.com/obsidian-pdf-exporter/reference/cli/
 - Exit codes: `0` ok, `1` export failed, `2` bad arguments (for example an unknown template).
 
-Lines starting with `Warning:` name content that could not be rendered: an embed that was not found, a canvas embed or a PDF that cannot be opened (kept as a link), a plugin code block nobody renders (`tasks`, `dataviewjs`, ...). Report them to the user.
+Lines starting with `Warning:` name content that could not be rendered: an embed that was not found, a canvas embed or a PDF that cannot be opened (kept as a link), a plugin code block nobody renders (`tasks`, `ad-note`, ...), a Dataview query or DataviewJS script that failed. Report them to the user.
 
 ## Redline (tracked changes)
 
@@ -110,7 +110,7 @@ Keeps `out/_build_handbook/`: `assembled.md` is what pandoc reads (after all ste
 
 ## What not to expect
 
-- Interactive features have no PDF form: callouts are always open, Meta Bind inputs and buttons are removed, DataviewJS and `TASK` queries are not run.
-- Dataview supports `TABLE` and `LIST` with `FROM`, `WHERE`, `SORT`, `LIMIT`.
+- Interactive features have no PDF form: callouts are always open, Meta Bind inputs and buttons are removed, Dataview tasks cannot be checked and `CALENDAR` is a static month grid.
+- Dataview runs like in Obsidian: all of DQL, inline queries, inline fields and DataviewJS (embedded V8, no network, 10 s per block, `-O dataview.js-timeout=N`). Settings come from `.obsidian/plugins/dataview/data.json`; `-O dataview.<setting>=value` overrides one, `-O dataview.now=2026-04-01` fixes `date(today)`.
 - Canvas and video embeds are not rendered; they become links. PDF embeds are drawn as page images (`-O pdf_embeds.max_pages=N`, `-O pdf_embeds=link`).
 - A bare URL is not turned into a link; use `<https://...>`.
