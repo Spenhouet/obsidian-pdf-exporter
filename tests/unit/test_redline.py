@@ -177,3 +177,10 @@ def test_inserted_and_deleted_list_items_keep_markers() -> None:
     out = diff_markdown(old, new)
     assert "> - two\n> - <ins>three</ins>" in out
     assert "1. first\n2. <del>second</del>" in out
+
+
+def test_word_diff_keeps_html_tags_whole() -> None:
+    old = '| File <span class="dataview small-text">2</span> | x |'
+    new = '| File <span class="dataview small-text">3</span> | x |'
+    out = diff_markdown(old, new)
+    assert '<span class="dataview small-text"><del>2</del><ins>3</ins></span>' in out
