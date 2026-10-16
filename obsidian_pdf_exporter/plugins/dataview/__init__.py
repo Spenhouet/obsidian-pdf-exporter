@@ -1,9 +1,9 @@
 """Support for the Obsidian `Dataview` plugin.
 
-This module evaluates a useful subset of the Dataview DQL language at
-export time. ``TABLE``, ``LIST``, ``FROM``, ``WHERE``, ``SORT`` and
-``LIMIT`` are supported; ``TASK``, ``CALENDAR`` and ``dataviewjs`` blocks
-are replaced with placeholder text since they have no static rendering.
+A port of Dataview's query language, function library, page model and views,
+so ```` ```dataview ```` blocks, inline queries, inline fields and DataviewJS
+give the same result in the PDF as in Obsidian's reading view. See
+:mod:`obsidian_pdf_exporter.plugins.dataview.plugin`.
 """
 
 from obsidian_pdf_exporter.plugins.dataview.plugin import DataviewPlugin

@@ -1,0 +1,528 @@
+{
+ "source": "Ported from the tests of obsidian-dataview (https://github.com/blacksmithgu/obsidian-dataview, src/test/function), MIT License, Copyright (c) 2021 Michael Brenan.",
+ "cases": [
+  [
+   "aggregation.test",
+   "all(regexmatch(\"a+\", list(\"a\", \"aaaa\")))",
+   "json",
+   true
+  ],
+  [
+   "aggregation.test",
+   "all(regexmatch(\"a+\", list(\"a\", \"aaab\")))",
+   "json",
+   false
+  ],
+  [
+   "aggregation.test",
+   "any(regexmatch(\"a+\", list(\"a\", \"aaab\")))",
+   "json",
+   true
+  ],
+  [
+   "aggregation.test",
+   "all(regextest(\"a+\", list(\"a\", \"aaaa\")))",
+   "json",
+   true
+  ],
+  [
+   "aggregation.test",
+   "all(regextest(\"a+\", list(\"a\", \"aaab\")))",
+   "json",
+   true
+  ],
+  [
+   "aggregation.test",
+   "any(regextest(\"a+\", list(\"a\", \"aaab\")))",
+   "json",
+   true
+  ],
+  [
+   "coerce.test",
+   "number(34)",
+   "json",
+   34
+  ],
+  [
+   "coerce.test",
+   "number(\"34\")",
+   "json",
+   34
+  ],
+  [
+   "coerce.test",
+   "number(\"17 years\")",
+   "json",
+   17
+  ],
+  [
+   "coerce.test",
+   "number(\"-19\")",
+   "json",
+   -19
+  ],
+  [
+   "coerce.test",
+   "object()",
+   "json",
+   {}
+  ],
+  [
+   "coerce.test",
+   "object(\"hello\", 1)",
+   "json",
+   {
+    "hello": 1
+   }
+  ],
+  [
+   "coerce.test",
+   "list(1, 2, 3)",
+   "json",
+   [
+    1,
+    2,
+    3
+   ]
+  ],
+  [
+   "coerce.test",
+   "list()",
+   "json",
+   []
+  ],
+  [
+   "eval.test",
+   "12 + 8 - 4 / 2",
+   "json",
+   18
+  ],
+  [
+   "eval.test",
+   "16 / 8 / 2",
+   "json",
+   1
+  ],
+  [
+   "eval.test",
+   "39 / 3 <= 14",
+   "json",
+   true
+  ],
+  [
+   "eval.test",
+   "date(2021-01-14) = date(2021-01-14)",
+   "json",
+   true
+  ],
+  [
+   "eval.test",
+   "contains(list(date(2020-01-01)), date(2020-01-01))",
+   "json",
+   true
+  ],
+  [
+   "functions.test",
+   "lower(list(\"A\", \"B\"))",
+   "json",
+   [
+    "a",
+    "b"
+   ]
+  ],
+  [
+   "functions.test",
+   "contains(object(\"hello\", 1), \"hello\")",
+   "json",
+   true
+  ],
+  [
+   "functions.test",
+   "contains(object(\"hello\", 1), \"no\")",
+   "json",
+   false
+  ],
+  [
+   "functions.test",
+   "contains(list(\"hello\", 1), \"hello\")",
+   "json",
+   true
+  ],
+  [
+   "functions.test",
+   "contains(list(\"hello\", 1), 6)",
+   "json",
+   false
+  ],
+  [
+   "functions.test",
+   "contains(list(\"hello\"), \"he\")",
+   "json",
+   true
+  ],
+  [
+   "functions.test",
+   "contains(list(\"hello\"), \"no\")",
+   "json",
+   false
+  ],
+  [
+   "functions.test",
+   "contains(\"hello\", \"hello\")",
+   "json",
+   true
+  ],
+  [
+   "functions.test",
+   "contains(\"meep\", \"me\")",
+   "json",
+   true
+  ],
+  [
+   "functions.test",
+   "contains(\"hello\", \"xd\")",
+   "json",
+   false
+  ],
+  [
+   "functions.test",
+   "econtains(list(\"hello\"), \"he\")",
+   "json",
+   false
+  ],
+  [
+   "functions.test",
+   "econtains(list(\"hello\"), \"hello\")",
+   "json",
+   true
+  ],
+  [
+   "functions.test",
+   "econtains(list(\"hello\", 19), 1)",
+   "json",
+   false
+  ],
+  [
+   "functions.test",
+   "econtains(list(\"hello\", 19), 19)",
+   "json",
+   true
+  ],
+  [
+   "functions.test",
+   "reverse(list(1, 2, 3))",
+   "eval",
+   "list(3, 2, 1)"
+  ],
+  [
+   "functions.test",
+   "reverse(list(\"a\", \"b\", \"c\"))",
+   "eval",
+   "list(\"c\", \"b\", \"a\")"
+  ],
+  [
+   "functions.test",
+   "flat(list(1, 2, 3, list(11, 12)))",
+   "eval",
+   "list(1,2,3,11,12)"
+  ],
+  [
+   "functions.test",
+   "flat(list(1, list(2, list(3, list(4, list(5))))), 10)",
+   "eval",
+   "list(1,2,3,4,5)"
+  ],
+  [
+   "functions.test",
+   "slice(list(1, 2, 3, 4, 5), 3)",
+   "eval",
+   "list(4, 5)"
+  ],
+  [
+   "functions.test",
+   "slice(list(1, 2, 3, 4, 5), 0, 2)",
+   "eval",
+   "list(1, 2)"
+  ],
+  [
+   "functions.test",
+   "slice(list(1, 2, 3, 4, 5), -2)",
+   "eval",
+   "list(4, 5)"
+  ],
+  [
+   "functions.test",
+   "slice(list(1, 2, 3, 4, 5), -1, 1)",
+   "eval",
+   "list()"
+  ],
+  [
+   "functions.test",
+   "slice(list(1, 2, 3, 4, 5))",
+   "eval",
+   "list(1, 2, 3, 4, 5)"
+  ],
+  [
+   "functions.test",
+   "sort(list(2, 3, 1))",
+   "eval",
+   "list(1, 2, 3)"
+  ],
+  [
+   "functions.test",
+   "sort(list(\"a\", \"c\", \"b\"))",
+   "eval",
+   "list(\"a\", \"b\", \"c\")"
+  ],
+  [
+   "functions.test",
+   "sort(list(2, 3, 1), (k) => 0-k)",
+   "eval",
+   "list(3, 2, 1)"
+  ],
+  [
+   "functions.test",
+   "display(\"test\")",
+   "json",
+   "test"
+  ],
+  [
+   "functions.test",
+   "display(\"[displayname](http://example.com)\")",
+   "json",
+   "displayname"
+  ],
+  [
+   "functions.test",
+   "display(\"[[test]]\")",
+   "json",
+   "test"
+  ],
+  [
+   "functions.test",
+   "display(\"[[test|displayname]]\")",
+   "json",
+   "displayname"
+  ],
+  [
+   "functions.test",
+   "display(\"long [[test]] **with** [[test2|multiple]] [links](http://example.com)\")",
+   "json",
+   "long test with multiple links"
+  ],
+  [
+   "functions.test",
+   "display(1)",
+   "json",
+   "1"
+  ],
+  [
+   "functions.test",
+   "display(true)",
+   "json",
+   "true"
+  ],
+  [
+   "functions.test",
+   "display(null)",
+   "json",
+   ""
+  ],
+  [
+   "functions.test",
+   "display(date(\"2024-11-18\"))",
+   "json",
+   "November 18, 2024"
+  ],
+  [
+   "functions.test",
+   "display(dur(\"7 hours\"))",
+   "json",
+   "7 hours"
+  ],
+  [
+   "functions.test",
+   "display(link(\"path/to/file.md\"))",
+   "json",
+   "file"
+  ],
+  [
+   "functions.test",
+   "display(link(\"path/to/file.md\", \"displayname\"))",
+   "json",
+   "displayname"
+  ],
+  [
+   "functions.test",
+   "display(list(\"test\", 2, link(\"file.md\")))",
+   "json",
+   "test, 2, file"
+  ],
+  [
+   "functions.test",
+   "default(null, 1)",
+   "json",
+   1
+  ],
+  [
+   "functions.test",
+   "default(2, 1)",
+   "json",
+   2
+  ],
+  [
+   "functions.test",
+   "default(list(1, null, null), 2)",
+   "json",
+   [
+    1,
+    2,
+    2
+   ]
+  ],
+  [
+   "functions.test",
+   "ldefault(null, 1)",
+   "json",
+   1
+  ],
+  [
+   "functions.test",
+   "ldefault(2, 1)",
+   "json",
+   2
+  ],
+  [
+   "functions.test",
+   "choice(true, 1, 2)",
+   "json",
+   1
+  ],
+  [
+   "functions.test",
+   "choice(false, 1, 2)",
+   "json",
+   2
+  ],
+  [
+   "meta.test",
+   "meta([[2021-11-01|Displayed link text]]).display",
+   "json",
+   "Displayed link text"
+  ],
+  [
+   "meta.test",
+   "meta([[My Project#Next Actions]]).path",
+   "json",
+   "My Project"
+  ],
+  [
+   "meta.test",
+   "meta([[My Project#^9bcbe8]]).path",
+   "json",
+   "My Project"
+  ],
+  [
+   "meta.test",
+   "meta([[My Project]]).path",
+   "json",
+   "My Project"
+  ],
+  [
+   "meta.test",
+   "meta([[My Project#Next Actions]]).subpath",
+   "json",
+   "Next Actions"
+  ],
+  [
+   "meta.test",
+   "meta([[My Project#^9bcbe8]]).subpath",
+   "json",
+   "9bcbe8"
+  ],
+  [
+   "meta.test",
+   "meta([[My Project]]).type",
+   "json",
+   "file"
+  ],
+  [
+   "meta.test",
+   "meta([[My Project#Next Actions]]).type",
+   "json",
+   "header"
+  ],
+  [
+   "meta.test",
+   "meta([[My Project#^9bcbe8]]).type",
+   "json",
+   "block"
+  ],
+  [
+   "string.test",
+   "split(\"hello world\", \" \")",
+   "eval",
+   "list(\"hello\", \"world\")"
+  ],
+  [
+   "string.test",
+   "split(\"hello world\", \"( )\")",
+   "eval",
+   "list(\"hello\", \" \", \"world\")"
+  ],
+  [
+   "string.test",
+   "split(\"hello  world\", \"\\s+\")",
+   "eval",
+   "list(\"hello\", \"world\")"
+  ],
+  [
+   "string.test",
+   "split(\"hello world\", \"x\")",
+   "eval",
+   "list(\"hello world\")"
+  ],
+  [
+   "string.test",
+   "split(\"hello world\", \"( )(x)?\")",
+   "eval",
+   "list(\"hello\", \" \", \"\", \"world\")"
+  ],
+  [
+   "string.test",
+   "split(\"hello there world\", \"(t?here)\")",
+   "eval",
+   "list(\"hello \", \"there\", \" world\")"
+  ],
+  [
+   "string.test",
+   "split(\"hello there world\", \"( )(x)?\")",
+   "eval",
+   "list(\"hello\", \" \", \"\", \"there\", \" \", \"\", \"world\")"
+  ],
+  [
+   "string.test",
+   "split(\"hello world\", \" \", 0)",
+   "eval",
+   "list()"
+  ],
+  [
+   "string.test",
+   "split(\"hello world\", \" \", 1)",
+   "eval",
+   "list(\"hello\")"
+  ],
+  [
+   "string.test",
+   "split(\"hello world\", \" \", 3)",
+   "eval",
+   "list(\"hello\", \"world\")"
+  ],
+  [
+   "string.test",
+   "split(\"hello world\", \"( )\", 2)",
+   "eval",
+   "list(\"hello\", \" \")"
+  ]
+ ]
+}
