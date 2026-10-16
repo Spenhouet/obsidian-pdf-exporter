@@ -178,6 +178,8 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
         html = request.template.process_html(html, ctx)
         html = apply_decorations(html, request.template.decorations(ctx))
 
+        (build_dir / "final.html").write_text(html, encoding="utf-8")
+
         log("  Generating PDF...")
         html_to_pdf(html, output_path, base_url=build_dir.as_uri())
 
@@ -299,6 +301,8 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
             html = _postprocess_html(html, build_dir, log)
             html = request.template.process_html(html, ctx)
             html = apply_decorations(html, request.template.decorations(ctx))
+
+            (build_dir / "redline_final.html").write_text(html, encoding="utf-8")
 
             log("  Generating PDF...")
             html_to_pdf(html, output_path, base_url=build_dir.as_uri())
