@@ -1,3 +1,7 @@
-A PDF embed:
+All pages of a PDF, 260 pixels wide:
 
-![[sample.pdf]]
+![[slides.pdf|260]]
+
+One page:
+
+![[slides.pdf#page=2|260]]

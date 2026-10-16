@@ -133,7 +133,7 @@ def _split_target(raw: str) -> tuple[str, str]:
 
 def _is_note_embed(m: re.Match, ctx: PageContext, source_file: Path) -> bool:
     name, fragment = _split_target(m.group(1))
-    if is_image_target(name):
+    if is_image_target(name) or Path(name).suffix.lower() == ".pdf":
         return False
     if fragment or not name:
         return True

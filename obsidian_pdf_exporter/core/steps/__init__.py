@@ -16,6 +16,7 @@ Priority    Step                 Why here
 20          plugins              community plugins see Obsidian source syntax
 30          html_comments        commented-out embeds are not expanded
 35          bases                before embeds, so ``![[X.base]]`` is a view
+38          pdf_embeds           before embeds, so ``![[x.pdf#page=2]]`` is no note
 40          embeds               embedded content then passes all later steps
 50          obsidian_comments    after embeds, so embedded comments go too
 60          block_ids            after embeds, so embedded markers go too
@@ -61,6 +62,7 @@ from obsidian_pdf_exporter.core.steps.landscape import LandscapeFiguresStep
 from obsidian_pdf_exporter.core.steps.line_breaks import LineBreaksStep
 from obsidian_pdf_exporter.core.steps.math import MathStep
 from obsidian_pdf_exporter.core.steps.mermaid import MermaidStep
+from obsidian_pdf_exporter.core.steps.pdf_embeds import PdfEmbedsStep
 from obsidian_pdf_exporter.core.steps.plugins import PluginsStep
 from obsidian_pdf_exporter.core.steps.svg_images import SvgImagesStep
 from obsidian_pdf_exporter.core.steps.tables import ColumnWidthsStep
@@ -76,6 +78,7 @@ CORE_STEPS: tuple[type[Step], ...] = (
     PluginsStep,
     HtmlCommentsStep,
     BasesStep,
+    PdfEmbedsStep,
     EmbedsStep,
     ObsidianCommentsStep,
     BlockIdsStep,
