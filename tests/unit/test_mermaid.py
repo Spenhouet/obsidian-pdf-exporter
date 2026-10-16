@@ -6,11 +6,12 @@ import json
 import os
 import re
 import shutil
-import struct
 import subprocess
 from pathlib import Path
 
 import pytest
+from PIL import Image
+from PIL import ImageDraw
 
 from obsidian_pdf_exporter.core import mermaid
 from obsidian_pdf_exporter.core.mermaid import MermaidSettings
@@ -25,8 +26,12 @@ FAKE_SVG = (
 )
 
 
-def _png(width: int) -> bytes:
-    return b"\x89PNG\r\n\x1a\n" + struct.pack(">I4sII", 13, b"IHDR", width, 100)
+def _png(path: Path, *, transparent: bool) -> None:
+    """Write a 900x300 PNG with content from 10% to 90% in both directions."""
+    background = (0, 0, 0, 0) if transparent else (255, 255, 255, 255)
+    image = Image.new("RGBA", (900, 300), background)
+    ImageDraw.Draw(image).rectangle((90, 30, 809, 269), fill=(20, 40, 60, 255))
+    image.save(path)
 
 
 class FakeMermaidCli:
@@ -47,7 +52,7 @@ class FakeMermaidCli:
         targets = [out.with_name(f"{out.stem}-{i}.{ext}") for i in range(1, count + 1)]
         for target in targets or [out]:
             if ext == "png":
-                target.write_bytes(_png(900))
+                _png(target, transparent=argv[argv.index("-b") + 1] == "transparent")
             else:
                 target.write_text(FAKE_SVG, encoding="utf-8")
         return subprocess.CompletedProcess(argv, 0, "", "")
@@ -85,14 +90,15 @@ def test_blocks_are_replaced_by_svg_images(tmp_path: Path, fake_cli: FakeMermaid
     assert len(images) == 2
     assert "```" not in out
     assert "~~~" not in out
-    assert len(fake_cli.calls) == 1  # one mermaid-cli run for all diagrams
+    assert len(fake_cli.calls) == 2  # one run for all diagrams, one to measure them
     svg = (tmp_path / images[0]).read_text(encoding="utf-8")
     digest = images[0][len("mermaid-") : -len(".svg")]
     assert "my-svg" not in svg
     assert f'id="mermaid-{digest}"' in svg
     assert f"#mermaid-{digest}{{" in svg
     assert '<svg id="mermaid-' in svg
-    assert 'width="300"' in svg
+    assert 'width="256"' in svg
+    assert 'viewBox="22 2 256 96"' in svg
     assert "max-width" not in svg
 
 
@@ -127,13 +133,14 @@ def test_failed_block_stays_as_code(tmp_path: Path, fake_cli: FakeMermaidCli) ->
     assert bad in out
     assert good not in out
     assert re.search(r"mermaid-[0-9a-f]+\.svg", out)
-    assert len(fake_cli.calls) == 3  # failed batch, then one run per diagram
+    # failed batch, one run per diagram, then one run to measure the good one
+    assert len(fake_cli.calls) == 4
     assert any("Parse error" in m for m in messages)
     assert any("1 Mermaid block(s) could not be rendered" in m for m in messages)
 
 
 def test_png_output_sets_css_width(tmp_path: Path, fake_cli: FakeMermaidCli) -> None:
-    settings = MermaidSettings(image_format="png", scale=3, config={"htmlLabels": True})
+    settings = MermaidSettings(image_format="png", scale=3, config={"htmlLabels": True}, trim=False)
     out = render_mermaid_blocks(_block("graph LR\n  A-->B"), tmp_path, settings)
     assert re.fullmatch(
         r'!\[\]\(mermaid-[0-9a-f]+\.png\)\{\.doc-image \.mermaid style="width:300px"\}', out
@@ -154,6 +161,107 @@ def test_svg_text_keeps_only_the_tspan_line_offset() -> None:
     assert '<text text-anchor="middle"><tspan x="0" dy="1em">Two</tspan>' in out
     assert '<tspan x="0" dy="1.1em">lines</tspan>' in out
     assert '<text y="5" dy="1em">Plain</text>' in out
+
+
+def test_trim_off_keeps_svg_size(tmp_path: Path, fake_cli: FakeMermaidCli) -> None:
+    out = render_mermaid_blocks(_block("graph LR\n  A-->B"), tmp_path, MermaidSettings(trim=False))
+    image = re.search(r"mermaid-[0-9a-f]+\.svg", out)
+    assert image
+    svg = (tmp_path / image.group(0)).read_text(encoding="utf-8")
+    assert 'width="300"' in svg
+    assert 'viewBox="0 0 300 100"' in svg
+    assert len(fake_cli.calls) == 1
+
+
+def test_png_is_cropped_to_content(tmp_path: Path, fake_cli: FakeMermaidCli) -> None:
+    settings = MermaidSettings(image_format="png", scale=3)
+    out = render_mermaid_blocks(_block("graph LR\n  A-->B"), tmp_path, settings)
+    image = re.search(r"mermaid-[0-9a-f]+\.png", out)
+    assert image
+    with Image.open(tmp_path / image.group(0)) as png:
+        # content is 720x240 px, plus 8 CSS px (24 px at scale 3) on each side
+        assert png.size == (768, 288)
+    assert 'style="width:256px"' in out
+    assert len(fake_cli.calls) == 1
+
+
+def test_split_size_hint_removes_the_line() -> None:
+    code = '%% ope: width=8cm, height=50mm\npie\n  %% a normal comment\n  "A" : 1'
+    stripped, hint = mermaid.split_size_hint(code)
+    assert stripped == 'pie\n  %% a normal comment\n  "A" : 1'
+    assert (hint.width, hint.height, hint.problems) == ("8cm", "50mm", [])
+
+
+def test_split_size_hint_reports_problems() -> None:
+    _, hint = mermaid.split_size_hint("pie\n%%ope: size=big width=wide height=50%\n")
+    assert hint.width == ""
+    assert hint.height == ""
+    assert len(hint.problems) == 3
+
+
+@pytest.mark.parametrize(
+    ("hint", "options", "style"),
+    [
+        ("", {}, None),
+        ("width=8cm", {}, "width:302.36px"),
+        ("width=200", {}, "width:200.00px"),
+        ("height=48px", {}, "width:128.00px"),  # 256x96 diagram
+        ("width=100px height=96px", {}, "width:100.00px"),
+        ("width=300px height=24px", {}, "width:64.00px"),
+        ("width=50%", {}, "width:50%"),
+        ("width=50% height=24px", {}, "width:64.00px;max-width:50%"),
+        ("", {"mermaid.max_height": "48px"}, "width:128.00px"),
+        ("", {"mermaid.max_height": "10cm"}, None),
+        ("width=8cm", {"mermaid.max_height": "48px"}, "width:302.36px"),
+    ],
+)
+def test_size_hint_sets_css_width(
+    tmp_path: Path,
+    fake_cli: FakeMermaidCli,
+    hint: str,
+    options: dict[str, str],
+    style: str | None,
+) -> None:
+    code = f"%% ope: {hint}\ngraph LR\n  A-->B" if hint else "graph LR\n  A-->B"
+    out = render_mermaid_blocks(_block(code), tmp_path, mermaid_settings(options))
+    assert re.match(r"!\[\]\(mermaid-[0-9a-f]+\.svg\)", out)
+    if style is None:
+        assert "style=" not in out
+    else:
+        assert f'style="{style}"' in out
+    batch = fake_cli.calls[0][fake_cli.calls[0].index("-i") + 1]
+    assert "ope:" not in Path(batch).read_text(encoding="utf-8")
+
+
+def test_blocks_differing_only_in_size_render_once(
+    tmp_path: Path, fake_cli: FakeMermaidCli
+) -> None:
+    small = _block("%% ope: width=4cm\ngraph LR\n  A-->B")
+    large = _block("%% ope: width=12cm\ngraph LR\n  A-->B")
+    out = render_mermaid_blocks(f"{small}\n\n{large}\n", tmp_path, MermaidSettings())
+    assert len(set(re.findall(r"mermaid-[0-9a-f]+\.svg", out))) == 1
+    batch = fake_cli.calls[0][fake_cli.calls[0].index("-i") + 1]
+    assert Path(batch).read_text(encoding="utf-8").count("```mermaid") == 1
+    assert 'style="width:151.18px"' in out
+    assert 'style="width:453.54px"' in out
+
+
+@pytest.mark.usefixtures("fake_cli")
+def test_bad_size_hint_warns(tmp_path: Path) -> None:
+    messages: list[str] = []
+    out = render_mermaid_blocks(
+        _block("%% ope: width=huge\ngraph LR\n  A-->B"),
+        tmp_path,
+        MermaidSettings(),
+        log=messages.append,
+    )
+    assert "style=" not in out
+    assert any("size hint ignored" in m and "huge" in m for m in messages)
+
+
+def test_settings_reject_bad_max_height() -> None:
+    with pytest.raises(ValueError, match="max_height"):
+        mermaid_settings({"mermaid.max_height": "50%"})
 
 
 def test_without_renderer_blocks_stay_and_warn(
@@ -285,6 +393,21 @@ def test_real_cli_timeline_text_has_one_line_offset(tmp_path: Path) -> None:
     svg = (tmp_path / image.group(0)).read_text(encoding="utf-8")
     assert "<tspan" in svg
     assert not re.search(r'<text\b[^>]*\sdy="[^"]*"[^>]*>\s*<tspan\b[^>]*\sdy=', svg)
+
+
+@pytest.mark.skipif(not _REAL_CLI, reason="mermaid-cli not available")
+def test_real_cli_trims_svg(tmp_path: Path) -> None:
+    code, _ = DIAGRAMS["pie"]
+    widths = []
+    for trim in (False, True):
+        build = tmp_path / str(trim)
+        build.mkdir()
+        out = render_mermaid_blocks(_block(code), build, MermaidSettings(cli=_REAL_CLI, trim=trim))
+        image = re.search(r"mermaid-[0-9a-f]+\.svg", out)
+        assert image
+        svg = (build / image.group(0)).read_text(encoding="utf-8")
+        widths.append(float(re.search(r'<svg\b[^>]*\swidth="([\d.]+)"', svg).group(1)))
+    assert 0 < widths[1] < widths[0]
 
 
 @pytest.mark.skipif(not _REAL_CLI, reason="mermaid-cli not available")
