@@ -44,6 +44,9 @@ _CALLOUT_TYPES: dict[str, tuple[str, str]] = {
 _HEADER = re.compile(r"^ {0,3}>[ \t]?\[!([\w-]+)\][+-]?[ \t]*(.*)$")
 _QUOTE_LINE = re.compile(r"^ {0,3}>")
 _FENCE = re.compile(r"^\s*(```|~~~)")
+_BLOCK_START = re.compile(
+    r"^\s{0,3}(?:#{1,6}(?:\s|$)|```|~~~|[-*+](?:\s|$)|1[.)](?:\s|$)|(?:[-*_]\s*){3,}$|<|\|)"
+)
 _BR_PATTERN = re.compile(
     r"> \[!([\w-]+)\][+-]?([^<\n]*?)<br\s*/?>((?:\s*> [^<\n]*(?:<br\s*/?>\s*)?)*)",
     re.MULTILINE | re.IGNORECASE,
@@ -92,12 +95,29 @@ def _convert_blocks(content: str) -> str:
             i += 1
             continue
         j = i + 1
-        while j < len(lines) and _QUOTE_LINE.match(lines[j]):
+        body: list[str] = []
+        while j < len(lines):
+            if _QUOTE_LINE.match(lines[j]):
+                body.append(_unquote(lines[j]))
+            elif _is_lazy_continuation(lines[j], body[-1] if body else line):
+                body.append(lines[j])
+            else:
+                break
             j += 1
-        body = [_unquote(raw) for raw in lines[i + 1 : j]]
         out.append(_render_block(header, body))
         i = j
     return "\n".join(out)
+
+
+def _is_lazy_continuation(line: str, previous: str) -> bool:
+    """True if ``line`` continues the callout's paragraph without a ``>``.
+
+    As in CommonMark, a line right after paragraph text belongs to the quote
+    unless it is blank or starts a new block (heading, list, fence, rule).
+    """
+    if not line.strip() or not previous.strip():
+        return False
+    return _BLOCK_START.match(line) is None
 
 
 def _unquote(line: str) -> str:
