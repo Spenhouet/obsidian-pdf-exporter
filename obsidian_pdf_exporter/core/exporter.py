@@ -10,29 +10,22 @@ from dataclasses import field
 from pathlib import Path
 
 from obsidian_pdf_exporter.core.assemble import assemble_document
-from obsidian_pdf_exporter.core.heading_links import resolve_heading_links
-from obsidian_pdf_exporter.core.html_postprocess import LANDSCAPE_MODES
-from obsidian_pdf_exporter.core.html_postprocess import add_base_css
-from obsidian_pdf_exporter.core.html_postprocess import inline_svg_images
-from obsidian_pdf_exporter.core.html_postprocess import normalize_colgroups
-from obsidian_pdf_exporter.core.html_postprocess import remove_empty_table_headers
-from obsidian_pdf_exporter.core.html_postprocess import render_task_checkboxes
-from obsidian_pdf_exporter.core.html_postprocess import wrap_wide_tables
-from obsidian_pdf_exporter.core.math_render import render_math
-from obsidian_pdf_exporter.core.mermaid import mermaid_settings
-from obsidian_pdf_exporter.core.mermaid import render_mermaid_blocks
 from obsidian_pdf_exporter.core.pandoc import render_html
 from obsidian_pdf_exporter.core.pdf import apply_decorations
 from obsidian_pdf_exporter.core.pdf import html_to_pdf
+from obsidian_pdf_exporter.core.pipeline import markdown_dialect
+from obsidian_pdf_exporter.core.pipeline import run_document
+from obsidian_pdf_exporter.core.pipeline import run_html
 from obsidian_pdf_exporter.core.redline import diff_markdown
 from obsidian_pdf_exporter.core.redline import extract_commit
 from obsidian_pdf_exporter.core.redline import resolve_short_hash
+from obsidian_pdf_exporter.core.steps import core_steps
+from obsidian_pdf_exporter.core.steps.base import DocumentContext
 from obsidian_pdf_exporter.core.tree import build_space_tree
 from obsidian_pdf_exporter.core.tree import collect_page_index
 from obsidian_pdf_exporter.core.util import git_root
 from obsidian_pdf_exporter.core.util import git_short_hash
 from obsidian_pdf_exporter.core.util import is_git_repo
-from obsidian_pdf_exporter.core.util import obsidian_hard_line_breaks
 from obsidian_pdf_exporter.core.util import today_iso
 from obsidian_pdf_exporter.core.util import vault_root as find_vault_root
 from obsidian_pdf_exporter.core.vault_index import VaultIndex
@@ -105,6 +98,7 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
         plugins = active_plugins(disabled=request.disabled_plugins)
         if plugins:
             log(f"  Active Obsidian plugins: {', '.join(p.name for p in plugins)}")
+        steps = core_steps()
 
         vault_root_path = find_vault_root(root_folder)
         log(f"  Indexing vault at {vault_root_path}...")
@@ -135,6 +129,7 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
             plugin_options=request.options,
             vault_index=vault_index,
             log=log,
+            steps=steps,
         )
         label = request.version or git_short_hash(root_folder)
         markdown = _prepend_metadata(markdown, title, request.subtitle, label, date)
@@ -149,8 +144,17 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
             build_dir=build_dir,
             options=dict(request.options),
         )
+        doc_ctx = DocumentContext(
+            build_dir=build_dir,
+            options=dict(request.options),
+            root=root_folder,
+            export=ctx,
+            template=request.template,
+            plugins=plugins,
+            log=log,
+        )
 
-        markdown = _render_mermaid(markdown, request.template, ctx, log)
+        markdown = run_document(markdown, doc_ctx, steps)
         markdown = request.template.process_markdown(markdown, ctx)
         (build_dir / "assembled.md").write_text(markdown, encoding="utf-8")
 
@@ -166,15 +170,11 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
             css_filename,
             title,
             build_dir,
+            dialect=markdown_dialect(doc_ctx, steps),
             extra_metadata=extra_meta,
             toc=request.toc,
-            hard_line_breaks=_hard_line_breaks(root_folder, request.options),
         )
-        html = _postprocess_html(html, build_dir, log)
-        html, has_wide = wrap_wide_tables(html, *_landscape_settings(request.options, log))
-        if has_wide:
-            log("  Wide tables detected — landscape orientation applied for those pages")
-
+        html = run_html(html, doc_ctx, steps)
         html = request.template.process_html(html, ctx)
         html = apply_decorations(html, request.template.decorations(ctx))
 
@@ -247,6 +247,7 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
             plugins = active_plugins(disabled=request.disabled_plugins)
             if plugins:
                 log(f"  Active Obsidian plugins: {', '.join(p.name for p in plugins)}")
+            steps = core_steps()
 
             old_md = _assemble_if_present(
                 old_root,
@@ -256,6 +257,7 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
                 missing=f"  Note: path not found in {from_hash}",
                 plugins=plugins,
                 plugin_options=request.options,
+                steps=steps,
             )
             new_md = _assemble_if_present(
                 new_root,
@@ -265,6 +267,7 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
                 missing=f"  Note: path not found in {to_hash}",
                 plugins=plugins,
                 plugin_options=request.options,
+                steps=steps,
             )
 
             log("  Computing redline diff...")
@@ -282,8 +285,18 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
                 build_dir=build_dir,
                 options=dict(request.options),
             )
+            doc_ctx = DocumentContext(
+                build_dir=build_dir,
+                options=dict(request.options),
+                root=root_folder,
+                export=ctx,
+                template=request.template,
+                plugins=plugins,
+                redline=True,
+                log=log,
+            )
 
-            markdown = _render_mermaid(markdown, request.template, ctx, log)
+            markdown = run_document(markdown, doc_ctx, steps)
             markdown = request.template.process_markdown(markdown, ctx)
             (build_dir / "redline_assembled.md").write_text(markdown, encoding="utf-8")
 
@@ -295,10 +308,10 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
                 css_filename,
                 title,
                 build_dir,
+                dialect=markdown_dialect(doc_ctx, steps),
                 toc=request.toc,
-                hard_line_breaks=_hard_line_breaks(root_folder, request.options),
             )
-            html = _postprocess_html(html, build_dir, log)
+            html = run_html(html, doc_ctx, steps)
             html = request.template.process_html(html, ctx)
             html = apply_decorations(html, request.template.decorations(ctx))
 
@@ -344,62 +357,6 @@ def _prepend_metadata(
     return "\n".join(lines) + "\n\n" + body
 
 
-def _hard_line_breaks(root_folder: Path, options: dict[str, str]) -> bool:
-    """Decide whether single newlines become line breaks.
-
-    ``-O line_breaks=hard|soft`` wins. Otherwise the vault's "Strict line
-    breaks" setting decides, like in Obsidian.
-    """
-    choice = options.get("line_breaks", "").strip().lower()
-    if choice in ("hard", "soft"):
-        return choice == "hard"
-    return obsidian_hard_line_breaks(root_folder)
-
-
-def _landscape_settings(
-    options: dict[str, str],
-    log,  # noqa: ANN001 - log is any callable(str)
-) -> tuple[int, str]:
-    """Read ``-O tables.landscape=auto|on|off`` and ``tables.landscape_min_cols=N``."""
-    mode = options.get("tables.landscape", "auto").strip().lower() or "auto"
-    if mode not in LANDSCAPE_MODES:
-        log(f"  Warning: unknown tables.landscape={mode!r}, using 'auto'")
-        mode = "auto"
-    raw = options.get("tables.landscape_min_cols", "").strip()
-    min_cols = 6
-    if raw:
-        if raw.isdigit() and int(raw) >= 1:
-            min_cols = int(raw)
-        else:
-            log(f"  Warning: tables.landscape_min_cols={raw!r} is not a positive number, using 6")
-    return min_cols, mode
-
-
-def _postprocess_html(
-    html: str,
-    build_dir: Path,
-    log,  # noqa: ANN001 - log is any callable(str)
-) -> str:
-    """HTML fixes shared by ``export`` and ``redline`` before the template runs."""
-    html = add_base_css(html)
-    html = remove_empty_table_headers(html)
-    html = normalize_colgroups(html)
-    html = inline_svg_images(html, build_dir)
-    html = resolve_heading_links(html)
-    html = render_task_checkboxes(html)
-    return render_math(html, log=log)
-
-
-def _render_mermaid(
-    markdown: str,
-    template: Template,
-    ctx: ExportContext,
-    log,  # noqa: ANN001 - log is any callable(str)
-) -> str:
-    settings = mermaid_settings(ctx.options, template.mermaid_config(ctx))
-    return render_mermaid_blocks(markdown, ctx.build_dir, settings, log=log)
-
-
 def _write_template_assets(template: Template, build_dir: Path) -> str:
     css_filename = f"{template.name}.css"
     (build_dir / css_filename).write_text(template.get_css(), encoding="utf-8")
@@ -420,6 +377,7 @@ def _assemble_if_present(
     *,
     plugins: list | None = None,
     plugin_options: dict[str, str] | None = None,
+    steps: list | None = None,
 ) -> str:
     if not root_dir.exists():
         log(missing + " — treating as empty")
@@ -440,6 +398,7 @@ def _assemble_if_present(
         plugin_options=plugin_options,
         vault_index=vault_index,
         log=log,
+        steps=steps,
     )
 
 
