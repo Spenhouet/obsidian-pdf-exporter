@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+import json
 import re
 import subprocess
 import unicodedata
@@ -54,6 +55,25 @@ def vault_root(start: Path) -> Path:
             if (p / marker).exists():
                 return p
     return start
+
+
+def obsidian_hard_line_breaks(start: Path) -> bool:
+    """True if the Obsidian vault containing ``start`` turns newlines into line breaks.
+
+    Obsidian renders a single newline as a line break unless "Strict line
+    breaks" (``strictLineBreaks`` in ``.obsidian/app.json``) is on. The vault
+    is the closest folder with a ``.obsidian`` directory, searched upwards
+    from ``start``. Outside a vault this returns False (plain markdown rules).
+    """
+    for p in [start, *start.parents]:
+        config_dir = p / ".obsidian"
+        if config_dir.is_dir():
+            try:
+                app = json.loads((config_dir / "app.json").read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                app = {}
+            return not (isinstance(app, dict) and app.get("strictLineBreaks", False))
+    return False
 
 
 def is_git_repo(path: Path) -> bool:
