@@ -2524,7 +2524,7 @@ ope export ./Notes -O mermaid.landscape=off
 ```
 
 !!! note
-    In the picture above the right edge of the last box is cut off. That comes from the trimming of empty space; `-O mermaid.trim=off` avoids it.
+    In the picture above the right edge of the last box is cut off. That comes from the trimming of empty space ([#69](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/69)); `-O mermaid.trim=off` avoids it.
 
 ## Notes
 
