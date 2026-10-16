@@ -6,7 +6,11 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from obsidian_pdf_exporter.core.heading_links import resolve_heading_links
 from obsidian_pdf_exporter.core.html_postprocess import inline_svg_images
+from obsidian_pdf_exporter.core.tree import PageNode
+from obsidian_pdf_exporter.core.tree import collect_page_index
+from obsidian_pdf_exporter.core.tree import lookup_page
 from obsidian_pdf_exporter.core.wiki_links import convert_wiki_links
 from obsidian_pdf_exporter.core.wiki_links import split_image_size
 
@@ -109,11 +113,84 @@ def test_inline_svg_keeps_aspect_ratio_in_weasyprint(
 def test_convert_wiki_links_skips_code(page: tuple[Path, Path]) -> None:
     page_folder, build_dir = page
     source = "`[[Note]]` and `![[pic.png]]`\n```\n[[Note|alias]] ![[pic.png]]\n```\n[[Note|alias]]"
-    expected = "`[[Note]]` and `![[pic.png]]`\n```\n[[Note|alias]] ![[pic.png]]\n```\nalias"
+    expected = "`[[Note]]` and `![[pic.png]]`\n```\n[[Note|alias]] ![[pic.png]]\n```\n*alias*"
     assert convert_wiki_links(source, page_folder, {}, build_dir) == expected
 
 
 def test_escaped_pipe_separates_display_text(tmp_path: Path) -> None:
     r"""Inside tables Obsidian writes ``[[Note\|Alias]]``."""
     out = convert_wiki_links("| [[Note\\|Alias]] | [[Note#Part\\|Other]] |", tmp_path, {}, tmp_path)
-    assert out == "| Alias | Other |"
+    assert out == "| *Alias* | *Other* |"
+
+
+def _vault(tmp_path: Path) -> dict:
+    """A vault with two pages named Page, in Docs/Guide/Page and Other/Page."""
+    root = PageNode(folder=tmp_path, name="Vault")
+    docs = PageNode(folder=tmp_path / "Docs", name="Docs", depth=1)
+    guide = PageNode(folder=tmp_path / "Docs" / "Guide", name="Guide", depth=2)
+    first = PageNode(folder=tmp_path / "Docs" / "Guide" / "Page", name="Page", depth=3)
+    other = PageNode(folder=tmp_path / "Other", name="Other", depth=1)
+    second = PageNode(folder=tmp_path / "Other" / "Page", name="Page", depth=2)
+    root.children = [docs, other]
+    docs.children = [guide]
+    guide.children = [first]
+    other.children = [second]
+    return collect_page_index(root)
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        (
+            "[[Page#Setup]]",
+            '[Page > Setup](#setup){.heading-link data-scope="page" data-fallback="page"}',
+        ),
+        (
+            "[[Page#Setup|alias]]",
+            '[alias](#setup){.heading-link data-scope="page" data-fallback="page"}',
+        ),
+        (
+            "[[Page#Intro#Setup]]",
+            '[Page > Setup](#setup){.heading-link data-scope="page" data-fallback="page"}',
+        ),
+        ("[[Page#^block]]", "[Page](#page)"),
+        ("[[Docs/Guide/Page|alias]]", "[alias](#page)"),
+        ("[[Other/Page|alias]]", "[alias](#page-1)"),
+        ("[[Other/Page.md]]", "[Other/Page.md](#page-1)"),
+        ("[[Page.md]]", "[Page.md](#page)"),
+        ("[[Nowhere/Page|alias]]", "[alias](#page)"),
+        ("[[Missing]]", "*Missing*"),
+        ("[[Missing#Setup|alias]]", "*alias*"),
+    ],
+)
+def test_convert_wiki_links_to_pages(tmp_path: Path, source: str, expected: str) -> None:
+    index = _vault(tmp_path)
+    assert convert_wiki_links(source, tmp_path / "Docs", index, tmp_path) == expected
+
+
+def test_lookup_page_matches_path_against_note_file(tmp_path: Path) -> None:
+    node = PageNode(folder=tmp_path / "A", name="Note", depth=1)
+    node.md_file = tmp_path / "A" / "Notes" / "Note.md"
+    other = PageNode(folder=tmp_path / "B" / "Note", name="Note", depth=1, anchor="note-1")
+    index = {"Note": [{"anchor": "note-1", "node": other}, {"anchor": "note", "node": node}]}
+    assert lookup_page(index, "Notes/Note", tmp_path / "B")["anchor"] == "note"
+
+
+def test_heading_link_to_other_page_resolves_heading_on_that_page() -> None:
+    html = (
+        '<h1 id="first">First</h1><h2 id="setup">Setup</h2>'
+        '<p><a href="#setup" class="heading-link" data-scope="second" data-fallback="second">x</a>'
+        '<a href="#gone" class="heading-link" data-scope="second" data-fallback="second">y</a></p>'
+        '<h1 id="second">Second</h1><h2 id="setup-1">Setup</h2>'
+    )
+    out = resolve_heading_links(html)
+    assert 'href="#setup-1"' in out
+    assert 'href="#second"' in out
+
+
+def test_collect_page_index_gives_pages_with_the_same_name_their_own_anchor(
+    tmp_path: Path,
+) -> None:
+    index = _vault(tmp_path)
+    assert [e["anchor"] for e in index["Page"]] == ["page", "page-1"]
+    assert [e["node"].anchor for e in index["Page"]] == ["page", "page-1"]
