@@ -185,78 +185,44 @@ def test_png_is_cropped_to_content(tmp_path: Path, fake_cli: FakeMermaidCli) -> 
     assert len(fake_cli.calls) == 1
 
 
-def test_split_size_hint_removes_the_line() -> None:
-    code = '%% ope: width=8cm, height=50mm\npie\n  %% a normal comment\n  "A" : 1'
-    stripped, hint = mermaid.split_size_hint(code)
-    assert stripped == 'pie\n  %% a normal comment\n  "A" : 1'
-    assert (hint.width, hint.height, hint.problems) == ("8cm", "50mm", [])
-
-
-def test_split_size_hint_reports_problems() -> None:
-    _, hint = mermaid.split_size_hint("pie\n%%ope: size=big width=wide height=50%\n")
-    assert hint.width == ""
-    assert hint.height == ""
-    assert len(hint.problems) == 3
+def test_strip_comments_keeps_directives() -> None:
+    code = '%%{init: {"theme": "dark"}}%%\npie\n  %% a comment\n%% ope: width=8cm\n  "A" : 1'
+    assert mermaid.strip_comments(code) == '%%{init: {"theme": "dark"}}%%\npie\n  "A" : 1'
 
 
 @pytest.mark.parametrize(
-    ("hint", "options", "style"),
+    ("options", "style"),
     [
-        ("", {}, None),
-        ("width=8cm", {}, "width:302.36px"),
-        ("width=200", {}, "width:200.00px"),
-        ("height=48px", {}, "width:128.00px"),  # 256x96 diagram
-        ("width=100px height=96px", {}, "width:100.00px"),
-        ("width=300px height=24px", {}, "width:64.00px"),
-        ("width=50%", {}, "width:50%"),
-        ("width=50% height=24px", {}, "width:64.00px;max-width:50%"),
-        ("", {"mermaid.max_height": "48px"}, "width:128.00px"),
-        ("", {"mermaid.max_height": "10cm"}, None),
-        ("width=8cm", {"mermaid.max_height": "48px"}, "width:302.36px"),
+        ({}, None),
+        ({"mermaid.max_height": "48px"}, "width:128.00px"),  # 256x96 diagram
+        ({"mermaid.max_height": "10cm"}, None),
     ],
 )
-def test_size_hint_sets_css_width(
+def test_max_height_sets_css_width(
     tmp_path: Path,
     fake_cli: FakeMermaidCli,
-    hint: str,
     options: dict[str, str],
     style: str | None,
 ) -> None:
-    code = f"%% ope: {hint}\ngraph LR\n  A-->B" if hint else "graph LR\n  A-->B"
-    out = render_mermaid_blocks(_block(code), tmp_path, mermaid_settings(options))
+    out = render_mermaid_blocks(_block("graph LR\n  A-->B"), tmp_path, mermaid_settings(options))
     assert re.match(r"!\[\]\(mermaid-[0-9a-f]+\.svg\)", out)
     if style is None:
         assert "style=" not in out
     else:
         assert f'style="{style}"' in out
-    batch = fake_cli.calls[0][fake_cli.calls[0].index("-i") + 1]
-    assert "ope:" not in Path(batch).read_text(encoding="utf-8")
+    assert len(fake_cli.calls) >= 1
 
 
-def test_blocks_differing_only_in_size_render_once(
-    tmp_path: Path, fake_cli: FakeMermaidCli
-) -> None:
-    small = _block("%% ope: width=4cm\ngraph LR\n  A-->B")
-    large = _block("%% ope: width=12cm\ngraph LR\n  A-->B")
-    out = render_mermaid_blocks(f"{small}\n\n{large}\n", tmp_path, MermaidSettings())
+def test_comment_lines_do_not_change_the_diagram(tmp_path: Path, fake_cli: FakeMermaidCli) -> None:
+    plain = _block("graph LR\n  A-->B")
+    commented = _block("%% ope: width=4cm\ngraph LR\n  %% note\n  A-->B")
+    out = render_mermaid_blocks(f"{plain}\n\n{commented}\n", tmp_path, MermaidSettings())
     assert len(set(re.findall(r"mermaid-[0-9a-f]+\.svg", out))) == 1
-    batch = fake_cli.calls[0][fake_cli.calls[0].index("-i") + 1]
-    assert Path(batch).read_text(encoding="utf-8").count("```mermaid") == 1
-    assert 'style="width:151.18px"' in out
-    assert 'style="width:453.54px"' in out
-
-
-@pytest.mark.usefixtures("fake_cli")
-def test_bad_size_hint_warns(tmp_path: Path) -> None:
-    messages: list[str] = []
-    out = render_mermaid_blocks(
-        _block("%% ope: width=huge\ngraph LR\n  A-->B"),
-        tmp_path,
-        MermaidSettings(),
-        log=messages.append,
-    )
     assert "style=" not in out
-    assert any("size hint ignored" in m and "huge" in m for m in messages)
+    batch = fake_cli.calls[0][fake_cli.calls[0].index("-i") + 1]
+    text = Path(batch).read_text(encoding="utf-8")
+    assert text.count("```mermaid") == 1
+    assert "%%" not in text
 
 
 def test_settings_reject_bad_max_height() -> None:
