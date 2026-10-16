@@ -143,6 +143,19 @@ def test_png_output_sets_css_width(tmp_path: Path, fake_cli: FakeMermaidCli) -> 
     assert fake_cli.config() == {"htmlLabels": True}
 
 
+def test_svg_text_keeps_only_the_tspan_line_offset() -> None:
+    svg = (
+        '<svg id="my-svg" viewBox="0 0 10 10">'
+        '<text dy="1em" text-anchor="middle"><tspan x="0" dy="1em">Two</tspan>'
+        '<tspan x="0" dy="1.1em">lines</tspan></text>'
+        '<text y="5" dy="1em">Plain</text></svg>'
+    )
+    out = mermaid._tidy_svg(svg, "abc")
+    assert '<text text-anchor="middle"><tspan x="0" dy="1em">Two</tspan>' in out
+    assert '<tspan x="0" dy="1.1em">lines</tspan>' in out
+    assert '<text y="5" dy="1em">Plain</text>' in out
+
+
 def test_without_renderer_blocks_stay_and_warn(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -240,6 +253,10 @@ DIAGRAMS = {
         "flowchart LR\n  A[Collect data] -->|then| B{Valid?}",
         ["Collect data", "Valid?", "then"],
     ),
+    "timeline": (
+        "timeline\n  title Rollout\n  2027 Q1 : Prototype ready for the first test users",
+        ["Rollout", "Prototype", "users"],
+    ),
 }
 
 
@@ -257,6 +274,17 @@ def test_real_cli_renders_svg_without_foreign_object(tmp_path: Path) -> None:
         words = re.sub(r"<style>.*?</style>|<[^>]+>", " ", svg, flags=re.DOTALL).split()
         for word in " ".join(labels).split():
             assert word in words, (name, word)
+
+
+@pytest.mark.skipif(not _REAL_CLI, reason="mermaid-cli not available")
+def test_real_cli_timeline_text_has_one_line_offset(tmp_path: Path) -> None:
+    code, _ = DIAGRAMS["timeline"]
+    out = render_mermaid_blocks(_block(code), tmp_path, MermaidSettings(cli=_REAL_CLI))
+    image = re.search(r"mermaid-[0-9a-f]+\.svg", out)
+    assert image
+    svg = (tmp_path / image.group(0)).read_text(encoding="utf-8")
+    assert "<tspan" in svg
+    assert not re.search(r'<text\b[^>]*\sdy="[^"]*"[^>]*>\s*<tspan\b[^>]*\sdy=', svg)
 
 
 @pytest.mark.skipif(not _REAL_CLI, reason="mermaid-cli not available")
