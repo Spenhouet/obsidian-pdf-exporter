@@ -1912,32 +1912,24 @@ Source: https://spenhouet.com/obsidian-pdf-exporter/obsidian/structure/
 
 # Folder structure
 
-`ope export ROOT` walks the folder `ROOT`. Every subfolder becomes a section, and the note named like its folder is the text of that section:
+`ope export ROOT` walks the folder `ROOT`. Every subfolder becomes a section, and the note named like its folder is the text of that section. The root note is the first text of the document.
+
+Folder:
 
 ```text
-Handbook/
-├── Handbook.md            ← root note, the first text of the document
-├── images/                ← an attachments folder, its name does not matter
-│   └── logo.png
+structure/
+├── structure.md          ← root note
 ├── Introduction/
-│   └── Introduction.md    ← folder note of "Introduction"
+│   └── Introduction.md   ← section 1
 ├── Part A/
-│   ├── Part A.md
-│   ├── img/               ← scoped attachments, picked over images/ on ties
-│   │   └── logo.png
+│   ├── Part A.md         ← section 2
 │   ├── Chapter 1/
-│   │   └── Chapter 1.md
+│   │   └── Chapter 1.md  ← section 2.1
 │   └── Chapter 2/
-│       └── Chapter 2.md
+│       └── Chapter 2.md  ← section 2.2
 └── Part B/
-    └── Part B.md
+    └── Part B.md         ← section 3
 ```
-
-Markdown:
-
-````markdown
-The root note is the first page. Every folder below becomes a section.
-````
 
 PDF:
 
