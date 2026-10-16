@@ -53,6 +53,8 @@ _RE_COMMENT_LINE = re.compile(r"^[ \t]*%%(?!\{).*(?:\n|$)", re.MULTILINE)
 _RE_LENGTH = re.compile(r"^(?P<value>\d+(?:\.\d+)?|\.\d+)(?P<unit>px|cm|mm|in|pt|pc|%)?$")
 #: CSS pixels per unit.
 _UNITS = {"px": 1.0, "cm": 96 / 2.54, "mm": 96 / 25.4, "in": 96.0, "pt": 96 / 72, "pc": 16.0}
+# First word of a diagram, e.g. ``pie``, ``sequenceDiagram``, ``xychart-beta``.
+_RE_DIAGRAM_KEYWORD = re.compile(r"[A-Za-z][\w-]*")
 #: Space kept around the visible diagram when trimming, in CSS pixels.
 _TRIM_MARGIN = 8
 
@@ -192,9 +194,12 @@ def render_mermaid_blocks(
             failed += 1
             return m.group(0)
         attrs = ".doc-image .mermaid"
-        style = _size_style(image, settings)
-        if style:
-            attrs += f' style="{style}"'
+        kind = diagram_type(code)
+        if kind:
+            attrs += f" .mermaid-{kind}"
+        width = _default_width(image, settings)
+        if width:
+            attrs += f" width={width}"
         return f"![]({image.name}){{{attrs}}}"
 
     result = RE_MERMAID_BLOCK.sub(replace, markdown)
@@ -462,11 +467,13 @@ def _natural_size(image: Path, scale: int) -> tuple[float, float] | None:
     return natural, natural * h / w
 
 
-def _size_style(image: Path, settings: MermaidSettings) -> str:
-    """Return the CSS ``style`` for a diagram image, or ``""`` for its natural size.
+def _default_width(image: Path, settings: MermaidSettings) -> str:
+    """Return the default width of a diagram image in pixels, or ``""``.
 
-    Only the width is set. The height follows from the aspect ratio, so
-    ``mermaid.max_height`` turns into a width.
+    The width becomes the ``width`` attribute of the image, not a ``style``,
+    so any CSS rule of the template wins over it. Only the width is set. The
+    height follows from the aspect ratio, so ``mermaid.max_height`` turns into
+    a width. SVG diagrams carry their natural width already.
     """
     size = _natural_size(image, settings.scale)
     if size is None or size[0] <= 0 or size[1] <= 0:
@@ -474,8 +481,31 @@ def _size_style(image: Path, settings: MermaidSettings) -> str:
     natural_width, natural_height = size
     max_height = _parse_length(settings.max_height) if settings.max_height else None
     if max_height and max_height[0] < natural_height:
-        return f"width:{max_height[0] * natural_width / natural_height:.2f}px"
-    return f"width:{natural_width:g}px" if image.suffix == ".png" else ""
+        return f"{max_height[0] * natural_width / natural_height:.0f}"
+    return f"{natural_width:.0f}" if image.suffix == ".png" else ""
+
+
+def diagram_type(code: str) -> str:
+    """Return the diagram keyword of Mermaid ``code``, such as ``pie`` or ``gantt``.
+
+    Front matter, blank lines and ``%%`` lines are skipped. ``graph`` is
+    returned as ``flowchart``. Returns ``""`` when no keyword is found.
+    """
+    lines = code.splitlines()
+    start = 0
+    if lines and lines[0].strip() == "---":
+        end = next((i for i in range(1, len(lines)) if lines[i].strip() == "---"), None)
+        start = end + 1 if end is not None else len(lines)
+    for line in lines[start:]:
+        text = line.strip()
+        if not text or text.startswith("%%"):
+            continue
+        match = _RE_DIAGRAM_KEYWORD.match(text)
+        if not match:
+            return ""
+        keyword = match.group(0)
+        return "flowchart" if keyword == "graph" else keyword
+    return ""
 
 
 def _render_config(settings: MermaidSettings) -> dict[str, object]:
