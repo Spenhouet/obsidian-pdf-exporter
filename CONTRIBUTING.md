@@ -126,7 +126,7 @@ listed.
    `CORE_STEPS` in [`core/steps/__init__.py`](obsidian_pdf_exporter/core/steps/__init__.py).
 3. Community plugins ([`plugins/`](obsidian_pdf_exporter/plugins/)).
    Support for syntax from community Obsidian plugins and other tools:
-   Folder Notes, Dataview, Meta Bind, Block Link Plus and draw.io. Plugins
+   Folder Notes, Dataview, Excalidraw, Meta Bind, Block Link Plus and draw.io. Plugins
    are found through an entry point, listed by `list-plugins` and can be
    turned off with `--disable-plugin`. They run inside the `plugins` step
    of layer 2.
@@ -152,6 +152,7 @@ obsidian_pdf_exporter/
 │   ├── base.py             # ObsidianPlugin, PluginContext, DocumentContext
 │   ├── registry.py         # entry-point + runtime discovery
 │   ├── folder_notes/, dataview/, meta_bind/
+│   ├── excalidraw/         # Excalidraw drawings drawn as SVG
 │   ├── block_link_plus/    # ![[Note#^id-id]] ranges
 │   └── drawio/             # draw.io SVG labels
 └── templates/              # PDF templates (CSS, header, footer)
@@ -262,6 +263,7 @@ The currently bundled plugins are:
 |----------------|----------------------------------------------------------|
 | `folder_notes` | Map ``Folder/Folder.md`` onto its containing folder      |
 | `dataview`     | Render Dataview DQL ``TABLE`` / ``LIST`` queries         |
+| `excalidraw`   | Turn embedded Excalidraw drawings into images            |
 | `meta_bind`    | Resolve Meta Bind ``VIEW`` widgets, strip INPUT/BUTTON   |
 | `block_link_plus` | Resolve ``![[Note#^id-id]]`` range embeds             |
 | `drawio`       | Turn draw.io HTML labels in SVG images into SVG text     |
@@ -379,6 +381,7 @@ this file under "supported plugins" if the support is partial.
 |----------------|----------|
 | `folder_notes` | 5        |
 | `dataview`     | 10       |
+| `excalidraw`   | 15       |
 | `meta_bind`    | 20       |
 | `block_link_plus` | 30    |
 | `drawio`       | 40       |

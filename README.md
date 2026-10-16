@@ -18,7 +18,7 @@
 - Wiki links and embedded images resolved against a one-pass vault index.
 - Embedded notes, headings, blocks and Block Link Plus ranges (`![[Note#^id]]`) are transcluded.
 - Obsidian callouts styled per type, YAML frontmatter parsed and stripped.
-- Built-in support for [Folder Notes](https://github.com/LostPaul/obsidian-folder-notes), [Dataview](https://github.com/blacksmithgu/obsidian-dataview), [Meta Bind](https://github.com/mProjectsCode/obsidian-meta-bind-plugin), [Block Link Plus](https://github.com/Jasper-1024/block-link-plus) and draw.io SVG exports; third-party plugin support is pip-installable. See [PLUGINS.md](PLUGINS.md).
+- Built-in support for [Folder Notes](https://github.com/LostPaul/obsidian-folder-notes), [Dataview](https://github.com/blacksmithgu/obsidian-dataview), [Meta Bind](https://github.com/mProjectsCode/obsidian-meta-bind-plugin), [Block Link Plus](https://github.com/Jasper-1024/block-link-plus), [Excalidraw](https://github.com/zsviczian/obsidian-excalidraw-plugin) drawings and draw.io SVG exports; third-party plugin support is pip-installable. See [PLUGINS.md](PLUGINS.md).
 - **Redline** PDFs: tracked-changes diff between two git commits.
 - Pluggable PDF templates (CSS + running header/footer + paged-media `@page` rules). Two ship in the box: `default` and `redline`. See [TEMPLATING.md](TEMPLATING.md).
 - Wide tables auto-rotated to landscape pages.

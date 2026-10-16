@@ -102,8 +102,8 @@ class ObsidianPlugin:
     description: str = ""
 
     #: Pipeline priority. Lower values run earlier. Built-in plugins use
-    #: 5 (Folder Notes), 10 (Dataview), 20 (Meta Bind), 30 (Block Link
-    #: Plus) and 40 (draw.io); third-party
+    #: 5 (Folder Notes), 10 (Dataview), 15 (Excalidraw), 20 (Meta Bind), 30
+    #: (Block Link Plus) and 40 (draw.io); third-party
     #: plugins should leave room around them.
     priority: int = 100
 
