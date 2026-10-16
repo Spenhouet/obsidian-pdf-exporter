@@ -51,5 +51,28 @@ description: Markdown links, bare URLs and images with captions.
 - A single italic line right below an image becomes its caption.
 - Image sizes and the full embed syntax are on the [Embeds](../obsidian/embeds.md) page.
 
-!!! warning "Relative paths in Markdown images"
-    A Markdown image with a relative path, such as `![Chart](../img/chart.png)`, is not looked up from the note's folder yet, so the image is missing in the PDF. Use an Obsidian embed (`![[chart.png]]`), which is looked up in the whole vault.
+## Local images
+
+<div class="ope-example" markdown>
+<div markdown>
+<p class="ope-label">Markdown</p>
+
+````markdown
+--8<-- "examples/markdown-images/markdown-images.md"
+````
+
+</div>
+<div markdown>
+<p class="ope-label">PDF</p>
+
+![Markdown images with relative paths](../img/features/markdown-images.png)
+
+</div>
+</div>
+
+- The path of `![alt](path)` and of `<img src="path">` is looked up from the folder of the note it is written in, as in Obsidian. In an embedded note, that is the folder of the embedded note.
+- A path that starts with `/` is looked up from the vault root. When the path does not exist, the file name is looked up in the whole vault, as for `![[image.png]]`.
+- Encoded characters (`my%20chart.png`) and paths in angle brackets (`![alt](<my chart.png>)`) work. A title (`![alt](path "Title")`) is kept.
+- A width or a width and height after the alt text, `![alt|300](path)` or `![alt|300x200](path)`, sets the size, as in Obsidian.
+- Images with a URL, such as `https://...` or `data:...`, stay as written.
+- A Markdown image that cannot be found becomes the italic text *[Image: path]*, an HTML image stays as written. Both give a warning.
