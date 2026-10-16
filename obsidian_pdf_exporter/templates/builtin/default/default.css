@@ -264,7 +264,7 @@ a {
 a:hover { text-decoration: underline; }
 
 /* ---- Images ---- */
-img.doc-image {
+img:where(.doc-image) {
   max-width: 100%;
   height: auto;
   display: block;

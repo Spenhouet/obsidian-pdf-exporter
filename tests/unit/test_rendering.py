@@ -355,3 +355,9 @@ def test_drawio_left_aligned_label_without_fallback() -> None:
     out = clean_drawio_svg(svg)
     assert 'text-anchor="start"' in out
     assert '<tspan x="30"' in out
+
+
+def test_base_css_turns_image_width_into_weak_rule() -> None:
+    html = add_base_css('<head></head><img src="a.png" width="300" /><img width="40" src="b.png">')
+    assert ':where(img[width="40"]) { width: 40px; }' in html
+    assert ':where(img[width="300"]) { width: 300px; }' in html
