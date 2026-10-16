@@ -1,7 +1,8 @@
 ---
 title: obsidian-pdf-exporter
 description: >-
-  Export Obsidian vaults to PDF with plugin support. Runs locally or in CI.
+  Export Obsidian vaults to PDF with plugin support, and make redline PDFs
+  that show the tracked changes between two git commits. Runs locally or in CI.
 hide:
   - navigation
   - toc
@@ -15,6 +16,26 @@ hide:
 
 [Get started](getting-started/installation.md){ .md-button .md-button--primary }
 [View on GitHub](https://github.com/Spenhouet/obsidian-pdf-exporter){ .md-button }
+
+</div>
+
+<div class="ope-feature" markdown>
+
+## Redline: every change, in the PDF
+
+<p class="ope-feature-pitch">One command turns two git commits of your notes into a tracked-changes PDF: inserted text in green, removed text struck through in red, in the layout of the real document. Made for reviews, approvals, audits and release notes of controlled documents.</p>
+
+<picture>
+  <source media="(max-width: 44.9375em)" srcset="img/redline/overview.png">
+  <img src="img/redline/redline-three-up.png" alt="The same policy before and after a change, and the redline PDF that shows inserted, removed and changed text">
+</picture>
+
+```bash
+ope redline ./Policy --from-commit v1.0.0 --to-commit v1.1.0
+```
+
+[How Redline works](redline/index.md){ .md-button .md-button--primary }
+[Usage and CI](redline/usage.md){ .md-button }
 
 </div>
 
@@ -44,7 +65,7 @@ hide:
 
     A tracked-changes PDF between two git commits, for reviews and audits.
 
-    [:octicons-arrow-right-24: Redline](redline.md)
+    [:octicons-arrow-right-24: Redline](redline/index.md)
 
 -   :material-palette-outline: __Templates__
 

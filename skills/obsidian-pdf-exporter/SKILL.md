@@ -1,11 +1,11 @@
 ---
 name: obsidian-pdf-exporter
-description: Export Obsidian vaults, folders and notes to PDF with the ope (obsidian-pdf-exporter) CLI. Handles wiki links, embeds, callouts, Mermaid, math, footnotes, Bases, Dataview, Meta Bind, Excalidraw, draw.io and pandoc citations, wide tables on landscape pages, redline (tracked-changes) PDFs between two git commits, and custom PDF templates with header, footer, letterhead or logo. Installs ope if it is missing. Use when asked to export Obsidian notes or a Markdown vault to PDF, make a PDF handbook or manual from notes, create a redline or diff PDF of documentation, style or brand an exported PDF, change its header or footer, or debug how a note renders in the PDF.
+description: Export Obsidian vaults, folders and notes to PDF with the ope (obsidian-pdf-exporter) CLI, and make redline (tracked-changes) PDFs that show what changed in a vault folder between two git commits, tags or branches. Handles wiki links, embeds, callouts, Mermaid, math, footnotes, Bases, Dataview, Meta Bind, Excalidraw, draw.io and pandoc citations, wide tables on landscape pages, and custom PDF templates with header, footer, letterhead or logo. Installs ope if it is missing. Use when asked to export Obsidian notes or a Markdown vault to PDF, make a PDF handbook or manual from notes, create a redline, diff or tracked-changes PDF of documentation (for a review, approval, audit, release or pull request), style or brand an exported PDF, change its header or footer, or debug how a note renders in the PDF.
 ---
 
 # obsidian-pdf-exporter (`ope`)
 
-`ope` turns a folder of an Obsidian vault into one PDF. It runs on the command line without Obsidian. `ope` and `obsidian-pdf-exporter` are the same command. Full docs: https://spenhouet.com/obsidian-pdf-exporter/ (for a page index, read https://spenhouet.com/obsidian-pdf-exporter/llms.txt).
+`ope` turns a folder of an Obsidian vault into one PDF, and `ope redline` turns two git commits of that folder into a tracked-changes PDF. It runs on the command line without Obsidian. `ope` and `obsidian-pdf-exporter` are the same command. Full docs: https://spenhouet.com/obsidian-pdf-exporter/ (for a page index, read https://spenhouet.com/obsidian-pdf-exporter/llms.txt).
 
 If a flag is not covered here, run `ope <command> --help`; the help is authoritative.
 
@@ -54,12 +54,21 @@ Lines starting with `Warning:` name content that could not be rendered: an embed
 
 ## Redline (tracked changes)
 
+A headline feature: a PDF of the folder in its newer version, with inserted text green and underlined, removed text red and struck through, and whole inserted or removed blocks in green or red boxes. Docs: https://spenhouet.com/obsidian-pdf-exporter/redline/
+
 ```bash
-cd Vault   # must run inside the git repository
-ope redline ./Handbook --from-commit v1.0.0 --to-commit HEAD -o out/handbook_redline.pdf
+cd Vault   # must run inside the git repository that holds ROOT
+ope redline ./Handbook --from-commit v1.0.0 --to-commit v1.1.0      # release vs previous release
+ope redline ./Handbook --from-commit "$(git merge-base main HEAD)"  # branch / pull request vs main
+ope redline ./Handbook --from-commit HEAD~3 -o out/handbook_redline.pdf --subtitle "Review draft"
 ```
 
-Inserted text is green, removed text red and struck through. In CI, check out with full history (`fetch-depth: 0`).
+- Refs are anything git resolves: tags, branches, SHAs, `HEAD~n` (not `a..b` ranges). Redline needs git today; for two folders without git, commit both into a throwaway repo: https://spenhouet.com/obsidian-pdf-exporter/redline/compare/ `--to-commit` defaults to `HEAD`. Both sides come from git, so uncommitted changes are not included: commit first.
+- Default output `./.export/<title>_redline.pdf`; the subtitle and footer label show `Redline: <from> -> <to>` as short hashes. Same `-T`, `-O`, `--title`, `--toc/--no-toc`, `--disable-plugin`, `--debug` as `export` (no `--version`, `--date`, `--include`).
+- For a pull request compare against the merge base, not the tip of `main`. In CI, check out with full history (`fetch-depth: 0`). Workflows for pull requests and releases: https://spenhouet.com/obsidian-pdf-exporter/redline/usage/#in-ci
+- Embeds, Dataview and Meta Bind run before the comparison, so changes appear as they appear in the PDF. Properties that the text does not show are not compared.
+- Known weak spots, tell the user when the notes have them: inserted table rows break the table, changes in code or Mermaid blocks show literal `<del>`/`<ins>`, replaced images and heading level changes are not marked. List with issues: https://spenhouet.com/obsidian-pdf-exporter/redline/limitations/
+- `--debug` keeps `redline_assembled.md` (the diffed Markdown) next to the PDF. Styling (`ins`, `del`, `.redline-ins`, `.redline-del`): https://spenhouet.com/obsidian-pdf-exporter/redline/styling/
 
 ## Templates
 

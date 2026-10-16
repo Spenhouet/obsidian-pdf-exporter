@@ -43,6 +43,7 @@ The docs site is `mkdocs.yml` plus `docs/`, built with Zensical and deployed by 
 uv run zensical build --strict              # must pass
 uv run python scripts/gen_cli_docs.py       # after changing a command or flag
 uv run python scripts/render_examples.py    # after a change to the rendered output
+uv run python scripts/render_redline_examples.py  # after a change to redline output
 uv run python scripts/gen_llms_txt.py       # after adding or renaming a page
 ```
 

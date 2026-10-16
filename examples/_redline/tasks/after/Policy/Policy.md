@@ -1,0 +1,2 @@
+- [x] Read the policy
+- [ ] Sign the form

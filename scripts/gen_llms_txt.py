@@ -28,10 +28,11 @@ OUT_FULL = DOCS / "llms-full.txt"
 
 SUMMARY = (
     "obsidian-pdf-exporter (`ope`) is a command-line tool that exports a folder of an "
-    "Obsidian vault to one PDF. It handles wiki links, embeds, callouts, Mermaid, math, "
+    "Obsidian vault to one PDF, and makes redline (tracked-changes) PDFs that show what "
+    "changed in that folder between two git commits, tags or branches (`ope redline`). "
+    "It handles wiki links, embeds, callouts, Mermaid, math, "
     "footnotes, Bases and community plugin syntax (Dataview, Meta Bind, Excalidraw, draw.io, "
-    "citations), "
-    "makes redline PDFs between two git commits, and styles the PDF with CSS templates. "
+    "citations), and styles the PDF with CSS templates. "
     "Install with `uv tool install obsidian-pdf-exporter && ope setup --yes`."
 )
 

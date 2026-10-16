@@ -60,7 +60,7 @@ cd MyVault
 ope redline ./Handbook --from-commit v3.0.0 --to-commit HEAD
 ```
 
-See [Redline](../redline.md).
+Inserted text is green, removed text red and struck through. See [Redline](../redline/index.md) for flags, recipes and CI.
 
 ## When something looks wrong
 
