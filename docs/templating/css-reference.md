@@ -92,6 +92,7 @@ Tips:
 | -------- | ---------- |
 | `img.doc-image`, `svg.doc-image` | Embedded images. SVG files are inline `svg` elements with the same class. |
 | `figure`, `figcaption` | An image with a caption. |
+| `figure.pdf-embed`, `img.pdf-embed-page`, `p.pdf-embed-more` | A [PDF embed](../obsidian/embeds.md#pdf): the figure, one image per page and the note about pages left out. The figure may break between pages. A page taller than the text area of a template needs a smaller `max-height` on `img.pdf-embed-page`. |
 | `.mermaid`, `.mermaid-<type>` | A rendered [Mermaid](../obsidian/mermaid.md) diagram, such as `.mermaid-flowchart`, `.mermaid-pie`, `.mermaid-gantt`, `.mermaid-sequenceDiagram`. `graph` blocks get `mermaid-flowchart`. The type keeps its case. |
 | `.landscape-figure`, `.landscape` | A wide diagram on a landscape page: the wrapper (with `.wide-table-section`) and the diagram. |
 | `span.math.inline`, `span.math.display`, `svg.math-svg` | [Math](../markdown/math.md). `.math-source` is a formula that failed and is shown as code. |
@@ -150,6 +151,14 @@ svg.math-svg { display: inline; overflow: visible; }
 .math-source code { white-space: pre-wrap; }
 td, th { overflow-wrap: break-word; }
 .landscape-figure .landscape { margin-left: auto; margin-right: auto; }
+figure.pdf-embed { break-inside: auto; page-break-inside: auto; }
+img.pdf-embed-page {
+  display: block; margin: 0 auto 0.8em; box-sizing: border-box;
+  width: auto; height: auto; max-width: 100%; max-height: 22cm;
+  border: 0.75pt solid #999; break-inside: avoid;
+}
+.pdf-embed-more { font-size: 0.85em; color: #666; margin: 0 0 0.3em; }
+figure.pdf-embed figcaption { break-before: avoid; page-break-before: avoid; }
 ```
 
 plus the footnote rules above, and one rule per image width used in the document (`:where(img[width="300"]) { width: 300px; }`), because WeasyPrint ignores the `width` attribute.
