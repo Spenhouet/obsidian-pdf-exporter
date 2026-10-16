@@ -73,6 +73,7 @@ ope export ./Notes -O mermaid.config=mermaid.json
 Notes:
 
 - WeasyPrint clips text that is centered inside a semi-transparent group. Gantt axis labels are drawn that way, so the exporter adds `.grid .tick { opacity: 1 }` to the `themeCSS` of SVG diagrams.
+- Wrapped labels in timeline diagrams carry a line offset on both the `<text>` element and its first `<tspan>`. Browsers apply only the inner one, WeasyPrint applies both and draws the text one line too low, outside its box. The exporter removes the outer offset in SVG diagrams.
 - Flowchart edge labels use the theme's `edgeLabelBackground`. With the `base` theme it is derived from the theme colors and can look purple. Set `themeVariables.edgeLabelBackground` to change it.
 - When running as root (for example in a CI container), Chromium needs `--no-sandbox`. The exporter passes it automatically in that case.
 
