@@ -20,7 +20,8 @@ Anything pandoc's GFM dialect understands works as-is. Obsidian-specific feature
 | Lists right after a paragraph                | Recognized without a blank line in between.                                                                                                                                                                     |
 | `==highlight==`                              | Rendered as `<mark>`.                                                                                                                                                                                           |
 | `- [ ] task`, `- [x] done`                   | Rendered as ☐ / ☑ on the same line as the text, in a `ul.task-list` without bullets.                                                                                                                           |
-| `$...$`, `$$...$$` math                      | Rendered to SVG with [ziamath](https://github.com/cdelker/ziamath) (no TeX needed). Display math is centered. A formula that fails to render is shown as code and the export prints a warning.                 |
+| `$...$`, `$$...$$` math                      | Rendered to SVG with [ziamath](https://github.com/cdelker/ziamath) (no TeX needed). Display math is centered. A formula takes the color of the text around it, for example inside a callout. A formula that fails to render is shown as code and the export prints a warning. |
+| Footnotes `[^1]`, `^[inline]`                | Shown at the bottom of the page that references them, numbered through the whole document. See [Footnotes](#footnotes). |
 | Headings                                     | Each page's headings nest under the page heading. Skipped levels (a page starting with `###`) are closed, so section numbers never contain `0`.                                                                 |
 | Tables                                       | Columns are sized by their content, as in Obsidian, also for tables with long source lines. Set widths (an HTML `<colgroup>`) keep their ratio. A very narrow column, such as an image column, is widened to half of an equal share, at most 20%.                                                                                                                    |
 | draw.io SVGs                                 | HTML labels are turned into SVG text and the "Text is not SVG - cannot display" note is removed by the `drawio` plugin. See [draw.io diagrams](#drawio-diagrams).                                              |
@@ -86,6 +87,9 @@ Options (`-O key=value`):
 | `mermaid.puppeteer_config=PATH`  | Puppeteer config passed to mermaid-cli as `-p`.                        | none    |
 | `mermaid.trim=on\|off`           | Trim the empty space around diagrams. See [Diagram size](#diagram-size). | on    |
 | `mermaid.max_height=LENGTH`      | Largest height of a diagram, e.g. `10cm`. Taller diagrams are scaled down. | none |
+| `mermaid.landscape=on\|off`      | Put wide diagrams on landscape pages. See [Wide diagrams](#wide-diagrams). | on |
+| `mermaid.landscape_ratio=R`      | Width to height ratio from which a diagram that has to shrink goes to a landscape page. | `1.4` |
+| `mermaid.landscape_min_font=PT`  | Smallest text size, in points, a diagram may shrink to on a portrait page before it goes to a landscape page. | `7` |
 
 A template can set a base config with the `mermaid` key in `template.yaml` or by overriding `Template.mermaid_config()` (see [TEMPLATING.md](TEMPLATING.md)). `mermaid.config` is merged over it, then `mermaid.theme`.
 
@@ -105,12 +109,44 @@ A diagram keeps its natural size and only shrinks when it is wider than the page
 
 Mermaid leaves empty space around some diagram types. The exporter trims it, so the size applies to the visible diagram, with a margin of 8px. PNG images are cropped. For SVG, mermaid-cli renders a second, transparent PNG of each diagram to find the visible area, and the exporter shrinks the `viewBox` to it. This second run takes a few seconds; `-O mermaid.trim=off` skips it.
 
+### Wide diagrams
+
+A diagram that is wider than the page shrinks, and so does its text. When that makes it hard to read, the diagram goes to its own landscape page, like a [wide table](#wide-tables). This happens when the diagram has to shrink to fit a portrait page and either
+
+- its width is at least `mermaid.landscape_ratio` times its height (default `1.4`), or
+- its text would become smaller than `mermaid.landscape_min_font` points (default `7`).
+
+A diagram only moves when the landscape page shows it larger than the portrait page, so a tall diagram stays where it is. On the landscape page the diagram is sized to fit the page height, with room for a caption. The estimate assumes an A4 page with the default margins and reads the text size from the diagram (Mermaid's default is 16px).
+
+The diagram gets the `landscape` class. Its paragraph or `<figure>` is wrapped in `<div class="wide-table-section landscape-figure">`, the same class as wide tables, so every template that has a landscape page for tables uses it for diagrams too. A short paragraph right below the diagram that starts with a word and a number, such as `Figure 3: Overview`, is taken as its caption and moves along.
+
+```bash
+ope export ./Notes -O mermaid.landscape_ratio=2
+ope export ./Notes -O mermaid.landscape=off
+```
+
 Notes:
 
 - WeasyPrint clips text that is centered inside a semi-transparent group. Gantt axis labels are drawn that way, so the exporter adds `.grid .tick { opacity: 1 }` to the `themeCSS` of SVG diagrams.
 - Wrapped labels in timeline diagrams carry a line offset on both the `<text>` element and its first `<tspan>`. Browsers apply only the inner one, WeasyPrint applies both and draws the text one line too low, outside its box. The exporter removes the outer offset in SVG diagrams.
 - Flowchart edge labels use the theme's `edgeLabelBackground`. With the `base` theme it is derived from the theme colors and can look purple. Set `themeVariables.edgeLabelBackground` to change it.
 - When running as root (for example in a CI container), Chromium needs `--no-sandbox`. The exporter passes it automatically in that case.
+
+## Footnotes
+
+Footnotes work as in Obsidian: a reference `[^1]` with a definition `[^1]: text` anywhere in the note, or an inline note `^[text]`. Each note is shown at the bottom of the page where it is referenced, with CSS [paged media footnotes](https://www.w3.org/TR/css-gcpm-3/#footnotes) (`float: footnote`), which WeasyPrint supports. The numbers run through the whole document.
+
+The labels of each note (and of each embedded note) are kept apart, so `[^1]` on one page never shows the text of `[^1]` on another page. When two references use the same label, each one gets its own copy of the note, with its own number.
+
+A note that holds a list, a table or another block besides paragraphs can not be placed in the text. It stays in the list of notes at the end of the document, with its number.
+
+Options (`-O key=value`):
+
+| Option                 | Effect                                                            | Default |
+| ---------------------- | ----------------------------------------------------------------- | ------- |
+| `footnotes=page\|end`  | `page` shows notes at the bottom of the page. `end` keeps pandoc's list of notes at the end of the document. | `page` |
+
+For styling, see [Footnotes](TEMPLATING.md#footnotes) in TEMPLATING.md.
 
 ## Note embeds
 

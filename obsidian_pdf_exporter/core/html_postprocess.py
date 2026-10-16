@@ -21,6 +21,18 @@ span.math.display { display: block; text-align: center; margin: 0.6em 0; }
 svg.math-svg { display: inline; overflow: visible; }
 .math-source code { white-space: pre-wrap; }
 td, th { overflow-wrap: break-word; }
+.landscape-figure .landscape { margin-left: auto; margin-right: auto; }
+.footnote {
+  float: footnote; font-size: 0.75rem; line-height: 1.35;
+  font-weight: normal; font-style: normal; text-align: start; text-indent: 0;
+  text-transform: none; letter-spacing: normal; white-space: normal;
+}
+.footnote::footnote-call {
+  content: attr(data-footnote-number); vertical-align: super; font-size: 0.65rem; line-height: 0;
+}
+.footnote::footnote-marker { content: attr(data-footnote-number) ". "; }
+.footnote-paragraph { display: block; }
+@page { @footnote { margin-top: 0.8em; padding-top: 0.3em; border-top: 0.5pt solid #999; } }
 """
 
 _CHECKBOX = re.compile(r'<input\b([^>]*\btype="checkbox"[^>]*)>(?:\s*</input>)?')
