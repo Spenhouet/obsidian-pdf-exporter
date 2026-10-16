@@ -6,6 +6,7 @@ Any contribution is welcome! This document provides guidelines for contributing 
 
 - [Getting Started](#getting-started)
 - [Development Workflow](#development-workflow)
+- [Architecture](#architecture)
 - [Adding support for an Obsidian plugin](#adding-support-for-an-obsidian-plugin)
 - [Adding a PDF template](#adding-a-pdf-template)
 - [Testing](#testing)
@@ -106,6 +107,116 @@ uv sync --upgrade
 uv sync --upgrade-package package-name
 ```
 
+## Architecture
+
+An export reads a folder of notes and turns it into one PDF. The work is
+split into three layers. Each layer has one place where its parts are
+listed.
+
+1. Markdown dialect ([`core/dialect.py`](obsidian_pdf_exporter/core/dialect.py)).
+   The pandoc reader extensions and pandoc arguments. The base is pandoc's
+   `markdown` reader with `raw_html` and `lists_without_preceding_blankline`
+   on and `raw_tex` off. Steps add what they need, for example `mark` for
+   highlights, `hard_line_breaks` for line breaks or `--mathml` for math.
+2. Obsidian core syntax ([`core/steps/`](obsidian_pdf_exporter/core/steps/)).
+   Every piece of syntax that Obsidian itself supports is a small step:
+   frontmatter, comments, embeds, block IDs, callouts, heading links, wiki
+   links, image captions, headings, highlights, line breaks, tasks, math,
+   Mermaid, SVG images and table fixes. All steps are listed in
+   `CORE_STEPS` in [`core/steps/__init__.py`](obsidian_pdf_exporter/core/steps/__init__.py).
+3. Community plugins ([`plugins/`](obsidian_pdf_exporter/plugins/)).
+   Support for syntax from community Obsidian plugins and other tools:
+   Folder Notes, Dataview, Meta Bind, Block Link Plus and draw.io. Plugins
+   are found through an entry point, listed by `list-plugins` and can be
+   turned off with `--disable-plugin`. They run inside the `plugins` step
+   of layer 2.
+
+```text
+obsidian_pdf_exporter/
+├── core/
+│   ├── exporter.py         # export and redline: tree → markdown → HTML → PDF
+│   ├── assemble.py         # runs the markdown hooks on every page
+│   ├── pipeline.py         # the loops over the steps, one per stage
+│   ├── dialect.py          # layer 1: pandoc reader extensions and arguments
+│   ├── pandoc.py           # runs pandoc with a dialect
+│   ├── steps/              # layer 2: one module per piece of core syntax
+│   │   ├── __init__.py     # CORE_STEPS, the ordered list of steps
+│   │   ├── base.py         # Step, PageContext, DocumentContext
+│   │   ├── frontmatter.py, plugins.py, comments.py, embeds.py, block_ids.py,
+│   │   ├── callouts.py, heading_links.py, wiki_links.py, image_captions.py,
+│   │   ├── headings.py, highlights.py, line_breaks.py, tasks.py, math.py,
+│   │   └── mermaid.py, svg_images.py, tables.py, base_css.py
+│   └── embeds.py, callouts.py, wiki_links.py, mermaid.py, ...  # the work behind the steps
+├── plugins/                # layer 3
+│   ├── base.py             # ObsidianPlugin, PluginContext, DocumentContext
+│   ├── registry.py         # entry-point + runtime discovery
+│   ├── folder_notes/, dataview/, meta_bind/
+│   ├── block_link_plus/    # ![[Note#^id-id]] ranges
+│   └── drawio/             # draw.io SVG labels
+└── templates/              # PDF templates (CSS, header, footer)
+```
+
+### Stages
+
+A step overrides the hooks it needs:
+
+| Hook                       | Runs on                                  | Order            |
+|----------------------------|------------------------------------------|------------------|
+| `process_markdown`         | each page, and embedded notes if `embedded = True` | `priority`       |
+| `process_document`         | the assembled markdown of the whole document | `priority`   |
+| `reader_extensions`, `pandoc_args` | builds the dialect for pandoc    | `priority`       |
+| `process_html`             | the HTML that pandoc wrote               | `html_priority` (defaults to `priority`) |
+
+An export runs them in this order: the markdown hooks on every page, the
+document hooks, the template's `process_markdown`, pandoc, the HTML hooks,
+the template's `process_html`, and WeasyPrint. With `--debug`, the build
+folder keeps `assembled.md` (what pandoc reads) and `final.html` (what
+WeasyPrint reads).
+
+The order of the markdown steps matters. For example, `embeds` runs after
+`html_comments`, so an embed inside an HTML comment is not expanded. It
+runs before `block_ids`, so the block IDs in embedded text are removed
+too. `bracket_links` runs after `wiki_links`, so real wiki links are
+already resolved. The table in the docstring of
+[`core/steps/__init__.py`](obsidian_pdf_exporter/core/steps/__init__.py)
+gives the reason for each position.
+
+Embedded notes (`![[Note]]`) run through the steps marked `embedded`
+(`plugins`, `html_comments`, `embeds` and `wiki_links`) with the context of
+the embedded note, so links and images resolve from its folder. The
+embedded text then becomes part of the page and passes the remaining steps.
+
+### Adding a core syntax step
+
+Add a step only for syntax that Obsidian supports without a community
+plugin. Everything else is a plugin (see below).
+
+1. Put the step in a new module under `core/steps/`. Keep it thin and
+   put larger parsing code in a module of its own under `core/`:
+
+   ```python
+   from obsidian_pdf_exporter.core.steps.base import PageContext
+   from obsidian_pdf_exporter.core.steps.base import Step
+
+
+   class FootnotesStep(Step):
+       name = "footnotes"
+       description = "Number the footnotes of each page"
+       priority = 115  # after image_captions (110), before title_heading (120)
+
+       def reader_extensions(self, context):
+           return ("footnotes",)
+
+       def process_markdown(self, content: str, context: PageContext) -> str:
+           return content
+   ```
+
+2. Add the class to `CORE_STEPS` in `core/steps/__init__.py`, at the
+   position of its priority, and to the table in the module docstring.
+3. Add tests. [`test_steps.py`](tests/unit/test_steps.py) checks the
+   order of all steps, so update the expected lists there.
+4. Describe the syntax in [MARKDOWN.md](MARKDOWN.md).
+
 ## Adding support for an Obsidian plugin
 
 Obsidian plugins (Dataview, Meta Bind, Tasks, Templater, Excalidraw …)
@@ -119,12 +230,16 @@ new one.
 
 ```text
 obsidian_pdf_exporter/plugins/
-├── base.py          # ObsidianPlugin base class + PluginContext dataclass
+├── base.py          # ObsidianPlugin base class + PluginContext, DocumentContext
 ├── registry.py      # entry-point + runtime discovery
 ├── dataview/
 │   ├── __init__.py  # re-exports DataviewPlugin
 │   ├── plugin.py    # the plugin class (thin)
 │   └── engine.py    # DQL parser + renderer (heavy lifting)
+├── drawio/
+│   ├── __init__.py
+│   ├── plugin.py
+│   └── svg.py       # draw.io label conversion
 └── meta_bind/
     ├── __init__.py
     └── plugin.py
@@ -141,6 +256,8 @@ The currently bundled plugins are:
 | `folder_notes` | Map ``Folder/Folder.md`` onto its containing folder      |
 | `dataview`     | Render Dataview DQL ``TABLE`` / ``LIST`` queries         |
 | `meta_bind`    | Resolve Meta Bind ``VIEW`` widgets, strip INPUT/BUTTON   |
+| `block_link_plus` | Resolve ``![[Note#^id-id]]`` range embeds             |
+| `drawio`       | Turn draw.io HTML labels in SVG images into SVG text     |
 
 ### Walkthrough — adding a new plugin
 
@@ -193,7 +310,7 @@ class TasksPlugin(ObsidianPlugin):
 
     name = "tasks"
     description = "Render Tasks-plugin checkboxes without emoji metadata"
-    priority = 30  # runs after dataview (10) and meta_bind (20)
+    priority = 50  # runs after dataview (10) and meta_bind (20)
 
     def process_markdown(self, content: str, context: PluginContext) -> str:
         # Drop the trailing emoji-tagged metadata that Tasks renders.
@@ -204,9 +321,11 @@ class TasksPlugin(ObsidianPlugin):
 The pipeline guarantees:
 
 - Frontmatter is already parsed and stripped before your plugin runs.
-- Plugins run **before** callouts, wiki link resolution and image
+- Plugins run **before** embeds, callouts, wiki link resolution and image
   promotion, so anything your plugin produces flows through the rest of
   the pipeline like authored markdown would.
+- Plugins also run on the content of embedded notes, with the context of
+  the embedded note.
 - ``context.vault_root`` may be ``None`` for ad-hoc exports outside a
   git repository — gracefully no-op in that case if you need vault-wide
   data (see the Dataview plugin for the pattern).
@@ -254,6 +373,8 @@ this file under "supported plugins" if the support is partial.
 | `folder_notes` | 5        |
 | `dataview`     | 10       |
 | `meta_bind`    | 20       |
+| `block_link_plus` | 30    |
+| `drawio`       | 40       |
 
 Pick a value that respects your dependencies (e.g. if your plugin
 substitutes frontmatter fields like Meta Bind, run after Dataview so any
@@ -261,14 +382,18 @@ tables it generated are visible).
 
 ### Hooks
 
-A plugin can override either or both of these methods on
-[`ObsidianPlugin`](obsidian_pdf_exporter/plugins/base.py); both have
-no-op defaults so you only implement what you need:
+A plugin can override any of these methods on
+[`ObsidianPlugin`](obsidian_pdf_exporter/plugins/base.py). All have
+no-op defaults so you only implement what you need. A plugin that only
+implements `process_markdown` keeps working:
 
-| Hook                 | Stage                      | Used by                        |
-|----------------------|----------------------------|--------------------------------|
-| `find_folder_note`   | Tree building              | `folder_notes`                 |
-| `process_markdown`   | Per-page markdown rewrite  | `dataview`, `meta_bind`        |
+| Hook                 | Stage                                | Used by                        |
+|----------------------|--------------------------------------|--------------------------------|
+| `find_folder_note`   | Tree building                        | `folder_notes`                 |
+| `process_markdown`   | Per-page markdown rewrite            | `dataview`, `meta_bind`        |
+| `extract_block`      | Resolving `![[Note#^id]]` embeds     | `block_link_plus`              |
+| `process_svg`        | Inlining SVG images into the HTML    | `drawio`                       |
+| `process_html`       | HTML of the whole document           | none yet                       |
 
 `find_folder_note(folder)` returns the markdown file that represents a
 folder (or ``None``). Plugins are consulted in priority order; the
@@ -285,12 +410,22 @@ stripped and before callouts / wiki links / image promotion. The
 ``context`` dataclass exposes ``vault_root``, ``page_folder``,
 ``frontmatter`` and the user's ``--option key=value`` settings.
 
+`extract_block(body, block_id)` returns the text that `![[Note#^block_id]]`
+selects in the note body, or ``None``. Plugins are asked in priority
+order before core looks for a block marked ``^block_id``.
+
+`process_svg(svg, context)` rewrites each SVG image while it is inlined
+into the HTML. `process_html(html, context)` gets the HTML of the whole
+document after the core HTML steps and before the template. Both get a
+``DocumentContext`` with the build folder, the options, the export
+metadata and the template.
+
 ### Disabling and configuring plugins
 
 Users can opt out of a single plugin per export with
 ``--disable-plugin <name>`` (repeatable). Free-form configuration is
 forwarded through the existing ``--option key=value`` CLI flag and
-exposed to your ``process_markdown`` via ``context.options``.
+exposed to every hook via ``context.options``.
 
 ### Third-party plugins
 
@@ -477,10 +612,12 @@ Recommended extensions for development:
 ```text
 obsidian-pdf-exporter/
 ├── .github/workflows/      # CI/CD workflows
-├── obsidian_pdf_exporter/  # Main package
+├── obsidian_pdf_exporter/  # Main package, see Architecture
 │   ├── __init__.py
 │   ├── main.py            # CLI entry point
-│   └── utils/             # Utility modules
+│   ├── core/              # Export pipeline, dialect and core syntax steps
+│   ├── plugins/           # Obsidian community plugin support
+│   └── templates/         # PDF templates
 ├── tests/                 # Test suite
 ├── pyproject.toml         # Project configuration
 ├── uv.lock                # Dependency lock file

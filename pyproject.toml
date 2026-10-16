@@ -53,6 +53,8 @@ redline = "obsidian_pdf_exporter.templates.builtin.redline:RedlineTemplate"
 folder_notes = "obsidian_pdf_exporter.plugins.folder_notes:FolderNotesPlugin"
 dataview = "obsidian_pdf_exporter.plugins.dataview:DataviewPlugin"
 meta_bind = "obsidian_pdf_exporter.plugins.meta_bind:MetaBindPlugin"
+block_link_plus = "obsidian_pdf_exporter.plugins.block_link_plus:BlockLinkPlusPlugin"
+drawio = "obsidian_pdf_exporter.plugins.drawio:DrawioPlugin"
 
 [tool.hatch.build.targets.wheel]
 packages = ["obsidian_pdf_exporter"]

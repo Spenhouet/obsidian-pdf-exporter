@@ -10,14 +10,16 @@ Supported targets:
   the paragraph, list item or heading whose line ends in `` ^id``, or the
   block directly above a line that holds only ``^id`` (a table, list,
   quote or callout).
-- ``![[Note#^id-id]]``: a multi-line range in the format of the Block Link
-  Plus plugin. It spans from the block marked ``^id`` to the block (or
-  the standalone line) marked ``^id-id``.
 
-Embedded content is processed as if it were part of the source note:
-Obsidian plugin modules run with the source note's context, nested
-embeds are expanded, and wiki links and images resolve relative to the
-source note's folder. Headings inside embedded content are shifted so
+Plugins can resolve other block references through
+:meth:`~obsidian_pdf_exporter.plugins.ObsidianPlugin.extract_block`. The
+Block Link Plus plugin adds ``![[Note#^id-id]]`` ranges this way.
+
+Embedded content is processed as if it were part of the source note: the
+steps marked :attr:`~obsidian_pdf_exporter.core.steps.base.Step.embedded`
+run on it with the source note's context. Obsidian plugin modules run,
+nested embeds are expanded, and wiki links and images resolve relative to
+the source note's folder. Headings inside embedded content are shifted so
 that the topmost one sits exactly one level below the heading the embed
 appears under (level 1, the page title, when there is none). This keeps
 the numbered table of contents consistent.
@@ -29,26 +31,22 @@ rendered as an italic placeholder and reported through ``log``.
 
 from __future__ import annotations
 
-import logging
 import re
-from dataclasses import dataclass
-from dataclasses import field
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from obsidian_pdf_exporter.core.frontmatter import parse_frontmatter
 from obsidian_pdf_exporter.core.frontmatter import strip_frontmatter
-from obsidian_pdf_exporter.core.frontmatter import strip_html_comments
 from obsidian_pdf_exporter.core.tree import lookup_page
 from obsidian_pdf_exporter.core.wiki_links import RE_WIKI_EMBED_IMAGE
-from obsidian_pdf_exporter.core.wiki_links import convert_wiki_links
 from obsidian_pdf_exporter.core.wiki_links import is_image_target
-from obsidian_pdf_exporter.plugins import PluginContext
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from collections.abc import Sequence
 
-    from obsidian_pdf_exporter.core.vault_index import VaultIndex
+    from obsidian_pdf_exporter.core.steps.base import PageContext
     from obsidian_pdf_exporter.plugins import ObsidianPlugin
 
 #: Maximum nesting depth of embeds inside embeds.
@@ -66,37 +64,12 @@ RE_LIST_ITEM = re.compile(r"^([ \t]*)(?:[-*+]|\d+[.)])[ \t]")
 RE_FENCE = re.compile(r"^[ \t]*(```|~~~)")
 RE_EMBED_LINE_PREFIX = re.compile(r"^[ \t>]*$")
 
-_log = logging.getLogger(__name__)
 
+def expand_note_embeds(content: str, source_file: Path, ctx: PageContext) -> str:
+    """Replace every note embed in ``content`` (from ``source_file``) with its content.
 
-@dataclass
-class EmbedContext:
-    """Everything needed to render embedded notes like regular pages."""
-
-    page_index: dict
-    build_dir: Path
-    vault_root: Path | None = None
-    vault_index: VaultIndex | None = None
-    plugins: list[ObsidianPlugin] | None = None
-    plugin_options: dict[str, str] = field(default_factory=dict)
-    log: Callable[[str], None] | None = None
-
-    def warn(self, message: str) -> None:
-        """Report a problem through ``log`` or the module logger."""
-        if self.log is not None:
-            self.log(f"  Warning: {message}")
-        else:
-            _log.warning(message)
-
-
-def expand_note_embeds(
-    content: str,
-    source_file: Path,
-    ctx: EmbedContext,
-    *,
-    _stack: tuple[tuple[Path, str], ...] = (),
-) -> str:
-    """Replace every note embed in ``content`` (from ``source_file``) with its content."""
+    ``ctx.embed_stack`` holds the embeds that are being expanded right now.
+    """
     lines = content.split("\n")
     out: list[str] = []
     in_fence = False
@@ -117,14 +90,14 @@ def expand_note_embeds(
         if "![[" not in line:
             out.append(line)
             continue
-        out.extend(_expand_line(line, source_file, ctx, current_level, _stack))
+        out.extend(_expand_line(line, source_file, ctx, current_level, ctx.embed_stack))
     return "\n".join(out)
 
 
 def _expand_line(
     line: str,
     source_file: Path,
-    ctx: EmbedContext,
+    ctx: PageContext,
     context_level: int,
     stack: tuple[tuple[Path, str], ...],
 ) -> list[str]:
@@ -162,7 +135,7 @@ def _split_target(raw: str) -> tuple[str, str]:
     return name.strip(), fragment.strip()
 
 
-def _is_note_embed(m: re.Match, ctx: EmbedContext, source_file: Path) -> bool:
+def _is_note_embed(m: re.Match, ctx: PageContext, source_file: Path) -> bool:
     name, fragment = _split_target(m.group(1))
     if is_image_target(name):
         return False
@@ -182,7 +155,7 @@ def _is_note_embed(m: re.Match, ctx: EmbedContext, source_file: Path) -> bool:
 def _render_embed(
     m: re.Match,
     source_file: Path,
-    ctx: EmbedContext,
+    ctx: PageContext,
     context_level: int,
     stack: tuple[tuple[Path, str], ...],
 ) -> str:
@@ -207,32 +180,41 @@ def _render_embed(
     raw = target_file.read_text(encoding="utf-8", errors="replace")
     frontmatter = parse_frontmatter(raw)
     body = strip_frontmatter(raw)
-    fragment_text = extract_fragment(body, fragment)
+    fragment_text = extract_fragment(body, fragment, ctx.plugins or ())
     if fragment_text is None:
         ctx.warn(f"could not find '#{fragment}' for embed ![[{raw_target}]] in {where}")
         return placeholder
 
-    fragment_text = _run_plugins(fragment_text, target_file, frontmatter, ctx)
-    fragment_text = strip_html_comments(fragment_text)
-    fragment_text = expand_note_embeds(fragment_text, target_file, ctx, _stack=(*stack, key))
-    fragment_text = convert_wiki_links(
-        fragment_text, target_file.parent, ctx.page_index, ctx.build_dir, ctx.vault_index
-    )
+    fragment_text = _run_embedded_steps(fragment_text, target_file, frontmatter, ctx, (*stack, key))
     return rebase_headings(fragment_text.strip("\n"), context_level + 1)
 
 
-def _run_plugins(text: str, target_file: Path, frontmatter: dict, ctx: EmbedContext) -> str:
-    if not ctx.plugins:
-        return text
-    plugin_ctx = PluginContext(
-        vault_root=ctx.vault_root,
+def _run_embedded_steps(
+    text: str,
+    target_file: Path,
+    frontmatter: dict,
+    ctx: PageContext,
+    stack: tuple[tuple[Path, str], ...],
+) -> str:
+    """Run the steps marked ``embedded`` on ``text`` as if it were part of ``target_file``."""
+    steps = ctx.steps
+    if steps is None:
+        from obsidian_pdf_exporter.core.steps import core_steps
+
+        steps = core_steps()
+    sub = replace(
+        ctx,
         page_folder=target_file.parent,
         frontmatter=frontmatter,
-        options=dict(ctx.plugin_options),
-        vault_index=ctx.vault_index,
+        options=dict(ctx.options),
+        source_file=target_file,
+        node=None,
+        steps=steps,
+        embed_stack=stack,
     )
-    for plugin in ctx.plugins:
-        text = plugin.process_markdown(text, plugin_ctx)
+    for step in steps:
+        if step.embedded:
+            text = step.process_markdown(text, sub)
     return text
 
 
@@ -245,7 +227,7 @@ def _display_path(path: Path, root: Path | None) -> str:
     return path.name
 
 
-def resolve_note(name: str, source_file: Path, ctx: EmbedContext) -> Path | None:
+def resolve_note(name: str, source_file: Path, ctx: PageContext) -> Path | None:
     """Find the markdown file for an embed target such as ``Note`` or ``Folder/Note``."""
     clean = name.replace("\\", "/").strip().strip("/").removesuffix(".md")
     if not clean:
@@ -255,7 +237,7 @@ def resolve_note(name: str, source_file: Path, ctx: EmbedContext) -> Path | None
     return _resolve_note_name(clean, source_file, ctx)
 
 
-def _resolve_note_path(path: str, source_file: Path, ctx: EmbedContext) -> Path | None:
+def _resolve_note_path(path: str, source_file: Path, ctx: PageContext) -> Path | None:
     relative = (source_file.parent / f"{path}.md").resolve()
     if relative.is_file():
         return relative
@@ -266,7 +248,7 @@ def _resolve_note_path(path: str, source_file: Path, ctx: EmbedContext) -> Path 
     return None
 
 
-def _resolve_note_name(name: str, source_file: Path, ctx: EmbedContext) -> Path | None:
+def _resolve_note_name(name: str, source_file: Path, ctx: PageContext) -> Path | None:
     if ctx.vault_index is not None:
         found = ctx.vault_index.find_closest_markdown(name, source_file.parent)
         if found is not None:
@@ -285,20 +267,23 @@ def _resolve_note_name(name: str, source_file: Path, ctx: EmbedContext) -> Path 
 # ---------------------------------------------------------------------------
 
 
-def extract_fragment(body: str, fragment: str) -> str | None:
-    """Return the part of ``body`` that ``fragment`` (``Heading``, ``^id``, ``^id-id``) selects.
+def extract_fragment(
+    body: str, fragment: str, plugins: Sequence[ObsidianPlugin] = ()
+) -> str | None:
+    """Return the part of ``body`` that ``fragment`` (``Heading`` or ``^id``) selects.
 
     An empty fragment selects the whole body. Returns None when the
-    heading or block cannot be found.
+    heading or block cannot be found. ``plugins`` may resolve block
+    references first (see :func:`extract_block`).
     """
     if not fragment:
         return body
     if fragment.startswith("^"):
-        return extract_block(body, fragment[1:])
+        return extract_block(body, fragment[1:], plugins)
     return extract_heading_section(body, [p for p in fragment.split("#") if p.strip()])
 
 
-def _code_mask(lines: list[str]) -> list[bool]:
+def code_mask(lines: list[str]) -> list[bool]:
     """True for every line inside (or delimiting) a fenced code block."""
     mask: list[bool] = []
     in_fence = False
@@ -325,7 +310,7 @@ def _normalize_heading(text: str) -> str:
 def extract_heading_section(body: str, headings: list[str]) -> str | None:
     """Return the section under the last of ``headings``, searched within the earlier ones."""
     lines = body.split("\n")
-    mask = _code_mask(lines)
+    mask = code_mask(lines)
     start, end = 0, len(lines)
     for wanted in headings:
         key = _normalize_heading(wanted)
@@ -348,7 +333,7 @@ def extract_heading_section(body: str, headings: list[str]) -> str | None:
     return "\n".join(lines[start:end]).rstrip()
 
 
-def _find_block_line(lines: list[str], mask: list[bool], block_id: str) -> int | None:
+def find_block_line(lines: list[str], mask: list[bool], block_id: str) -> int | None:
     for i, line in enumerate(lines):
         if mask[i]:
             continue
@@ -366,7 +351,7 @@ def _is_block_edge(line: str) -> bool:
     return _is_blank(line) or RE_HEADING.match(line) is not None
 
 
-def _block_bounds(lines: list[str], i: int) -> tuple[int, int]:
+def block_bounds(lines: list[str], i: int) -> tuple[int, int]:
     """Return the (first, last) line of the block that carries the ID on line ``i``."""
     text = RE_LINE_BLOCK_ID.sub("", lines[i]).strip().lstrip(">").strip()
     if not text:
@@ -410,35 +395,24 @@ def _list_item_end(lines: list[str], i: int, indent: int) -> int:
     return last
 
 
-def _range_parts(block_id: str) -> str | None:
-    """Return ``id`` for a Block Link Plus range ID ``id-id``, else None."""
-    half, rem = divmod(len(block_id), 2)
-    if rem != 1 or block_id[half] != "-":
-        return None
-    start = block_id[:half]
-    return start if start == block_id[half + 1 :] else None
+def extract_block(body: str, block_id: str, plugins: Sequence[ObsidianPlugin] = ()) -> str | None:
+    """Return the block labelled ``block_id``.
 
+    Each plugin's :meth:`~obsidian_pdf_exporter.plugins.ObsidianPlugin.extract_block`
+    is asked first, in order. The first answer that is not None wins.
+    """
+    for plugin in plugins:
+        hook = getattr(plugin, "extract_block", None)
+        found = hook(body, block_id) if hook is not None else None
+        if found is not None:
+            return found
 
-def extract_block(body: str, block_id: str) -> str | None:
-    """Return the block (or Block Link Plus range) labelled ``block_id``."""
     lines = body.split("\n")
-    mask = _code_mask(lines)
-
-    range_start = _range_parts(block_id)
-    if range_start is not None:
-        start_line = _find_block_line(lines, mask, range_start)
-        end_line = _find_block_line(lines, mask, block_id)
-        if start_line is not None and end_line is not None and end_line >= start_line:
-            first = _block_bounds(lines, start_line)[0]
-            last = end_line
-            if RE_LINE_BLOCK_ID.sub("", lines[end_line]).strip():
-                last = _block_bounds(lines, end_line)[1]
-            return "\n".join(lines[first : last + 1]).strip("\n")
-
-    line = _find_block_line(lines, mask, block_id)
+    mask = code_mask(lines)
+    line = find_block_line(lines, mask, block_id)
     if line is None:
         return None
-    first, last = _block_bounds(lines, line)
+    first, last = block_bounds(lines, line)
     return "\n".join(lines[first : last + 1]).strip("\n")
 
 
@@ -450,7 +424,7 @@ def extract_block(body: str, block_id: str) -> str | None:
 def rebase_headings(content: str, top_level: int) -> str:
     """Shift all headings so the topmost one is at ``top_level`` (capped at 6)."""
     lines = content.split("\n")
-    mask = _code_mask(lines)
+    mask = code_mask(lines)
     levels = [
         len(m.group(1))
         for i, line in enumerate(lines)
@@ -472,7 +446,7 @@ def rebase_headings(content: str, top_level: int) -> str:
 def _outside_fences(content: str, fn: Callable[[str], str]) -> str:
     """Apply ``fn`` to every run of lines that is not inside a fenced code block."""
     lines = content.split("\n")
-    mask = _code_mask(lines)
+    mask = code_mask(lines)
     out: list[str] = []
     chunk: list[str] = []
     for line, in_code in zip(lines, mask, strict=True):

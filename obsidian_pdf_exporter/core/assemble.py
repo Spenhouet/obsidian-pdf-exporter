@@ -4,26 +4,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from obsidian_pdf_exporter.core.callouts import convert_callouts
-from obsidian_pdf_exporter.core.embeds import EmbedContext
-from obsidian_pdf_exporter.core.embeds import expand_note_embeds
-from obsidian_pdf_exporter.core.embeds import strip_block_ids
-from obsidian_pdf_exporter.core.embeds import strip_obsidian_comments
-from obsidian_pdf_exporter.core.frontmatter import parse_frontmatter
-from obsidian_pdf_exporter.core.frontmatter import strip_frontmatter
-from obsidian_pdf_exporter.core.frontmatter import strip_html_comments
-from obsidian_pdf_exporter.core.heading_links import mark_same_page_links
-from obsidian_pdf_exporter.core.headings import normalize_heading_levels
-from obsidian_pdf_exporter.core.headings import strip_title_heading
-from obsidian_pdf_exporter.core.wiki_links import convert_wiki_links
-from obsidian_pdf_exporter.core.wiki_links import normalize_bracket_links
-from obsidian_pdf_exporter.core.wiki_links import promote_image_captions
-from obsidian_pdf_exporter.plugins import PluginContext
+from obsidian_pdf_exporter.core.pipeline import run_markdown
+from obsidian_pdf_exporter.core.steps import core_steps
+from obsidian_pdf_exporter.core.steps.base import PageContext
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from collections.abc import Sequence
     from pathlib import Path
 
+    from obsidian_pdf_exporter.core.steps.base import Step
     from obsidian_pdf_exporter.core.tree import PageNode
     from obsidian_pdf_exporter.core.vault_index import VaultIndex
     from obsidian_pdf_exporter.plugins import ObsidianPlugin
@@ -39,56 +29,33 @@ def process_page(
     plugin_options: dict[str, str] | None = None,
     vault_index: VaultIndex | None = None,
     log: Callable[[str], None] | None = None,
+    steps: Sequence[Step] | None = None,
 ) -> str:
-    """Read and pre-process a single page's markdown content.
+    """Read a single page and run the markdown hook of every step on it.
 
-    Obsidian-plugin support modules (Dataview, Meta Bind, …) run between
-    frontmatter parsing and the rest of the markdown transforms; the
-    pipeline calls ``process_markdown`` on every plugin in priority order.
+    ``steps`` defaults to :func:`~obsidian_pdf_exporter.core.steps.core_steps`.
+    Obsidian-plugin support modules (Dataview, Meta Bind, …) run inside
+    the ``plugins`` step, right after the frontmatter is parsed.
     """
     if node.md_file is None or not node.md_file.exists():
         return ""
 
+    steps = list(steps) if steps is not None else core_steps()
     content = node.md_file.read_text(encoding="utf-8", errors="replace")
-
-    fm = parse_frontmatter(content)
-    content = strip_frontmatter(content)
-
-    if plugins:
-        ctx = PluginContext(
-            vault_root=vault_root,
-            page_folder=node.md_file.parent,
-            frontmatter=fm,
-            options=dict(plugin_options or {}),
-            vault_index=vault_index,
-        )
-        for plugin in plugins:
-            content = plugin.process_markdown(content, ctx)
-
-    content = strip_html_comments(content)
-    embed_ctx = EmbedContext(
+    context = PageContext(
+        vault_root=vault_root,
+        page_folder=node.md_file.parent,
+        options=dict(plugin_options or {}),
+        vault_index=vault_index,
+        source_file=node.md_file,
+        node=node,
         page_index=page_index,
         build_dir=build_dir,
-        vault_root=vault_root,
-        vault_index=vault_index,
         plugins=plugins,
-        plugin_options=dict(plugin_options or {}),
+        steps=steps,
         log=log,
     )
-    content = expand_note_embeds(content, node.md_file, embed_ctx)
-    content = strip_obsidian_comments(content)
-    content = strip_block_ids(content)
-    content = convert_callouts(content)
-    content = mark_same_page_links(content, node.anchor if node.depth > 0 else "")
-    content = convert_wiki_links(content, node.md_file.parent, page_index, build_dir, vault_index)
-    content = normalize_bracket_links(content)
-    content = promote_image_captions(content)
-    content = strip_title_heading(content, node.name)
-
-    # Page content nests under the page heading (level ``depth``).
-    content = normalize_heading_levels(content, node.depth + 1 if node.depth > 0 else 1)
-
-    return content.strip()
+    return run_markdown(content, context, steps).strip()
 
 
 def assemble_document(
@@ -101,8 +68,10 @@ def assemble_document(
     plugin_options: dict[str, str] | None = None,
     vault_index: VaultIndex | None = None,
     log: Callable[[str], None] | None = None,
+    steps: Sequence[Step] | None = None,
 ) -> str:
     """Recursively concatenate every page into one markdown blob."""
+    steps = list(steps) if steps is not None else core_steps()
     parts: list[str] = []
 
     if root.depth > 0:
@@ -119,6 +88,7 @@ def assemble_document(
         plugin_options=plugin_options,
         vault_index=vault_index,
         log=log,
+        steps=steps,
     )
     if content:
         parts.append(content)
@@ -133,6 +103,7 @@ def assemble_document(
             plugin_options=plugin_options,
             vault_index=vault_index,
             log=log,
+            steps=steps,
         )
         if child_content:
             parts.append(child_content)
