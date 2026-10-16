@@ -121,8 +121,8 @@ listed.
    highlights, `hard_line_breaks` for line breaks or `--mathml` for math.
 2. Obsidian core syntax ([`core/steps/`](https://github.com/Spenhouet/obsidian-pdf-exporter/tree/main/obsidian_pdf_exporter/core/steps/)).
    Every piece of syntax that Obsidian itself supports is a small step:
-   frontmatter, comments, Bases, PDF embeds, embeds, block IDs, callouts, heading links, wiki
-   links, image captions, headings, warnings about plugin code blocks,
+   frontmatter, comments, Bases, PDF embeds, embeds, block IDs, callouts, heading links,
+   Markdown images, wiki links, image captions, headings, warnings about plugin code blocks,
    highlights, line breaks, tasks, math, footnotes, Mermaid, landscape
    diagrams, SVG images and table fixes. All steps are listed in
    `CORE_STEPS` in [`core/steps/__init__.py`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/obsidian_pdf_exporter/core/steps/__init__.py).
