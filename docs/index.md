@@ -26,7 +26,7 @@ hide:
 
     Every folder is a section, every folder note its text. Headings are numbered and listed in a table of contents.
 
-    [:octicons-arrow-right-24: Folder structure](obsidian/structure.md)
+    [:octicons-arrow-right-24: Folder Notes](plugins/folder-notes.md)
 
 -   :simple-obsidian: __Obsidian syntax__
 

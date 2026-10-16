@@ -92,7 +92,7 @@ Export an Obsidian-format folder tree to a single PDF file.
 ope export ROOT [OPTIONS]
 ```
 
-Builds one PDF from a vault folder. Git is not required. When the folder is in a git repository and `--version` is not set, the short commit hash is shown as the version label. See [Folder structure](../obsidian/structure.md) for how the folder becomes sections.
+Builds one PDF from a vault folder. Git is not required. When the folder is in a git repository and `--version` is not set, the short commit hash is shown as the version label. See [Folder Notes](../plugins/folder-notes.md) for how the folder becomes sections.
 
 | Argument | Description |
 | -------- | ----------- |
