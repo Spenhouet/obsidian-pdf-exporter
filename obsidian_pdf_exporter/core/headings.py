@@ -43,3 +43,30 @@ def offset_headings(content: str, offset: int) -> str:
                 line = "#" * new_level + " " + m.group(2)
         result.append(line)
     return "\n".join(result)
+
+
+def normalize_heading_levels(content: str, base: int) -> str:
+    """Re-level the page's headings so they nest under ``base`` without gaps.
+
+    The outermost headings of the page get level ``base``. A heading that
+    skips levels (``###`` right after ``#``) moves up to the next free level,
+    so section numbers never contain a zero (``1.0.1``). Levels are capped at 6.
+    """
+    lines = content.split("\n")
+    stack: list[int] = []
+    in_code_block = False
+    for i, line in enumerate(lines):
+        if line.startswith(("```", "~~~")):
+            in_code_block = not in_code_block
+        if in_code_block:
+            continue
+        m = re.match(r"^(#{1,6})\s+(.+)$", line)
+        if not m:
+            continue
+        level = len(m.group(1))
+        while stack and stack[-1] >= level:
+            stack.pop()
+        new_level = min(base + len(stack), 6)
+        stack.append(level)
+        lines[i] = "#" * new_level + " " + m.group(2)
+    return "\n".join(lines)
