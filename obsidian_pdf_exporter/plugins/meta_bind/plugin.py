@@ -65,19 +65,17 @@ class MetaBindPlugin(ObsidianPlugin):
 
 def _render_view(m: re.Match, fm: dict) -> str:
     expr = m.group(1) or m.group(3)
-    render_type = (m.group(2) or m.group(4) or "text").lower().strip()
+    render_type = (m.group(2) or m.group(4) or "text").strip()
     value = _eval_expr(expr, fm)
     if not value:
         return ""
 
-    if render_type.startswith(("date(", "datetime(")):
-        fmt_m = re.match(r"(?:date|datetime)\(([^)]+)\)", render_type)
-        if fmt_m:
-            try:
-                d = datetime.date.fromisoformat(value[:10])
-                return d.strftime(_moment_to_strftime(fmt_m.group(1)))
-            except ValueError:
-                pass
+    # Only the type name is case-insensitive; the format keeps its case.
+    fmt_m = re.match(r"(?i:date|datetime)\(([^)]+)\)", render_type)
+    if fmt_m:
+        moment = _parse_date(value)
+        if moment is not None:
+            return format_moment(moment, fmt_m.group(1))
 
     if "\n" in value and _is_inline(m):
         value = _inline_lines(value)
@@ -186,16 +184,57 @@ def _eval_expr(expr: str, fm: dict) -> str:
     return result.strip().strip('"').strip("'")
 
 
-def _moment_to_strftime(fmt: str) -> str:
-    """Translate moment.js date tokens into Python ``strftime`` directives."""
-    for moment_tok, py_tok in (
-        ("YYYY", "%Y"),
-        ("YY", "%y"),
-        ("MM", "%m"),
-        ("DD", "%d"),
-        ("HH", "%H"),
-        ("mm", "%M"),
-        ("ss", "%S"),
-    ):
-        fmt = fmt.replace(moment_tok, py_tok)
-    return fmt
+_MONTHS = (
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+)
+# Longest tokens first, so "MMMM" is not read as "MM" twice.
+_RE_MOMENT_TOKEN = re.compile(r"YYYY|YY|MMMM|MMM|MM|M|DD|D|HH|H|mm|ss")
+
+
+def _parse_date(value: str) -> datetime.datetime | None:
+    """Read an ISO date or date and time, or return None."""
+    text = value.strip()
+    try:
+        return datetime.datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        pass
+    try:
+        day = datetime.date.fromisoformat(text[:10])
+    except ValueError:
+        return None
+    return datetime.datetime(day.year, day.month, day.day)
+
+
+def format_moment(moment: datetime.datetime, fmt: str) -> str:
+    """Format ``moment`` with moment.js tokens (``D MMMM YYYY``, ``DD.MM.YY HH:mm``).
+
+    Supported tokens: ``D``, ``DD``, ``M``, ``MM``, ``MMM``, ``MMMM``, ``YY``,
+    ``YYYY``, ``H``, ``HH``, ``mm`` and ``ss``. Month names are English. Other
+    text is kept as written.
+    """
+    values = {
+        "YYYY": f"{moment.year:04d}",
+        "YY": f"{moment.year % 100:02d}",
+        "MMMM": _MONTHS[moment.month - 1],
+        "MMM": _MONTHS[moment.month - 1][:3],
+        "MM": f"{moment.month:02d}",
+        "M": str(moment.month),
+        "DD": f"{moment.day:02d}",
+        "D": str(moment.day),
+        "HH": f"{moment.hour:02d}",
+        "H": str(moment.hour),
+        "mm": f"{moment.minute:02d}",
+        "ss": f"{moment.second:02d}",
+    }
+    return _RE_MOMENT_TOKEN.sub(lambda m: values[m.group(0)], fmt)
