@@ -65,7 +65,9 @@ def nav_pages() -> tuple[str, list[tuple[str, list[str]]]]:
         if isinstance(value, str):
             loose.append(value)
         else:
-            groups.append((title, [next(iter(item.values())) for item in value]))
+            # A bare path is the section's index page (navigation.indexes).
+            pages = [item if isinstance(item, str) else next(iter(item.values())) for item in value]
+            groups.append((title, pages))
     return config["site_url"], [("Overview", loose), *groups]
 
 
