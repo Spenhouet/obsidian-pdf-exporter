@@ -6,8 +6,10 @@ import base64
 import html as html_lib
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from obsidian_pdf_exporter.core.drawio import clean_drawio_svg
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 # Defaults for markup the exporter adds. They come before the template's CSS,
 # so a template can restyle all of it.
@@ -224,12 +226,17 @@ def table_needs_width(table_html: str) -> bool:
     return max(wrapped, words) > _PORTRAIT_CHARS
 
 
-def inline_svg_images(html: str, build_dir: Path) -> str:  # noqa: C901 - small SVG handler
+def inline_svg_images(  # noqa: C901 - small SVG handler
+    html: str,
+    build_dir: Path,
+    process_svg: Callable[[str], str] | None = None,
+) -> str:
     """Replace ``<img>`` tags pointing to SVGs with the inline ``<svg>`` element.
 
     WeasyPrint renders inline SVG reliably. Loading SVGs through ``<img src>``
     has had several regressions, especially with relative paths and data URIs;
-    inlining sidesteps both problems.
+    inlining sidesteps both problems. ``process_svg`` may rewrite each SVG
+    before it is inserted (the draw.io plugin uses this).
     """
 
     def load(src: str) -> str | None:
@@ -268,7 +275,9 @@ def inline_svg_images(html: str, build_dir: Path) -> str:  # noqa: C901 - small 
             svg_text,
             flags=re.DOTALL,
         )
-        svg_text = clean_drawio_svg(svg_text).strip()
+        if process_svg is not None:
+            svg_text = process_svg(svg_text)
+        svg_text = svg_text.strip()
         cls_m = re.search(r'\bclass=["\']([^"\']*)["\']', tag, re.IGNORECASE)
         cls = cls_m.group(1) if cls_m else "doc-image"
         style_m = re.search(r'\bstyle=["\']([^"\']*)["\']', tag, re.IGNORECASE)

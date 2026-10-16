@@ -9,8 +9,6 @@ from typing import TYPE_CHECKING
 import pytest
 
 from obsidian_pdf_exporter.core.callouts import convert_callouts
-from obsidian_pdf_exporter.core.drawio import clean_drawio_svg
-from obsidian_pdf_exporter.core.exporter import _hard_line_breaks
 from obsidian_pdf_exporter.core.heading_links import mark_same_page_links
 from obsidian_pdf_exporter.core.heading_links import resolve_heading_links
 from obsidian_pdf_exporter.core.headings import normalize_heading_levels
@@ -18,8 +16,10 @@ from obsidian_pdf_exporter.core.html_postprocess import add_base_css
 from obsidian_pdf_exporter.core.html_postprocess import render_task_checkboxes
 from obsidian_pdf_exporter.core.math_render import render_math
 from obsidian_pdf_exporter.core.pandoc import render_html
+from obsidian_pdf_exporter.core.steps.line_breaks import hard_line_breaks
 from obsidian_pdf_exporter.core.util import obsidian_hard_line_breaks
 from obsidian_pdf_exporter.plugins.dataview.engine import _render_table
+from obsidian_pdf_exporter.plugins.drawio.svg import clean_drawio_svg
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -142,8 +142,8 @@ def test_hard_line_breaks_follow_vault_setting(tmp_path: Path) -> None:
 
 
 def test_hard_line_breaks_option_overrides(tmp_path: Path) -> None:
-    assert _hard_line_breaks(tmp_path, {"line_breaks": "hard"}) is True
-    assert _hard_line_breaks(tmp_path, {"line_breaks": "soft"}) is False
+    assert hard_line_breaks(tmp_path, {"line_breaks": "hard"}) is True
+    assert hard_line_breaks(tmp_path, {"line_breaks": "soft"}) is False
 
 
 @needs_pandoc
@@ -155,7 +155,7 @@ def test_reader_extensions(tmp_path: Path) -> None:
 
 
 @needs_pandoc
-def test_hard_line_breaks(tmp_path: Path) -> None:
+def testhard_line_breaks(tmp_path: Path) -> None:
     assert "one<br />" in _pandoc("one\ntwo\n", tmp_path, hard_line_breaks=True)
     assert "<br" not in _pandoc("one\ntwo\n", tmp_path)
 

@@ -20,7 +20,7 @@ Build a single PDF from a vault folder. Git is **not** required — works on any
 | `-O, --option key=value`    | Free-form option forwarded to plugins / template. Repeatable.                                                            | —                       |
 | `--disable-plugin NAME`     | Skip a plugin (see `list-plugins`). Repeatable.                                                                          | none                    |
 | `--toc / --no-toc`          | Include or leave out the table of contents.                                                                              | `--toc`                 |
-| `--debug`                   | Keep the intermediate build directory next to the PDF.                                                                   | off                     |
+| `--debug`                   | Keep the intermediate build directory next to the PDF. It holds `assembled.md` (what pandoc reads) and `final.html` (what WeasyPrint reads). | off                     |
 
 Example:
 

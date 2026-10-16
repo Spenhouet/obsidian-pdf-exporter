@@ -6,15 +6,16 @@ from typing import TYPE_CHECKING
 
 from obsidian_pdf_exporter.core.assemble import process_page
 from obsidian_pdf_exporter.core.embeds import MAX_EMBED_DEPTH
-from obsidian_pdf_exporter.core.embeds import EmbedContext
 from obsidian_pdf_exporter.core.embeds import expand_note_embeds
 from obsidian_pdf_exporter.core.embeds import extract_block
 from obsidian_pdf_exporter.core.embeds import extract_heading_section
 from obsidian_pdf_exporter.core.embeds import rebase_headings
 from obsidian_pdf_exporter.core.embeds import strip_block_ids
 from obsidian_pdf_exporter.core.embeds import strip_obsidian_comments
+from obsidian_pdf_exporter.core.steps import PageContext
 from obsidian_pdf_exporter.core.tree import PageNode
 from obsidian_pdf_exporter.core.vault_index import VaultIndex
+from obsidian_pdf_exporter.plugins.block_link_plus import BlockLinkPlusPlugin
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -26,10 +27,10 @@ def _write(path: Path, text: str) -> Path:
     return path
 
 
-def _ctx(vault: Path, build: Path, messages: list[str] | None = None) -> EmbedContext:
+def _ctx(vault: Path, build: Path, messages: list[str] | None = None) -> PageContext:
     build.mkdir(parents=True, exist_ok=True)
     log = messages.append if messages is not None else None
-    return EmbedContext(
+    return PageContext(
         page_index={},
         build_dir=build,
         vault_root=vault,
@@ -78,19 +79,33 @@ def test_extract_block_standalone_id_after_callout() -> None:
     assert extract_block(body, "box") == "> [!note]\n> Inside.\n\n^box"
 
 
+_BLP = (BlockLinkPlusPlugin(),)
+
+
 def test_extract_block_range() -> None:
     body = "Intro.\n\nStart here. ^r\n\n- a\n- b\n\n^r-r\n\nOutside."
-    assert extract_block(body, "r-r") == "Start here. ^r\n\n- a\n- b\n\n^r-r"
+    assert extract_block(body, "r-r", _BLP) == "Start here. ^r\n\n- a\n- b\n\n^r-r"
 
 
 def test_extract_block_range_with_placeholder_start() -> None:
     body = "## Section\n\n%% %% ^r\n\n### Sub\n\nText.\n\n^r-r\n\n## Next"
-    assert extract_block(body, "r-r") == "%% %% ^r\n\n### Sub\n\nText.\n\n^r-r"
+    assert extract_block(body, "r-r", _BLP) == "%% %% ^r\n\n### Sub\n\nText.\n\n^r-r"
 
 
 def test_extract_block_range_end_on_paragraph() -> None:
     body = "A. ^my-id\n\nB\nC ^my-id-my-id\n\nD"
-    assert extract_block(body, "my-id-my-id") == "A. ^my-id\n\nB\nC ^my-id-my-id"
+    assert extract_block(body, "my-id-my-id", _BLP) == "A. ^my-id\n\nB\nC ^my-id-my-id"
+
+
+def test_extract_block_range_needs_the_plugin() -> None:
+    body = "Intro.\n\nStart here. ^r\n\n- a\n- b\n\n^r-r\n\nOutside."
+    # Without Block Link Plus, ``^r-r`` is a plain block ID on its own line.
+    assert extract_block(body, "r-r") == "- a\n- b\n\n^r-r"
+
+
+def test_extract_block_range_falls_back_when_start_is_missing() -> None:
+    body = "No start.\n\nEnd here. ^r-r"
+    assert extract_block(body, "r-r", _BLP) == "End here. ^r-r"
 
 
 def test_extract_block_missing_returns_none() -> None:
@@ -259,7 +274,7 @@ def test_process_page_expands_embeds_and_strips_markers(tmp_path: Path) -> None:
     node = PageNode(folder=page_file.parent, name="Doc", depth=1, md_file=page_file)
     build = tmp_path / "b"
     build.mkdir()
-    out = process_page(node, {}, build, vault, vault_index=VaultIndex(vault))
+    out = process_page(node, {}, build, vault, plugins=list(_BLP), vault_index=VaultIndex(vault))
     assert "Own text." in out
     assert "First." in out
     assert "| a | b |" in out
