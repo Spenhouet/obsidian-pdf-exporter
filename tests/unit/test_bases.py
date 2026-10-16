@@ -332,7 +332,7 @@ def test_invalid_yaml() -> None:
 def test_embed_with_view_name(tmp_path: Path) -> None:
     vault = _vault(tmp_path)
     out, messages = _export(vault, "Intro.\n\n![[Books.base#Done]]\n\nEnd.\n")
-    assert "- Emma: Read - Jane Austen" in out
+    assert "- *Emma*: Read - Jane Austen" in out
     assert messages == []
 
 
@@ -340,7 +340,7 @@ def test_embed_in_callout_keeps_the_quote(tmp_path: Path) -> None:
     vault = _vault(tmp_path)
     out, _ = _export(vault, "> [!note]\n> ![[Books.base#Done]]\n")
     assert "callout-note" in out
-    assert "\n- Emma: Read - Jane Austen\n:::" in out
+    assert "\n- *Emma*: Read - Jane Austen\n:::" in out
 
 
 def test_code_block_uses_this_file(tmp_path: Path) -> None:
@@ -361,7 +361,7 @@ def test_code_block_uses_this_file(tmp_path: Path) -> None:
 def test_table_links_resolve_and_keep_the_table(tmp_path: Path) -> None:
     vault = _vault(tmp_path)
     out, _ = _export(vault, "![[Books.base]]\n")
-    assert "| Dune | Frank Herbert | 12.5 | 3.03 |" in out
+    assert "| *Dune* | *Frank Herbert* | 12.5 | 3.03 |" in out
 
 
 def test_broken_base_warns_and_keeps_code(tmp_path: Path) -> None:
