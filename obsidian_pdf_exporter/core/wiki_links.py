@@ -7,6 +7,7 @@ import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from obsidian_pdf_exporter.core.code import outside_code
 from obsidian_pdf_exporter.core.tree import lookup_page
 from obsidian_pdf_exporter.core.util import slugify
 
@@ -97,7 +98,10 @@ def convert_wiki_links(
     build_dir: Path,
     vault_index: VaultIndex | None = None,
 ) -> str:
-    """Convert ``[[wiki]]`` and ``![[image]]`` syntax into standard markdown."""
+    """Convert ``[[wiki]]`` and ``![[image]]`` syntax into standard markdown.
+
+    Links and embeds inside code stay as written.
+    """
 
     def replace_embed(m: re.Match) -> str:
         target = m.group(1).strip()
@@ -116,8 +120,6 @@ def convert_wiki_links(
             return f"[{page_name}](#{page_info['anchor']})"
         return f"*{page_name}*"
 
-    content = RE_WIKI_EMBED_IMAGE.sub(replace_embed, content)
-
     def replace_link(m: re.Match) -> str:
         page_name = m.group(1).strip() if m.group(1) else ""
         section = m.group(2).strip() if m.group(2) else ""
@@ -134,7 +136,11 @@ def convert_wiki_links(
             return f"[{label}]({page_name})"
         return label
 
-    return RE_WIKI_LINK.sub(replace_link, content)
+    def convert(text: str) -> str:
+        text = RE_WIKI_EMBED_IMAGE.sub(replace_embed, text)
+        return RE_WIKI_LINK.sub(replace_link, text)
+
+    return outside_code(content, convert)
 
 
 def normalize_bracket_links(content: str) -> str:
@@ -158,7 +164,7 @@ def normalize_bracket_links(content: str) -> str:
         link_text = f"[{esc_text(inner)}]{esc_text(rest)}"
         return f'<a href="{esc_attr(url)}">{link_text}</a>'
 
-    return RE_BRACKET_LINK.sub(replace, content)
+    return outside_code(content, lambda text: RE_BRACKET_LINK.sub(replace, text))
 
 
 def promote_image_captions(content: str) -> str:
