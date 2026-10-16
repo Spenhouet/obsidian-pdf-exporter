@@ -403,6 +403,8 @@ The exporter relies on a stable set of class names emitted by pandoc + the post-
 | `blockquote` | Quotes (note: Obsidian callouts are _not_ blockquotes after conversion). |
 | `.callout`, `.callout-note`, `.callout-info`, `.callout-tip`, `.callout-warning`, `.callout-danger`, `.callout-important`, `.callout-example`, `.callout-abstract`, `.callout-todo`, `.callout-success`, `.callout-question`, `.callout-quote` | Obsidian callout types. |
 | `.wide-table-section` | Wide table block (see `tables.landscape` in [MARKDOWN.md](MARKDOWN.md#wide-tables)). The exporter sets `page: landscape-page;` and `break-before/after: page;` on this class — your CSS should also declare a `@page landscape-page { size: A4 landscape; … }` rule with appropriate margins. |
+| `.landscape-figure`, `.landscape` | A wide diagram on a landscape page (see [Wide diagrams](MARKDOWN.md#wide-diagrams)). The wrapper also has `.wide-table-section`, so the landscape page of wide tables applies to it without changes. `.landscape` is on the diagram itself. |
+| `.footnote`, `::footnote-call`, `::footnote-marker`, `@page { @footnote { … } }` | Footnotes at the bottom of the page. See [Footnotes](#footnotes). |
 | `img.doc-image` | Embedded images (`![[…]]` and standard markdown images). |
 | `.mermaid`, `.mermaid-<type>` | Rendered Mermaid diagrams. See [Mermaid diagram sizes](#mermaid-diagram-sizes). |
 | `figure`, `figcaption` | Pandoc emits these when an image has alt text. |
@@ -422,6 +424,20 @@ The element is an inline `<svg>` for SVG output and an `<img>` for PNG output, s
 Any rule of the template wins over the size the exporter sets: the natural size, or the width from `-O mermaid.max_height`. The exporter gives this size as a `width` attribute and turns it into a CSS rule with zero specificity. A diagram is never wider than the text width (`max-width: 100%`).
 
 The default template styles images with `img:where(.doc-image)`, so a class rule such as `.mermaid-pie` also wins over its `height: auto`. A custom template that sets `height` on `img.doc-image` needs a selector at least as specific, for example `img.mermaid-pie`.
+
+### Footnotes
+
+Each footnote is a `<span class="footnote" data-footnote-number="N">` at the place of its reference. The exporter's base CSS floats it into the footnote area at the bottom of the page and gives it working defaults, so a template needs no footnote rules:
+
+```css
+.footnote { float: footnote; font-size: 0.75rem; line-height: 1.35; font-weight: normal; font-style: normal; }
+.footnote::footnote-call { content: attr(data-footnote-number); vertical-align: super; font-size: 0.65rem; line-height: 0; }
+.footnote::footnote-marker { content: attr(data-footnote-number) ". "; }
+.footnote-paragraph { display: block; }
+@page { @footnote { margin-top: 0.8em; padding-top: 0.3em; border-top: 0.5pt solid #999; } }
+```
+
+The footnote takes its style from where it is referenced, so the base CSS resets weight and style. A note referenced in a table header or a callout also inherits that color; set `color` on `.footnote` when the template colors those. `::footnote-call` is the number in the text, `::footnote-marker` the number in front of the note, and `@footnote` the area at the bottom of the page. The numbers come from pandoc and run through the whole document; use `data-footnote-number` rather than `counter(footnote)`, since a note with block content stays in pandoc's `section.footnotes` list at the end of the document. `-O footnotes=end` keeps all notes in that list.
 
 For the redline pipeline, additionally:
 

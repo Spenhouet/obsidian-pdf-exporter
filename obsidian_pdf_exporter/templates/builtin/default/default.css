@@ -256,6 +256,12 @@ blockquote {
   color: #6e2f1a;
 }
 
+/* ---- Footnotes ---- */
+/* The base CSS floats .footnote to the bottom of the page. A note takes the
+   color of the place it is referenced from, such as a callout. */
+.footnote { color: var(--color-dark); }
+@page { @footnote { border-top-color: #e0e2e4; } }
+
 /* ---- Links ---- */
 a {
   color: var(--color-link);

@@ -18,6 +18,7 @@ Priority    Step                 Why here
 40          embeds               embedded content then passes all later steps
 50          obsidian_comments    after embeds, so embedded comments go too
 60          block_ids            after embeds, so embedded markers go too
+65          footnotes            after embeds, so each embedded note gets its own labels
 70          callouts
 80          heading_links        tags links with the page they are written on
 90          wiki_links
@@ -31,7 +32,8 @@ Priority    Step                 Why here
 
 Order of the HTML hooks: base_css (10), empty_table_headers (20),
 column_widths (30), svg_images (40), heading_links (50), tasks (60),
-math (70), wide_tables (80), plugins (90).
+math (70), wide_tables (80), landscape_figures (82), footnotes (85, after
+wide_tables, so note text does not count as table width), plugins (90).
 """
 
 from __future__ import annotations
@@ -46,12 +48,14 @@ from obsidian_pdf_exporter.core.steps.code_blocks import PluginCodeBlocksStep
 from obsidian_pdf_exporter.core.steps.comments import HtmlCommentsStep
 from obsidian_pdf_exporter.core.steps.comments import ObsidianCommentsStep
 from obsidian_pdf_exporter.core.steps.embeds import EmbedsStep
+from obsidian_pdf_exporter.core.steps.footnotes import FootnotesStep
 from obsidian_pdf_exporter.core.steps.frontmatter import FrontmatterStep
 from obsidian_pdf_exporter.core.steps.heading_links import HeadingLinksStep
 from obsidian_pdf_exporter.core.steps.headings import HeadingLevelsStep
 from obsidian_pdf_exporter.core.steps.headings import TitleHeadingStep
 from obsidian_pdf_exporter.core.steps.highlights import HighlightsStep
 from obsidian_pdf_exporter.core.steps.image_captions import ImageCaptionsStep
+from obsidian_pdf_exporter.core.steps.landscape import LandscapeFiguresStep
 from obsidian_pdf_exporter.core.steps.line_breaks import LineBreaksStep
 from obsidian_pdf_exporter.core.steps.math import MathStep
 from obsidian_pdf_exporter.core.steps.mermaid import MermaidStep
@@ -72,6 +76,7 @@ CORE_STEPS: tuple[type[Step], ...] = (
     EmbedsStep,
     ObsidianCommentsStep,
     BlockIdsStep,
+    FootnotesStep,
     CalloutsStep,
     HeadingLinksStep,
     WikiLinksStep,
@@ -89,6 +94,7 @@ CORE_STEPS: tuple[type[Step], ...] = (
     EmptyTableHeadersStep,
     ColumnWidthsStep,
     WideTablesStep,
+    LandscapeFiguresStep,
     BaseCssStep,
 )
 

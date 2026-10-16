@@ -37,6 +37,7 @@ _MARKDOWN_ORDER = [
     "embeds",
     "obsidian_comments",
     "block_ids",
+    "footnotes",
     "callouts",
     "heading_links",
     "wiki_links",
@@ -56,6 +57,8 @@ _HTML_ORDER = [
     "tasks",
     "math",
     "wide_tables",
+    "landscape_figures",
+    "footnotes",
     "plugins",
 ]
 
@@ -88,7 +91,7 @@ def test_html_steps_run_in_documented_order() -> None:
 
 def test_embedded_steps() -> None:
     names = [s.name for s in core_steps() if s.embedded]
-    assert names == ["plugins", "html_comments", "embeds", "wiki_links"]
+    assert names == ["plugins", "html_comments", "embeds", "footnotes", "wiki_links"]
 
 
 class _Append(Step):
