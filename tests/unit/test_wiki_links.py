@@ -111,3 +111,9 @@ def test_convert_wiki_links_skips_code(page: tuple[Path, Path]) -> None:
     source = "`[[Note]]` and `![[pic.png]]`\n```\n[[Note|alias]] ![[pic.png]]\n```\n[[Note|alias]]"
     expected = "`[[Note]]` and `![[pic.png]]`\n```\n[[Note|alias]] ![[pic.png]]\n```\nalias"
     assert convert_wiki_links(source, page_folder, {}, build_dir) == expected
+
+
+def test_escaped_pipe_separates_display_text(tmp_path: Path) -> None:
+    r"""Inside tables Obsidian writes ``[[Note\|Alias]]``."""
+    out = convert_wiki_links("| [[Note\\|Alias]] | [[Note#Part\\|Other]] |", tmp_path, {}, tmp_path)
+    assert out == "| Alias | Other |"

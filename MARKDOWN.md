@@ -30,6 +30,7 @@ Anything pandoc's GFM dialect understands works as-is. Obsidian-specific feature
 | Wide tables                                  | Tables that need more width than a portrait page has are rendered on landscape pages. See [Wide tables](#wide-tables).                                                                                         |
 | Code blocks and inline code                  | Shown as written. Links, embeds, block IDs and `%%` comments inside code are not processed, as in Obsidian.                                                                                                     |
 | Image followed by a single italic line       | The italic line is promoted to the image's caption.                                                                                                                                                             |
+| `![[Books.base]]`, `![[Books.base#View]]`, ` ```base ` blocks | [Obsidian Bases](https://help.obsidian.md/bases) rendered as static tables and lists. See [Bases](#bases). |
 | `![[Drawing.excalidraw]]` | [Excalidraw](https://github.com/zsviczian/obsidian-excalidraw-plugin) drawing as an image: the plugin's auto-export SVG or PNG if there is one, otherwise drawn from the scene. Handled by the `excalidraw` plugin. See [Excalidraw drawings](#excalidraw-drawings). |
 | ` ```mermaid ` code blocks                   | Rendered to an SVG (or PNG) diagram with mermaid-cli. See [Mermaid diagrams](#mermaid-diagrams).                                                                                                                |
 
@@ -68,6 +69,39 @@ draw.io stores labels as HTML in `<foreignObject>`, which WeasyPrint does not dr
 - Mixed formatting inside one label (a bold word, a second color) is flattened to the label's main style.
 - Labels with word wrap are wrapped again with an estimated character width, so line breaks can differ a little from draw.io.
 - For full fidelity, export the diagram from draw.io with "Convert labels to SVG" turned on, or as PNG.
+
+## Bases
+
+[Bases](https://help.obsidian.md/bases) is a core plugin of Obsidian. A base is a `.base` file (or a ` ```base ` code block) in YAML that selects files with filters and shows them in views. The export renders a view as it looks when the PDF is made:
+
+- `![[Books.base]]` and ` ```base ` blocks show the first view, `![[Books.base#Reading list]]` the view with that name.
+- `table` and `cards` views become a table, `list` views a bullet list. Other view types (`kanban`, `map`, views of community plugins) become a table and the export prints a warning.
+- Columns come from the view's `order` (just the file name when there is none), with the `displayName` from `properties` as header.
+- The file name column links to the note when the note is part of the export.
+- `sort` (several properties, `ASC` / `DESC`; empty values last), `limit`, `groupBy` (each group gets a label line and its own table), `groupOrder` and the view's `summaries` (a last row with, for example, `Sum: 25.5`) work.
+- The global `filters` and the view's `filters` both apply. `and`, `or` and `not` can be nested. `this` is the note that shows the base.
+
+The expression language of filters and formulas is supported to this extent:
+
+| Area | Supported |
+| ---- | --------- |
+| Literals | numbers, `"text"` and `'text'`, `true`, `false`, `null`, lists `[1, 2]`, objects, regular expressions `/a.c/gi` |
+| Operators | `+ - * / %`, `== != > < >= <=`, `&& \|\| !`, `a ? b : c`, parentheses, `x.y`, `x["y"]`, `list[0]` |
+| Properties | `price`, `note.price`, `note["my price"]`, `formula.name`, `file.*`, `this.*`. A name with a `-`, such as `due-date`, is a property when the note has one, otherwise a subtraction. |
+| File fields | `name`, `basename`, `path`, `folder`, `ext`, `size`, `ctime`, `mtime`, `properties`, `tags`, `links`, `embeds`, `backlinks` |
+| File functions | `hasTag()` (nested tags count), `inFolder()`, `hasLink()`, `hasProperty()`, `asLink()` |
+| Global functions | `if()`, `date()`, `duration()`, `now()`, `today()`, `number()`, `list()`, `link()`, `file()`, `min()`, `max()`, `escapeHTML()`, `image()` |
+| Any value | `isTruthy()`, `isType()`, `isEmpty()`, `toString()` |
+| Text | `length`, `contains()`, `containsAll()`, `containsAny()`, `startsWith()`, `endsWith()`, `lower()`, `title()`, `trim()`, `replace()` (text or regular expression, `$1`), `repeat()`, `reverse()`, `slice()`, `split()` |
+| Numbers | `abs()`, `ceil()`, `floor()`, `round()`, `toFixed()` |
+| Lists | `length`, `contains()`, `containsAll()`, `containsAny()`, `filter()`, `map()`, `reduce()` (with `value`, `index`, `acc`), `flat()`, `join()`, `reverse()`, `slice()`, `sort()`, `unique()`, `mean()`, `sum()`, `min()`, `max()` |
+| Dates | `year`, `month`, `day`, `hour`, `minute`, `second`, `millisecond`, `date()`, `format()` (Moment.js tokens), `time()`, `relative()`, `date + "1M"`, `date - "2h"`, `date - date` (milliseconds) |
+| Links | `asFile()`, `linksTo()`, comparing links with files and `this` |
+| Objects | `keys()`, `values()` |
+| Regular expressions | `matches()` |
+| Summaries | `Average`, `Min`, `Max`, `Sum`, `Range`, `Median`, `Stddev`, `Earliest`, `Latest`, `Checked`, `Unchecked`, `Empty`, `Filled`, `Unique`, and custom summaries from the base's `summaries` with `values` |
+
+Anything else, such as `html()`, `icon()`, `random()` or a function that does not exist, is not dropped silently. The export prints a warning that names the base and the expression. A filter that can not be evaluated is ignored, so the view shows more files rather than fewer, and a column that can not be evaluated stays empty. Property types come from the YAML (a date written as `2024-05-01` is a date); the property types set in Obsidian (`.obsidian/types.json`) are not read. Dates are shown as `YYYY-MM-DD`, checkboxes as ☑ / ☐.
 
 ## Excalidraw drawings
 
