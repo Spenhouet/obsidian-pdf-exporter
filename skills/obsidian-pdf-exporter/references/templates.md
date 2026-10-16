@@ -57,7 +57,7 @@ Margin boxes do not inherit the body font; set it per box.
 - `img.doc-image`, `svg.doc-image`, `figure`, `figcaption`, `.mermaid`, `.mermaid-<type>`
 - `mark`, `code`, `pre`, `blockquote`, `ul.task-list`, `.task-checkbox`, `.task-checkbox.checked`
 - `.footnote`, `.footnote::footnote-call`, `.footnote::footnote-marker`, `@page { @footnote { } }`
-- Redline: `ins`, `del`, `.redline-ins`, `.redline-del`
+- Redline: `ins`, `del`, `.redline-ins`, `.redline-del` (removed headings become `strong`). How to restyle: https://spenhouet.com/obsidian-pdf-exporter/redline/styling/
 - Dark page: `@page { background: #1a202c; }`
 
 ## Python template (options, extending default)
