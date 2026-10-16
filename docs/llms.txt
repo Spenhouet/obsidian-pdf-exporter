@@ -1,6 +1,6 @@
 # obsidian-pdf-exporter
 
-> obsidian-pdf-exporter (`ope`) is a command-line tool that exports a folder of an Obsidian vault to one PDF. It handles wiki links, embeds, callouts, Mermaid, math, footnotes, Bases and community plugin syntax (Dataview, Meta Bind, Excalidraw, draw.io, citations), makes redline PDFs between two git commits, and styles the PDF with CSS templates. Install with `uv tool install obsidian-pdf-exporter && ope setup --yes`.
+> obsidian-pdf-exporter (`ope`) is a command-line tool that exports a folder of an Obsidian vault to one PDF, and makes redline (tracked-changes) PDFs that show what changed in that folder between two git commits, tags or branches (`ope redline`). It handles wiki links, embeds, callouts, Mermaid, math, footnotes, Bases and community plugin syntax (Dataview, Meta Bind, Excalidraw, draw.io, citations), and styles the PDF with CSS templates. Install with `uv tool install obsidian-pdf-exporter && ope setup --yes`.
 
 - `ope` and `obsidian-pdf-exporter` are the same command. `ope <command> --help` is authoritative.
 - The PDF is laid out by WeasyPrint from HTML written by pandoc. Templates are CSS Paged Media.
@@ -8,9 +8,8 @@
 
 ## Overview
 
-- [obsidian-pdf-exporter](https://spenhouet.com/obsidian-pdf-exporter/): Export Obsidian vaults to PDF with plugin support. Runs locally or in CI.
+- [obsidian-pdf-exporter](https://spenhouet.com/obsidian-pdf-exporter/): Export Obsidian vaults to PDF with plugin support, and make redline PDFs that show the tracked changes between two git commits. Runs locally or in CI.
 - [Introduction](https://spenhouet.com/obsidian-pdf-exporter/intro/): What obsidian-pdf-exporter does, how it works and when to use it.
-- [Redline](https://spenhouet.com/obsidian-pdf-exporter/redline/): A tracked-changes PDF between two git commits of a vault.
 - [Use with AI agents](https://spenhouet.com/obsidian-pdf-exporter/agents/): Use ope with AI coding agents. Install the Claude Code plugin and skill, copy the skill by hand, or point any agent at llms.txt and AGENTS.md.
 - [Contributing](https://spenhouet.com/obsidian-pdf-exporter/contributing/): Development setup, architecture, tests, docs and pull request guidelines for obsidian-pdf-exporter.
 
@@ -60,6 +59,15 @@
 - [draw.io](https://spenhouet.com/obsidian-pdf-exporter/plugins/drawio/): draw.io SVG exports with HTML labels made printable.
 - [Citations](https://spenhouet.com/obsidian-pdf-exporter/plugins/citations/): Pandoc citations like [@key] rendered with a reference list from a BibTeX or CSL bibliography.
 - [Write a plugin](https://spenhouet.com/obsidian-pdf-exporter/plugins/write-a-plugin/): Add support for another Obsidian community plugin, in this repository or as a separate Python package.
+
+## Redline
+
+- [Redline](https://spenhouet.com/obsidian-pdf-exporter/redline/): Tracked-changes PDFs between two git commits of a vault. What a redline is, who it is for, how ope builds it and what the reader sees.
+- [Usage](https://spenhouet.com/obsidian-pdf-exporter/redline/usage/): The ope redline command and every flag, commit refs, default output names, recipes for releases, branches and folders, and GitHub Actions workflows for pull requests and releases.
+- [Comparing versions](https://spenhouet.com/obsidian-pdf-exporter/redline/compare/): Which two versions a redline compares. Git commits, tags, branches, HEAD~n, the history of one note, a pull request against main, CI, and what to do when the versions are not in git.
+- [What changes look like](https://spenhouet.com/obsidian-pdf-exporter/redline/changes/): Markup reference for redlines. Words, paragraphs, headings, lists, tables, callouts, images, embeds, moved text, code, properties, Meta Bind, Dataview, tasks and footnotes, each with the before and after Markdown and the PDF.
+- [Styling the redline](https://spenhouet.com/obsidian-pdf-exporter/redline/styling/): The built-in redline template, the elements and classes a redline emits, and how to restyle them in any template.
+- [Limitations and tips](https://spenhouet.com/obsidian-pdf-exporter/redline/limitations/): What a redline does not show, the known issues, and how to write and commit notes so that the redline stays clean.
 
 ## Templates and styling
 

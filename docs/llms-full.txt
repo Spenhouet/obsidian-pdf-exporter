@@ -1,6 +1,6 @@
 # obsidian-pdf-exporter
 
-> obsidian-pdf-exporter (`ope`) is a command-line tool that exports a folder of an Obsidian vault to one PDF. It handles wiki links, embeds, callouts, Mermaid, math, footnotes, Bases and community plugin syntax (Dataview, Meta Bind, Excalidraw, draw.io, citations), makes redline PDFs between two git commits, and styles the PDF with CSS templates. Install with `uv tool install obsidian-pdf-exporter && ope setup --yes`.
+> obsidian-pdf-exporter (`ope`) is a command-line tool that exports a folder of an Obsidian vault to one PDF, and makes redline (tracked-changes) PDFs that show what changed in that folder between two git commits, tags or branches (`ope redline`). It handles wiki links, embeds, callouts, Mermaid, math, footnotes, Bases and community plugin syntax (Dataview, Meta Bind, Excalidraw, draw.io, citations), and styles the PDF with CSS templates. Install with `uv tool install obsidian-pdf-exporter && ope setup --yes`.
 
 - `ope` and `obsidian-pdf-exporter` are the same command. `ope <command> --help` is authoritative.
 - The PDF is laid out by WeasyPrint from HTML written by pandoc. Templates are CSS Paged Media.
@@ -18,6 +18,22 @@ Source: https://spenhouet.com/obsidian-pdf-exporter/
 
 [Get started](getting-started/installation.md){ .md-button .md-button--primary }
 [View on GitHub](https://github.com/Spenhouet/obsidian-pdf-exporter){ .md-button }
+
+## Redline: every change, in the PDF
+
+<p class="ope-feature-pitch">One command turns two git commits of your notes into a tracked-changes PDF: inserted text in green, removed text struck through in red, in the layout of the real document. Made for reviews, approvals, audits and release notes of controlled documents.</p>
+
+<picture>
+  <source media="(max-width: 44.9375em)" srcset="img/redline/overview.png">
+  <img src="img/redline/redline-three-up.png" alt="The same policy before and after a change, and the redline PDF that shows inserted, removed and changed text">
+</picture>
+
+```bash
+ope redline ./Policy --from-commit v1.0.0 --to-commit v1.1.0
+```
+
+[How Redline works](redline/index.md){ .md-button .md-button--primary }
+[Usage and CI](redline/usage.md){ .md-button }
 
 ## What it does
 
@@ -43,7 +59,7 @@ Source: https://spenhouet.com/obsidian-pdf-exporter/
 
     A tracked-changes PDF between two git commits, for reviews and audits.
 
-    [:octicons-arrow-right-24: Redline](redline.md)
+    [:octicons-arrow-right-24: Redline](redline/index.md)
 
 -   :material-palette-outline: __Templates__
 
@@ -148,91 +164,6 @@ flowchart LR
 - Not an Obsidian plugin. It runs outside Obsidian and reads the files on disk.
 - Not a pixel copy of the Obsidian reading view. The PDF is styled by its template, and some interactive features (folding, input fields, buttons) have no PDF form.
 - Not a full Dataview engine. It renders a subset of DQL, see [Dataview](plugins/dataview.md).
-
----
-
-Source: https://spenhouet.com/obsidian-pdf-exporter/redline/
-
-# Redline
-
-`ope redline` builds a PDF that shows what changed in a folder between two git commits: inserted text in green, removed text in red and struck through. It is meant for reviews, approvals and audits of documents kept in git.
-
-```bash
-cd MyVault                     # must run inside the git repository
-ope redline ./Handbook --from-commit v3.0.0 --to-commit HEAD
-```
-
-The PDF is written to `./.export/<title>_redline.pdf`. All options are in the [CLI reference](reference/cli.md#redline).
-
-## Example
-
-Before (commit 1):
-
-````markdown
-## Scope
-
-This policy applies to all laptops.
-
-## Rules
-
-- Lock the screen when you leave the desk.
-- Install updates once a month.
-- Report a lost device within one day.
-
-## Old exceptions
-
-Test devices are exempt.
-````
-
-After (commit 2):
-
-````markdown
-## Scope
-
-This policy applies to all laptops and phones.
-
-## Rules
-
-- Lock the screen when you leave the desk.
-- Install updates once a week.
-- Report a lost device within one day.
-- Use the password manager for all accounts.
-````
-
-PDF:
-
-![Redline PDF with inserted and removed text](img/features/redline.png)
-
-## How changes are shown
-
-- A block that changed a little (similar enough to the old one) shows word-level changes inline, as `<ins>` and `<del>`.
-- A block that is new, or changed so much that the old and new text have little in common, is shown as a removed block followed by an inserted block (`.redline-del` and `.redline-ins`).
-- Removed headings are shown as bold text, so they do not go into the table of contents or the numbering.
-- Both commits are exported with the same steps and plugins, so embeds, Dataview tables and Meta Bind values are compared as they appear in the PDF.
-
-The subtitle and the version label show the two short hashes, such as `Redline: 1a2b3c4 -> 5d6e7f8`. `--subtitle` replaces the subtitle.
-
-## Template
-
-`redline` uses the built-in `redline` template. It looks like `default` and adds the styles for the changes. A custom template for redlines styles these selectors:
-
-| Selector | Marks |
-| -------- | ----- |
-| `ins`, `del` | Word-level insertions and removals. |
-| `.redline-ins`, `.redline-del` | Inserted and removed blocks. |
-
-See the [CSS reference](templating/css-reference.md#redline).
-
-## In CI
-
-The checkout needs the history of both commits:
-
-```yaml
-- uses: actions/checkout@v4
-  with:
-    fetch-depth: 0
-- run: ope redline ./Handbook --from-commit "${{ github.event.pull_request.base.sha }}" -o redline.pdf
-```
 
 ---
 
@@ -911,6 +842,11 @@ Generated content:
   Run `uv run python scripts/render_examples.py [name ...]` after a change
   that affects the output. It needs `pdftoppm` (poppler) and Node.js for
   Mermaid. Commit the images.
+- `docs/img/redline/*.png` come from `examples/_redline/`. Each case
+  folder there holds a `before/` and an `after/` version of a small vault.
+  `uv run python scripts/render_redline_examples.py [case ...]` commits both
+  into a temporary git repository (fixed dates, so the hashes do not
+  change), runs `ope redline` and writes the images. Commit them.
 - `docs/llms.txt` and `docs/llms-full.txt` come from the pages. Run
   `uv run python scripts/gen_llms_txt.py` after adding or renaming a page.
   CI fails when they are out of date.
@@ -1110,7 +1046,7 @@ When WeasyPrint still cannot find the libraries, set `OBSIDIAN_PDF_GTK_PATH` to 
 
 | Tool | Needed for |
 | ---- | ---------- |
-| git | [Redline](../redline.md), the version label from the commit hash, and the vault root for Dataview. |
+| git | [Redline](../redline/index.md), the version label from the commit hash, and the vault root for Dataview. |
 | Node.js (`npx`) or `mmdc` | [Mermaid](../obsidian/mermaid.md) diagrams. Without it, Mermaid blocks stay code blocks. |
 
 ## In CI
@@ -1205,7 +1141,7 @@ cd MyVault
 ope redline ./Handbook --from-commit v3.0.0 --to-commit HEAD
 ```
 
-See [Redline](../redline.md).
+Inserted text is green, removed text red and struck through. See [Redline](../redline/index.md) for flags, recipes and CI.
 
 ## When something looks wrong
 
@@ -1348,7 +1284,7 @@ Generate a redline (tracked-changes) PDF between two git commits.
 ope redline ROOT [OPTIONS]
 ```
 
-Builds a tracked-changes PDF between two git commits. Must run inside the git repository that holds `ROOT`. See [Redline](../redline.md).
+Builds a tracked-changes PDF between two git commits. Must run inside the git repository that holds `ROOT`. See [Redline](../redline/index.md).
 
 | Argument | Description |
 | -------- | ----------- |
@@ -3072,6 +3008,1049 @@ A plugin for a broadly used Obsidian plugin can go into `obsidian_pdf_exporter/p
 
 ---
 
+Source: https://spenhouet.com/obsidian-pdf-exporter/redline/
+
+# Redline
+
+`ope redline` builds a tracked-changes PDF of a folder between two git commits. Inserted text is green and underlined, removed text is red and struck through, and the rest of the document is exactly as it is in the newer commit. A reader sees every change in context, in the same layout as the released PDF.
+
+```bash
+ope redline ./Policy --from-commit v1.0.0 --to-commit v1.1.0
+```
+
+![Before, after and redline of a short policy, next to each other](../img/redline/redline-three-up.png)
+
+## Who it is for
+
+A redline answers "what changed since the version I approved?" without a diff tool and without reading Markdown. Typical uses:
+
+- Document control: every new release of a procedure, policy or manual goes out with a redline against the previous release.
+- Reviews and approvals: the reviewer of a pull request reads the redline PDF instead of the raw diff.
+- Audits: the change history of a controlled document can be shown for any two versions, at any time, from the git history.
+- Change requests: the PDF of a proposed change is attached to the request, so the people who decide see the exact wording.
+
+## How it works
+
+1. Both commits are taken from git with `git archive`. Uncommitted changes in the working tree are not part of either version.
+2. Each version of the folder is assembled into one Markdown document with the same steps and plugins as `ope export`. Embeds are expanded, Dataview queries run and Meta Bind values are filled in, so the two documents are compared as they appear in the PDF.
+3. The two documents are split into blocks at blank lines (paragraphs, list blocks, tables, headings, code blocks) and the blocks are compared.
+4. An unchanged block is kept as it is. A block that changed is compared word by word, and in lists line by line, and gets inline `<ins>` and `<del>` marks. A block that only exists in one version is shown as a whole inserted or removed block.
+5. The result goes through the rest of the export (callouts, links, numbering, table of contents) and is laid out with the [`redline` template](styling.md).
+
+## What the reader sees
+
+![Redline of the example policy](../img/redline/overview.png)
+
+- Inserted words: green, underlined, on a light green background.
+- Removed words: red, struck through, on a light red background.
+- Inserted blocks: a green box with a green bar on the left.
+- Removed blocks: a red box with a red bar, all text struck through. A removed heading is shown as bold text, so it does not get a number and does not show up in the table of contents.
+- Changed headings: the word changes are shown in the heading and in the table of contents.
+- The subtitle and the version label show the two short commit hashes, for example `Redline: f240681 -> d1d04f5`.
+
+Some kinds of change are not shown well yet, for example inserted table rows and changes inside code blocks. [What changes look like](changes.md) shows every case with a screenshot and links the open issues.
+
+## In this section
+
+| Page | Content |
+| ---- | ------- |
+| [Usage](usage.md) | The command and every flag, default names, one document or a folder, and CI workflows. |
+| [Comparing versions](compare.md) | Tags, branches, commits and `HEAD~n`, releases, pull requests, the history of one note, and versions outside git. |
+| [What changes look like](changes.md) | Words, paragraphs, headings, lists, tables, callouts, images, embeds, properties and Dataview, each with a screenshot. |
+| [Styling the redline](styling.md) | The `redline` template, the elements and classes a redline emits, and how to restyle them. |
+| [Limitations and tips](limitations.md) | What a redline does not show, and how to get a clean one. |
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/redline/usage/
+
+# Usage
+
+```text
+ope redline ROOT --from-commit REF [--to-commit REF] [OPTIONS]
+```
+
+`ROOT` is the folder to compare, the same folder `ope export` takes. The command must run inside the git repository that holds `ROOT`, and both commits must be in its history.
+
+```bash
+cd MyVault                      # anywhere inside the repository
+ope redline ./Handbook --from-commit v1.0.0
+```
+
+## Flags
+
+| Flag | Default | Meaning |
+| ---- | ------- | ------- |
+| `--from-commit REF` | required | The older version, the baseline. |
+| `--to-commit REF` | `HEAD` | The newer version. |
+| `-o PATH`, `--output PATH` | `./.export/<title>_redline.pdf` | Where the PDF goes. `.export/` is made in the current folder. |
+| `-t TEXT`, `--title TEXT` | the folder name | Title on the first page and in the header. |
+| `--subtitle TEXT` | `Redline: <from> -> <to>` | Replaces the subtitle. The version label in the footer keeps the hashes. |
+| `-T NAME\|PATH`, `--template NAME\|PATH` | `redline` | Another template, see [Styling the redline](styling.md). |
+| `-O KEY=VALUE`, `--option KEY=VALUE` | | Options for steps, plugins and the template, as for `export`. |
+| `--disable-plugin NAME` | | Skip a plugin in both versions. |
+| `--toc/--no-toc` | `--toc` | Table of contents at the start. |
+| `--debug` | off | Keep the build folder `_build_<name>/` next to the PDF, with `redline_assembled.md` (the diffed Markdown) and `redline_final.html`. |
+
+`export` flags that have no meaning for a redline, such as `--version`, `--date`, `--include` and `--exclude`, are not available. The date in the footer is the day of the export. The full list is in the [CLI reference](../reference/cli.md#redline).
+
+## Which versions
+
+`--from-commit` and `--to-commit` take tags, branches, commit hashes and relative refs such as `HEAD~3`. Both sides are read from git, so uncommitted changes are not included. When `ROOT` does not exist in one of the two commits, that side counts as empty: a folder that is new since `--from-commit` comes out as one big insertion. [Comparing versions](compare.md) has the details: releases, pull requests, the history of one note, and what to do without git.
+
+## Output name and title block
+
+Without `-o`, the PDF is `./.export/<title>_redline.pdf`, for example `.export/Handbook_redline.pdf`. With `--title "Team handbook"` it is `.export/Team handbook_redline.pdf`. With `.` as `ROOT` the name is `export_redline.pdf` ([#91](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/91)), so pass a title or `-o` there.
+
+The two commits are shown as short hashes, so a reader can find them in the history:
+
+```text
+Handbook
+Redline: 1a2b3c4 -> 5d6e7f8
+Redline: 1a2b3c4 -> 5d6e7f8 | 2026-04-01
+```
+
+The second line is the subtitle, the third the version label and the date. `--subtitle "Changes since release 1.0"` replaces the second line. With the default subtitle, the range is shown twice ([#88](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/88)).
+
+## One document or a whole folder
+
+`ROOT` decides what is compared. A folder with subfolders gives one redline of the whole document, with all sections and one table of contents. A section folder gives a redline of that section alone.
+
+```bash
+ope redline ./Handbook --from-commit v1.0.0                  # the whole handbook
+ope redline ./Handbook/Security --from-commit v1.0.0         # one section
+```
+
+A redline for each top-level folder:
+
+```bash
+for folder in Policies/*/; do
+  ope redline "$folder" --from-commit v1.0.0 -o "out/$(basename "$folder") redline.pdf"
+done
+```
+
+## In CI
+
+The checkout needs the history of both commits, so set `fetch-depth: 0`. Install ope and its native libraries the same way as for [exports in CI](../getting-started/installation.md#in-ci).
+
+### A redline for every pull request
+
+This workflow builds the redline of a pull request against the point where it left the base branch, uploads it as an artifact and links it in a comment on the pull request:
+
+```yaml title=".github/workflows/redline-pr.yml"
+name: Redline
+
+on:
+  pull_request:
+    paths:
+      - "Handbook/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  redline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # both commits must be in the history
+      - uses: astral-sh/setup-uv@v6
+      - run: uv tool install obsidian-pdf-exporter
+      - run: ope setup --yes
+
+      - name: Build the redline
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          base=$(git merge-base "origin/$BASE_REF" "$HEAD_SHA")
+          ope redline ./Handbook --from-commit "$base" --to-commit "$HEAD_SHA" -o redline.pdf
+
+      - name: Upload the PDF
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: redline
+          path: redline.pdf
+
+      - name: Link the PDF in the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          URL: ${{ steps.upload.outputs.artifact-url }}
+        run: |
+          gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "Redline PDF of this pull request: $URL"
+```
+
+The token of a pull request from a fork cannot write comments. For those, keep the upload step and drop the comment step.
+
+### A redline attached to every release
+
+This workflow runs when a release is published. It compares the tag of the release with the tag before it and attaches the PDF to the release:
+
+```yaml title=".github/workflows/redline-release.yml"
+name: Redline release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write # to upload the PDF to the release
+
+jobs:
+  redline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # all tags and their history
+      - uses: astral-sh/setup-uv@v6
+      - run: uv tool install obsidian-pdf-exporter
+      - run: ope setup --yes
+
+      - name: Build the redline against the previous release
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          previous=$(git describe --tags --abbrev=0 "$TAG^")
+          ope redline ./Handbook --from-commit "$previous" --to-commit "$TAG" \
+            --subtitle "Changes from $previous to $TAG" -o "Handbook $TAG redline.pdf"
+
+      - name: Attach the PDF to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" "Handbook $TAG redline.pdf" --repo "$GITHUB_REPOSITORY"
+```
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/redline/compare/
+
+# Comparing versions
+
+A redline compares two versions of a folder. Today both versions come from git: `--from-commit` names the older one and `--to-commit` the newer one (default `HEAD`). The command runs inside the repository, and both commits must be in its history.
+
+## Git refs
+
+Both flags take anything git resolves to a commit:
+
+| Ref | Example | Compares |
+| --- | ------- | -------- |
+| Tag | `--from-commit v1.0.0 --to-commit v1.1.0` | Two releases |
+| Branch | `--from-commit main` | The tip of `main` with `HEAD` |
+| Remote branch | `--from-commit origin/main` | The fetched tip of `main` with `HEAD` |
+| Commit hash, full or short | `--from-commit 3f2c9a1` | One commit with `HEAD` |
+| Relative ref | `--from-commit HEAD~3`, `--from-commit v1.1.0^` | Three commits back, or the commit before a tag |
+| Date | `--from-commit 'main@{2026-01-01}'` | `main` as it was on a date (from the reflog, so only in a clone that has seen it) |
+
+Both sides are read from git, never from the working tree. Uncommitted changes are not part of either version, so commit them first.
+
+A range such as `v1.0.0..v1.1.0` is not accepted: name the two ends with the two flags. An unknown ref stops the command with exit code 1 and the error from git.
+
+## Releases
+
+A release against the previous release:
+
+```bash
+ope redline ./Handbook --from-commit v1.0.0 --to-commit v1.1.0
+```
+
+The latest tag against the tag before it:
+
+```bash
+new=$(git describe --tags --abbrev=0)
+old=$(git describe --tags --abbrev=0 "$new^")
+ope redline ./Handbook --from-commit "$old" --to-commit "$new" --subtitle "Changes from $old to $new"
+```
+
+## A branch or pull request against main
+
+A reviewer wants the changes of the branch alone. Compare against the merge base, the commit where the branch left `main`:
+
+```bash
+ope redline ./Handbook --from-commit "$(git merge-base origin/main HEAD)"
+```
+
+`--from-commit main` also shows, reversed, every change made on `main` since the branch was created.
+
+## The history of one note or folder
+
+`git log` with a path lists the commits that changed it. Pick two of them:
+
+```bash
+git log --format='%h %ad %s' --date=short -- Handbook/Security
+ope redline ./Handbook/Security --from-commit 3f2c9a1 --to-commit 8b41d07
+```
+
+`ROOT` is always a folder. To redline one note, give it its own folder named like the note (`Security/Security.md`), as for [`ope export`](../obsidian/structure.md). A redline of the parent folder still shows the changes of the whole document, with every section.
+
+The last commit that changed a folder against the one before it:
+
+```bash
+last=$(git log -1 --format=%h -- Handbook/Security)
+ope redline ./Handbook/Security --from-commit "$last^" --to-commit "$last"
+```
+
+## In CI
+
+The checkout must hold the history of both commits: `fetch-depth: 0` in `actions/checkout`. The [Usage](usage.md#in-ci) page has complete GitHub Actions workflows that attach a redline to a pull request (against the merge base) and to a release (against the previous tag).
+
+## Without git
+
+ope can only compare git commits today. Comparing two folders, two notes or two exported versions directly, without git, is planned: [#92](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/92).
+
+Until then, two copies of a folder can be put into a throwaway repository, one commit each:
+
+```bash
+old=./handbook-1.0/Handbook   # the older copy of the folder
+new=./Handbook                # the newer copy
+work=$(mktemp -d)
+git -C "$work" init -q
+cp -r "$old" "$work/Handbook"
+git -C "$work" add -A && git -C "$work" -c user.name=redline -c user.email=redline@localhost commit -qm old
+rm -rf "$work/Handbook" && cp -r "$new" "$work/Handbook"
+git -C "$work" add -A && git -C "$work" -c user.name=redline -c user.email=redline@localhost commit -qm new
+out="$PWD/Handbook_redline.pdf"
+(cd "$work" && ope redline ./Handbook --from-commit HEAD~1 -o "$out")
+rm -rf "$work"
+```
+
+Notes, images and attachments outside the folder are not copied, so embeds of them stay unresolved. Copy them into the throwaway repository too when the folder embeds them. The docs screenshots of this section are made the same way, see `scripts/render_redline_examples.py`.
+
+Two PDFs cannot be compared: ope reads the Markdown, not the PDF.
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/redline/changes/
+
+# What changes look like
+
+Each case below shows the note in the older commit, the note in the newer commit and the redline PDF made from the two with the built-in `redline` template. The examples live in [`examples/_redline/`](https://github.com/Spenhouet/obsidian-pdf-exporter/tree/main/examples/_redline), and `scripts/render_redline_examples.py` makes the pictures from them in a temporary git repository.
+
+The pictures show the current design of the `redline` template, which is being reworked; the marks and boxes may look different after that.
+
+Some cases do not come out well yet. They are marked below with a warning and a link to the issue. The pictures show the current behaviour, not the intended one.
+
+## Summary
+
+| Change | Shown as | Status |
+| ------ | -------- | ------ |
+| Words inside a paragraph | Inline `<del>` and `<ins>` | Good |
+| Paragraph inserted or removed | Green or red block | Good |
+| Paragraph changed and a new one right after it | Whole block removed and inserted | [#89](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/89) |
+| Paragraph replaced by a different one | Word-level mix | [#82](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/82) |
+| Heading text | Inline marks, also in the table of contents | Good |
+| Heading inserted or removed | Green block, or red bold text outside the table of contents | Good |
+| Heading level | Not shown | [#86](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/86) |
+| List item changed, inserted or removed, also nested | Inline marks per item | Good, see [#89](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/89) for neighbouring changes |
+| Table cell | Inline marks in the cell | Good |
+| Table row inserted or removed, column width changed | The table breaks | [#80](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/80) |
+| Callout text | Inline marks in the callout | Good |
+| Callout inserted or removed | Title and body in separate boxes | [#83](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/83) |
+| Image replaced | Both images, unmarked | [#84](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/84) |
+| Embedded note changed | Inline marks in the embedded text | Good |
+| Moved paragraph | Removed at the old place, inserted at the new one | Good |
+| Code block, Mermaid diagram | `<del>` and `<ins>` as literal text | [#81](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/81) |
+| Meta Bind value | Inline marks | Good |
+| Property that is not shown in the text | Not shown | By design |
+| Dataview result | Can show the old result in both versions | [#90](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/90), [#80](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/80) |
+| Task checked | Brackets as text | [#85](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/85) |
+| Footnote text | Marks in the footnote area, plus empty boxes | [#87](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/87) |
+
+## Text
+
+### Words inside a paragraph
+
+Inserted words are green and underlined, removed words red and struck through. A replaced word is shown as the old word followed by the new one. Words are split at spaces, so a full stop or comma belongs to the word before it and is replaced together with it.
+
+Before:
+
+````markdown
+Updates are installed once a week by the owner of the device. A lost device is reported to the service desk within one day.
+````
+
+After:
+
+````markdown
+Updates are installed once a month by the IT team. A lost or stolen device is reported to the service desk within one day.
+````
+
+Redline PDF:
+
+![Word insertions, removals and replacements in one paragraph](../img/redline/words.png)
+
+### Inserted and removed paragraphs
+
+A paragraph that is only in one version is a block of its own: green with a bar for inserted, red and struck through for removed.
+
+Before:
+
+````markdown
+The policy applies to all devices.
+
+Personal devices may be used for email if a passcode is set.
+
+Every team names one contact for device questions.
+````
+
+After:
+
+````markdown
+The policy applies to all devices.
+
+Every team names one contact for device questions.
+
+The contacts meet once per quarter to review this policy.
+````
+
+Redline PDF:
+
+![A removed paragraph in red and an inserted paragraph in green](../img/redline/blocks.png)
+
+### Moved text
+
+There is no separate mark for moved text. A paragraph that moved is removed at its old place and inserted at its new place, so the reader sees both.
+
+Before:
+
+````markdown
+Paragraph one sets the scope of the policy.
+
+Paragraph two lists the rules.
+
+Paragraph three names the exceptions.
+
+Paragraph four explains the review.
+````
+
+After:
+
+````markdown
+Paragraph two lists the rules.
+
+Paragraph three names the exceptions.
+
+Paragraph four explains the review.
+
+Paragraph one sets the scope of the policy.
+````
+
+Redline PDF:
+
+![A moved paragraph, removed at the top and inserted at the bottom](../img/redline/moved.png)
+
+### Replaced paragraphs
+
+!!! warning "Known issue #82"
+    A paragraph that is replaced by a different one at the same place is word-diffed even when the two have little in common. The result is a mix of removed and inserted words that is hard to read. The same happens when two neighbouring paragraphs swap places. See [#82](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/82).
+
+    When a changed paragraph is directly followed or preceded by an inserted or removed one, the changed paragraph is shown as a whole removed and inserted block instead of word by word. See [#89](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/89).
+
+Before:
+
+````markdown
+## Rules
+
+Updates are installed by the owner of the device.
+
+## Reviews
+
+The policy is reviewed every year.
+````
+
+After:
+
+````markdown
+## Rules
+
+The owner of the policy is the IT team.
+
+## Reviews
+
+The policy is reviewed every year.
+````
+
+Redline PDF:
+
+![A rewritten sentence shown as a word-level mix](../img/redline/replaced.png)
+
+## Headings
+
+### Changed, inserted and removed headings
+
+A changed heading keeps its place and number and shows the word changes, also in the table of contents. An inserted heading is a green block and gets a number. A removed heading is turned into bold text inside the red block, so it gets no number, does not shift the numbering of the following sections and does not show up in the table of contents.
+
+Before:
+
+````markdown
+## Scope
+
+All devices of the team.
+
+## Old devices
+
+Devices older than five years are replaced.
+
+## Rules
+
+Lock the screen.
+````
+
+After:
+
+````markdown
+## Scope and purpose
+
+All devices of the team.
+
+## Rules
+
+Lock the screen.
+
+## Reviews
+
+The policy is reviewed every year.
+````
+
+Redline PDF:
+
+![Table of contents and headings with a changed, a removed and an inserted heading](../img/redline/headings.png)
+
+### Heading level
+
+!!! warning "Known issue #86"
+    A heading that changes its level and keeps its text is not marked. The numbers of the heading and of the headings below it change without a mark. Here "Duties" moved from level 2 to level 3, which makes it 1.1 instead of 2. See [#86](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/86).
+
+Before:
+
+````markdown
+## Scope
+
+All devices of the team.
+
+## Duties
+
+The owner keeps the device up to date.
+
+### Details
+
+Updates are installed once a month.
+````
+
+After:
+
+````markdown
+## Scope
+
+All devices of the team.
+
+### Duties
+
+The owner keeps the device up to date.
+
+### Details
+
+Updates are installed once a month.
+````
+
+Redline PDF:
+
+![Headings renumbered without any mark](../img/redline/heading-level.png)
+
+## Lists and tasks
+
+### List items
+
+Lists are compared line by line, so each item keeps its marker and its place. A changed item shows the word changes, an inserted item is green and a removed item stays in place, struck through. Nested items work the same way.
+
+The numbers of an ordered list come from the newer version, so a removed item shifts the numbers below it. When several neighbouring lines change at once, they are shown as whole removed and inserted items, as with "Sign the form." here ([#89](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/89)).
+
+Before:
+
+````markdown
+- Lock the screen.
+- Install updates once a week.
+- Report a lost device:
+    - Call the service desk.
+    - Send an email.
+- Use the password manager.
+
+1. Open the form.
+2. Print the form.
+3. Sign the form.
+````
+
+After:
+
+````markdown
+- Lock the screen.
+- Install updates once a month.
+- Report a lost device:
+    - Call the service desk.
+    - Fill in the loss form.
+    - Send an email.
+
+1. Open the form.
+2. Sign the form.
+````
+
+Redline PDF:
+
+![Changed, inserted and removed items in a bullet list, a nested list and a numbered list](../img/redline/lists.png)
+
+### Tasks
+
+!!! warning "Known issue #85"
+    Checking or unchecking a task shows the brackets as text instead of a checkbox. See [#85](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/85).
+
+Before:
+
+````markdown
+- [ ] Read the policy
+- [ ] Sign the form
+````
+
+After:
+
+````markdown
+- [x] Read the policy
+- [ ] Sign the form
+````
+
+Redline PDF:
+
+![A checked task shown as struck-through and inserted brackets](../img/redline/tasks.png)
+
+## Tables
+
+### Table cells
+
+When the rows and the column widths stay the same, a changed cell shows the word changes inside the table.
+
+Before:
+
+````markdown
+| Device | Owner | Review |
+| ------ | ----- | ------ |
+| Laptop | Anna  | yearly |
+| Phone  | Ben   | yearly |
+````
+
+After:
+
+````markdown
+| Device | Owner | Review |
+| ------ | ----- | ------ |
+| Laptop | Anna  | daily  |
+| Phone  | Chris | yearly |
+````
+
+Redline PDF:
+
+![A table with two changed cells](../img/redline/table-cells.png)
+
+### Table rows
+
+!!! warning "Known issue #80"
+    An inserted or removed row, or a column that gets wider in the Markdown source, breaks the table: the marks cross the cell borders and the rows come out as text with pipes. Until this is fixed, keep the column widths of the source unchanged (pad the cells) when a table changes, or review table changes in the normal export. See [#80](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/80).
+
+Before:
+
+````markdown
+| Device | Owner | Review |
+| ------ | ----- | ------ |
+| Laptop | Anna  | yearly |
+| Phone  | Ben   | yearly |
+````
+
+After:
+
+````markdown
+| Device | Owner | Review    |
+| ------ | ----- | --------- |
+| Laptop | Anna  | quarterly |
+| Phone  | Ben   | yearly    |
+| Tablet | Dana  | yearly    |
+````
+
+Redline PDF:
+
+![A table that broke into text after a row was added](../img/redline/table-rows.png)
+
+## Callouts
+
+### Text inside a callout
+
+A change inside a callout that stays in place shows the word changes inside the callout box.
+
+Before:
+
+````markdown
+> [!warning] Lost devices
+> Report a lost device within one day.
+````
+
+After:
+
+````markdown
+> [!warning] Lost devices
+> Report a lost device within one hour.
+````
+
+Redline PDF:
+
+![A callout with a changed word](../img/redline/callout-text.png)
+
+### Inserted and removed callouts
+
+!!! warning "Known issue #83"
+    An inserted or removed callout, or one whose title and body both change, is split: the title and the body end up in separate boxes. See [#83](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/83).
+
+Before:
+
+````markdown
+> [!note]
+> This note is removed.
+
+Text between the callouts.
+````
+
+After:
+
+````markdown
+Text between the callouts.
+
+> [!tip]
+> This tip is new.
+````
+
+Redline PDF:
+
+![A removed and an inserted callout with the title and the body in separate boxes](../img/redline/callout-blocks.png)
+
+## Images and embeds
+
+### Images
+
+!!! warning "Known issue #84"
+    A replaced image is not marked. Both the old and the new image are shown, one after the other, without a red or green mark, and with a size such as `|300` the attributes of the images show up as text. Name the change in the text next to the image so the reader notices it. See [#84](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/84).
+
+Before:
+
+````markdown
+The chart shows the visits per month.
+
+![[chart.png|300]]
+````
+
+After:
+
+````markdown
+The drawing shows the three shapes.
+
+![[shapes.svg|300]]
+````
+
+Redline PDF:
+
+![The old and the new image, both unmarked, with attribute text below](../img/redline/images.png)
+
+### Embedded notes
+
+Embeds are expanded before the comparison, so a change in an embedded note shows up where it is embedded, even when the embedding note did not change.
+
+Before:
+
+````markdown
+Every account follows the shared rule:
+
+![[Password rule]]
+````
+
+After:
+
+````markdown
+Every account follows the shared rule:
+
+![[Password rule]]
+````
+
+Shared/Password rule.md before:
+
+````markdown
+Passwords have at least 12 characters and are never reused.
+````
+
+Shared/Password rule.md after:
+
+````markdown
+Passwords have at least 16 characters and are never reused.
+````
+
+Redline PDF:
+
+![A changed number in the embedded text](../img/redline/embeds.png)
+
+## Code
+
+### Code blocks
+
+!!! warning "Known issue #81"
+    A change inside a fenced code block shows the `<del>` and `<ins>` tags as literal text, because code is not parsed as HTML. See [#81](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/81).
+
+Before:
+
+````markdown
+Set the timeout in the config file:
+
+```yaml
+lock_after_minutes: 10
+```
+````
+
+After:
+
+````markdown
+Set the timeout in the config file:
+
+```yaml
+lock_after_minutes: 5
+```
+````
+
+Redline PDF:
+
+![A code block with literal del and ins tags](../img/redline/code.png)
+
+## Properties and plugins
+
+### Properties and Meta Bind
+
+The properties block is not part of the PDF, so a property change is only visible where the text shows the value. A Meta Bind `VIEW` field is filled in before the comparison, so its new value is marked like any other word. The change of `status` from `draft` to `approved` in this example is not visible, since no field shows it.
+
+Before:
+
+````markdown
+---
+version: 2.3.0
+owner: Anna
+status: draft
+---
+This is version `VIEW[{version}][text]` of the policy, owned by `VIEW[{owner}][text]`.
+````
+
+After:
+
+````markdown
+---
+version: 2.4.0
+owner: Ben
+status: approved
+---
+This is version `VIEW[{version}][text]` of the policy, owned by `VIEW[{owner}][text]`.
+````
+
+Redline PDF:
+
+![Changed version and owner values from Meta Bind fields](../img/redline/properties.png)
+
+### Dataview
+
+Dataview queries run on each version of the vault before the comparison, so the result table is compared like a normal table: changed values are marked in their cells.
+
+!!! warning "Known issues #90 and #80"
+    The query of the newer version can return the results of the older version, so changes in the queried notes are missing. In this example `Alpha` changed to `done` and `Gamma` was added, but the redline shows the old table. See [#90](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/90). When it works, a new or removed row breaks the table, as for [table rows](#table-rows) ([#80](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/80)).
+
+Before:
+
+````markdown
+```dataview
+TABLE owner, status
+FROM "Projects"
+SORT file.name ASC
+```
+````
+
+After:
+
+````markdown
+```dataview
+TABLE owner, status
+FROM "Projects"
+SORT file.name ASC
+```
+````
+
+Projects/Alpha.md before:
+
+````markdown
+---
+owner: Anna
+status: active
+---
+The Alpha project.
+````
+
+Projects/Alpha.md after:
+
+````markdown
+---
+owner: Anna
+status: done
+---
+The Alpha project.
+````
+
+Projects/Gamma.md after (new):
+
+````markdown
+---
+owner: Chris
+status: active
+---
+The Gamma project.
+````
+
+Redline PDF:
+
+![A Dataview table that still shows the old results](../img/redline/dataview.png)
+
+## Footnotes
+
+### Footnote text
+
+!!! warning "Known issue #87"
+    A changed footnote is shown in the footnote area at the bottom of the page: the old note struck through, the new one inserted, each with its own number. In the text, two empty colored boxes are left where the definitions were. See [#87](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/87).
+
+Before:
+
+````markdown
+Passwords have at least 16 characters.[^1]
+
+[^1]: See the old guideline.
+````
+
+After:
+
+````markdown
+Passwords have at least 16 characters.[^1]
+
+[^1]: See the guideline from 2026.
+````
+
+Redline PDF:
+
+![A changed footnote with two empty boxes in the text](../img/redline/footnotes.png)
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/redline/styling/
+
+# Styling the redline
+
+`ope redline` uses the built-in `redline` template unless `-T` names another one. It has the layout of `default` (A4, header and footer, title block, table of contents) and adds the styles for the marks.
+
+!!! note "Current design"
+    The pictures in this section show the current look of the `redline` template. A new design is being worked on, so the colours and boxes may change. The elements and classes below are what a template styles.
+
+## What a redline emits
+
+On top of the HTML of a normal export, a redline has:
+
+| Element or selector | What it is |
+| ------------------- | ---------- |
+| `ins` | Inserted words inside a changed block, also in a heading and in the table of contents (`nav#TOC ins`). |
+| `del` | Removed words inside a changed block. `~~strikethrough~~` in the notes is also a `del`. |
+| `div.redline-ins` | A block that is only in the newer version: a paragraph, a list, a heading, a table. |
+| `div.redline-del` | A block that is only in the older version. A heading inside it is turned into `strong`, so it gets no number and stays out of the table of contents. |
+| `header#title-block-header .subtitle` | The subtitle, by default `Redline: <from> -> <to>`. |
+
+Figures and tables are not moved to landscape pages in a redline. WeasyPrint supports `:has()`, so a paragraph or list item that holds a change can be styled too, for example `p:has(ins, del)`.
+
+The colours of the `redline` template are custom properties on `:root`: `--color-ins-bg`, `--color-ins-text`, `--color-del-bg` and `--color-del-text`. The full CSS is [`redline.css`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/obsidian_pdf_exporter/templates/builtin/redline/redline.css).
+
+## Restyle the redline
+
+Start from a copy of `redline.css`, change or add rules at the end, and pass the file with `-T`:
+
+```bash
+curl -sL -o my-redline.css https://raw.githubusercontent.com/Spenhouet/obsidian-pdf-exporter/main/obsidian_pdf_exporter/templates/builtin/redline/redline.css
+cat >> my-redline.css <<'CSS'
+:root { --color-ins-text: #0b4f9c; --color-ins-bg: #e3eefb; }
+p:has(ins, del) { border-left: 2pt solid #6b46c1; margin-left: -5mm; padding-left: 4mm; }
+CSS
+ope redline ./Policy --from-commit v1.0.0 -T ./my-redline.css
+```
+
+A single CSS file or a [template folder](../templating/folders.md) does not get the header and footer of `redline`, which come from Python. Write them in `page.css` as described in [Header and footer](../templating/header-footer.md), or keep them by subclassing `RedlineTemplate` in a [Python template](../templating/python.md#extend-a-built-in-template) and adding CSS in `get_css()`.
+
+## Redline styles in your own template
+
+Any template can be used for a redline, for example a letterhead made for `ope export`. Such a template has no styles for the marks, so `ins` and `del` only get the browser defaults (underline and strike-through) and the blocks have no colour. Add rules like these:
+
+```css
+ins { background: #e6ffed; color: #08611a; text-decoration: underline; }
+del { background: #ffeef0; color: #b31d28; text-decoration: line-through; }
+.redline-ins, .redline-del { border-left: 4px solid; padding: 0.6em 1em; margin: 0.8em 0; }
+.redline-ins { background: #e6ffed; border-color: #2ea44f; }
+.redline-del { background: #ffeef0; border-color: #cb2431; text-decoration: line-through; }
+```
+
+```bash
+ope redline ./Handbook --from-commit v1.0.0 -T ./letterhead/
+```
+
+To check what was emitted, run with `--debug` and open `redline_final.html` in the build folder next to the PDF.
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/redline/limitations/
+
+# Limitations and tips
+
+## What a redline does not show
+
+- Uncommitted changes. Both versions come from git. Commit first, or the working tree is ignored.
+- Properties that the text does not show. The properties block is not part of the PDF, so a change of `status: draft` to `status: approved` is invisible unless a Meta Bind field or a Dataview table shows it. See [Properties and Meta Bind](changes.md#properties-and-meta-bind).
+- Moves as moves. A moved paragraph is shown as removed at the old place and inserted at the new one. See [Moved text](changes.md#moved-text).
+- Notes outside `ROOT`, unless they are embedded or queried. A change in an embedded note or in a note a Dataview query reads does show up, since the embed and the query run before the comparison.
+- Layout. Template changes, page breaks and landscape pages are not compared. Wide tables and figures stay on portrait pages in a redline.
+- Changed diagrams. A changed Mermaid block is not drawn and shows its source with the marks as text, like a code block ([#81](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/81)).
+
+## Known issues
+
+| Case | Issue |
+| ---- | ----- |
+| An inserted or removed table row, or a wider column, breaks the table | [#80](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/80) |
+| Changes inside a code block or a Mermaid diagram show `<del>` and `<ins>` as text | [#81](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/81) |
+| A replaced paragraph is word-diffed even when it has little in common with the old one | [#82](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/82) |
+| An inserted or removed callout loses its body to a separate box | [#83](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/83) |
+| A replaced image is not marked | [#84](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/84) |
+| Checking a task shows the checkbox brackets as text | [#85](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/85) |
+| A changed heading level is not shown | [#86](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/86) |
+| A changed footnote leaves two empty boxes | [#87](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/87) |
+| The title block shows the commit range twice | [#88](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/88) |
+| A changed paragraph or list item next to an inserted or removed one loses its word-level diff | [#89](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/89) |
+| A Dataview table can show the old results in both versions | [#90](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/90) |
+| With `.` as `ROOT` the default file name is `export_redline.pdf` | [#91](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/91) |
+
+## Tips for a clean redline
+
+- Keep one sentence per paragraph change. The comparison works per block, so a small edit in a long paragraph is shown word by word, while a rewrite of the whole paragraph is shown as removed and inserted.
+- Separate unrelated edits by an unchanged paragraph or list item where you can. Neighbouring changes are grouped and then shown as whole blocks ([#89](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/89)).
+- Do not reflow text. A moved line break makes the words around it show up as removed and inserted, and with hard line breaks (the default) it also moves the break in the PDF. A reformatted table (new padding) breaks the table, see [#80](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/80).
+- Avoid `~~strikethrough~~` in controlled documents. It renders as `del`, the same element as removed text, and looks like a removal in the redline.
+- Use tags for releases (`v1.0.0`, `v1.1.0`). Then a redline of any two releases is one command, and the CI recipes in [Usage](usage.md#in-ci) work without changes.
+- For a pull request, compare against the merge base, not against the tip of `main`. See [Comparing versions](compare.md#a-branch-or-pull-request-against-main).
+- Look at the diffed Markdown when a mark looks wrong: `--debug` keeps `redline_assembled.md` in the build folder next to the PDF.
+- A redline of a new folder is one long insertion. Compare from the first commit that has the folder, or make a normal export instead.
+
+---
+
 Source: https://spenhouet.com/obsidian-pdf-exporter/templating/
 
 # Templates and styling
@@ -3085,7 +4064,7 @@ The PDF is laid out by [WeasyPrint](https://weasyprint.org/), which supports [CS
 | Name | Look |
 | ---- | ---- |
 | `default` | A4 portrait. Document title at the top left, date at the bottom left, version and page counter at the bottom right. |
-| `redline` | Same as `default`, plus the styles for [tracked changes](../redline.md). Used by `ope redline`. |
+| `redline` | Same as `default`, plus the styles for [tracked changes](../redline/index.md). Used by `ope redline`. |
 
 ![A page with the default template](../img/templates/default.png)
 ![The same page with the letterhead recipe](../img/templates/letterhead.png)
@@ -3520,6 +4499,8 @@ A note takes its style from where it is referenced, so a note referenced in a ca
 | -------- | ---------- |
 | `ins`, `del` | Inserted and removed words inside a changed block. |
 | `.redline-ins`, `.redline-del` | Inserted and removed blocks. |
+
+All elements, the colour variables and how to restyle them: [Styling the redline](../redline/styling.md).
 
 ## The base CSS
 
