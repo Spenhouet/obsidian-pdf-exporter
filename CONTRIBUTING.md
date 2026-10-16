@@ -122,7 +122,8 @@ listed.
    Every piece of syntax that Obsidian itself supports is a small step:
    frontmatter, comments, embeds, block IDs, callouts, heading links, wiki
    links, image captions, headings, warnings about plugin code blocks,
-   highlights, line breaks, tasks, math, Mermaid, SVG images and table fixes. All steps are listed in
+   highlights, line breaks, tasks, math, footnotes, Mermaid, landscape
+   diagrams, SVG images and table fixes. All steps are listed in
    `CORE_STEPS` in [`core/steps/__init__.py`](obsidian_pdf_exporter/core/steps/__init__.py).
 3. Community plugins ([`plugins/`](obsidian_pdf_exporter/plugins/)).
    Support for syntax from community Obsidian plugins and other tools:
@@ -145,6 +146,7 @@ obsidian_pdf_exporter/
 │   │   ├── frontmatter.py, plugins.py, comments.py, embeds.py, block_ids.py,
 │   │   ├── callouts.py, heading_links.py, wiki_links.py, image_captions.py,
 │   │   ├── headings.py, code_blocks.py, highlights.py, line_breaks.py, tasks.py, math.py,
+│   │   ├── footnotes.py, landscape.py,
 │   │   └── mermaid.py, svg_images.py, tables.py, base_css.py
 │   ├── code.py             # outside_code: keeps fenced and inline code as written
 │   └── embeds.py, callouts.py, wiki_links.py, mermaid.py, ...  # the work behind the steps
@@ -184,7 +186,7 @@ already resolved. The table in the docstring of
 gives the reason for each position.
 
 Embedded notes (`![[Note]]`) run through the steps marked `embedded`
-(`plugins`, `html_comments`, `embeds` and `wiki_links`) with the context of
+(`plugins`, `html_comments`, `embeds`, `footnotes` and `wiki_links`) with the context of
 the embedded note, so links and images resolve from its folder. The
 embedded text then becomes part of the page and passes the remaining steps.
 
@@ -201,13 +203,13 @@ plugin. Everything else is a plugin (see below).
    from obsidian_pdf_exporter.core.steps.base import Step
 
 
-   class FootnotesStep(Step):
-       name = "footnotes"
-       description = "Number the footnotes of each page"
+   class SubscriptStep(Step):
+       name = "subscript"
+       description = "Render ~sub~ as subscript"
        priority = 115  # after image_captions (110), before title_heading (120)
 
        def reader_extensions(self, context):
-           return ("footnotes",)
+           return ("subscript",)
 
        def process_markdown(self, content: str, context: PageContext) -> str:
            return content

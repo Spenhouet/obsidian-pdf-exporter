@@ -10,6 +10,10 @@ into ``<foreignObject>`` elements, which WeasyPrint does not draw.
 
 Empty space around a diagram is trimmed. ``%%`` comment lines are removed
 before rendering, so they do not change the diagram or its cache key.
+
+A wide diagram whose text would be too small on a portrait page gets the
+``landscape`` class (see :func:`needs_landscape`). The ``landscape_figures``
+step then moves it to a landscape page, like a wide table.
 """
 
 from __future__ import annotations
@@ -58,6 +62,17 @@ _RE_DIAGRAM_KEYWORD = re.compile(r"[A-Za-z][\w-]*")
 #: Space kept around the visible diagram when trimming, in CSS pixels.
 _TRIM_MARGIN = 8
 
+# Text area of an A4 page with 20mm side margins and 25mm/22mm top and bottom
+# margins, in CSS pixels. Used to estimate how much a diagram is scaled down.
+_PORTRAIT_WIDTH = 170 * 96 / 25.4
+_LANDSCAPE_WIDTH = 257 * 96 / 25.4
+_LANDSCAPE_HEIGHT = 163 * 96 / 25.4
+#: Height kept free below a landscape diagram for its caption, in CSS pixels.
+_CAPTION_ROOM = 48
+#: Font size Mermaid uses when the SVG does not say, in CSS pixels.
+_DEFAULT_FONT_PX = 16.0
+_RE_FONT_SIZE = re.compile(r"font-size:\s*([\d.]+)px")
+
 _FORMATS = ("svg", "png")
 _OFF_VALUES = {"0", "false", "no", "off"}
 _TIMEOUT_SECONDS = 600
@@ -75,6 +90,9 @@ class MermaidSettings:
     puppeteer_config: str = ""
     trim: bool = True
     max_height: str = ""
+    landscape: bool = True
+    landscape_ratio: float = 1.4
+    landscape_min_font: float = 7.0
 
 
 def mermaid_settings(
@@ -94,6 +112,12 @@ def mermaid_settings(
     * ``mermaid.puppeteer_config=PATH``: passed to mermaid-cli as ``-p``.
     * ``mermaid.trim=off``: keep the empty space mermaid leaves around diagrams.
     * ``mermaid.max_height=LENGTH``: largest height of a diagram, e.g. ``10cm``.
+    * ``mermaid.landscape=off``: keep wide diagrams on portrait pages.
+    * ``mermaid.landscape_ratio=R``: width to height ratio from which a
+      diagram that is scaled down goes to a landscape page (default ``1.4``).
+    * ``mermaid.landscape_min_font=PT``: smallest font size in points a
+      diagram may have on a portrait page before it goes to a landscape
+      page (default ``7``).
     """
     image_format = options.get("mermaid.format", "svg").strip().lower()
     if image_format not in _FORMATS:
@@ -120,7 +144,24 @@ def mermaid_settings(
         puppeteer_config=options.get("mermaid.puppeteer_config", ""),
         trim=options.get("mermaid.trim", "on").strip().lower() not in _OFF_VALUES,
         max_height=_checked_length("mermaid.max_height", options.get("mermaid.max_height", "")),
+        landscape=options.get("mermaid.landscape", "on").strip().lower() not in _OFF_VALUES,
+        landscape_ratio=_checked_number(options, "mermaid.landscape_ratio", 1.4),
+        landscape_min_font=_checked_number(options, "mermaid.landscape_min_font", 7.0),
     )
+
+
+def _checked_number(options: dict[str, str], name: str, default: float) -> float:
+    value = options.get(name, "").strip()
+    if not value:
+        return default
+    try:
+        number = float(value)
+    except ValueError:
+        number = -1.0
+    if number <= 0:
+        msg = f"{name} must be a positive number, got {value!r}"
+        raise ValueError(msg)
+    return number
 
 
 def _checked_length(name: str, value: str) -> str:
@@ -193,19 +234,27 @@ def render_mermaid_blocks(
         if not image.exists():
             failed += 1
             return m.group(0)
-        attrs = ".doc-image .mermaid"
-        kind = diagram_type(code)
-        if kind:
-            attrs += f" .mermaid-{kind}"
-        width = _default_width(image, settings)
-        if width:
-            attrs += f" width={width}"
-        return f"![]({image.name}){{{attrs}}}"
+        return _image_markdown(image, code, settings)
 
     result = RE_MERMAID_BLOCK.sub(replace, markdown)
     if failed:
         log(f"  Warning: {failed} Mermaid block(s) could not be rendered and stay as code.")
     return result
+
+
+def _image_markdown(image: Path, code: str, settings: MermaidSettings) -> str:
+    """Return the markdown image of a rendered diagram, with its classes and width."""
+    attrs = ".doc-image .mermaid"
+    kind = diagram_type(code)
+    if kind:
+        attrs += f" .mermaid-{kind}"
+    width = _default_width(image, settings)
+    if needs_landscape(image, settings):
+        attrs += " .landscape"
+        width = _landscape_width(image, settings, width)
+    if width:
+        attrs += f" width={width}"
+    return f"![]({image.name}){{{attrs}}}"
 
 
 def _render(
@@ -483,6 +532,61 @@ def _default_width(image: Path, settings: MermaidSettings) -> str:
     if max_height and max_height[0] < natural_height:
         return f"{max_height[0] * natural_width / natural_height:.0f}"
     return f"{natural_width:.0f}" if image.suffix == ".png" else ""
+
+
+def needs_landscape(image: Path, settings: MermaidSettings) -> bool:
+    """Return True when a diagram is easier to read on a landscape page.
+
+    The diagram is shown at its natural size, or smaller to fit the width of
+    the page and ``mermaid.max_height``. On a portrait page it goes to
+    landscape when it is scaled down and either its width to height ratio is
+    at least ``landscape_ratio`` or its text becomes smaller than
+    ``landscape_min_font`` points. It only moves when the landscape page
+    shows it larger than the portrait page.
+    """
+    if not settings.landscape:
+        return False
+    size = _natural_size(image, settings.scale)
+    if size is None or size[0] <= 0 or size[1] <= 0:
+        return False
+    width, height = size
+    limit = width
+    max_height = _parse_length(settings.max_height) if settings.max_height else None
+    if max_height:
+        limit = min(limit, max_height[0] * width / height)
+    portrait = min(limit, _PORTRAIT_WIDTH)
+    if portrait >= width:
+        return False
+    landscape = min(limit, _LANDSCAPE_WIDTH, _LANDSCAPE_HEIGHT * width / height)
+    if landscape <= portrait:
+        return False
+    font_pt = _font_px(image) * 0.75 * portrait / width
+    return width / height >= settings.landscape_ratio or font_pt < settings.landscape_min_font
+
+
+def _landscape_width(image: Path, settings: MermaidSettings, width: str) -> str:
+    """Return the width of a landscape diagram, so that it fits the page height.
+
+    Room for a caption line is kept below the diagram.
+    """
+    size = _natural_size(image, settings.scale)
+    if size is None:
+        return width
+    fit = (_LANDSCAPE_HEIGHT - _CAPTION_ROOM) * size[0] / size[1]
+    current = float(width) if width else size[0]
+    return f"{min(current, fit):.0f}" if fit < current else width
+
+
+def _font_px(image: Path) -> float:
+    """Return the base font size of a diagram in CSS pixels.
+
+    Mermaid writes it into the first rule of the SVG's style sheet. PNG
+    images and SVGs without it use Mermaid's default of 16px.
+    """
+    if image.suffix != ".svg":
+        return _DEFAULT_FONT_PX
+    match = _RE_FONT_SIZE.search(image.read_text(encoding="utf-8"))
+    return float(match.group(1)) if match else _DEFAULT_FONT_PX
 
 
 def diagram_type(code: str) -> str:
