@@ -1,6 +1,7 @@
 site_name: obsidian-pdf-exporter
 site_description: >-
-  Export Obsidian vaults to PDF with plugin support. Runs locally or in CI.
+  Export Obsidian vaults to PDF with plugin support, and make redline PDFs
+  that show the tracked changes between two git commits. Runs locally or in CI.
 site_url: https://spenhouet.com/obsidian-pdf-exporter/
 site_author: Sebastian Penhouet
 copyright: Copyright &copy; 2026 Sebastian Penhouet
@@ -136,7 +137,13 @@ nav:
       - draw.io: plugins/drawio.md
       - Citations: plugins/citations.md
       - Write a plugin: plugins/write-a-plugin.md
-  - Redline: redline.md
+  - Redline:
+      - redline/index.md
+      - Usage: redline/usage.md
+      - Comparing versions: redline/compare.md
+      - What changes look like: redline/changes.md
+      - Styling the redline: redline/styling.md
+      - Limitations and tips: redline/limitations.md
   - Templates and styling:
       - templating/index.md
       - Template folders: templating/folders.md

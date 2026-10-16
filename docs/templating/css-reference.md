@@ -138,6 +138,8 @@ A note takes its style from where it is referenced, so a note referenced in a ca
 | `ins`, `del` | Inserted and removed words inside a changed block. |
 | `.redline-ins`, `.redline-del` | Inserted and removed blocks. |
 
+All elements, the colour variables and how to restyle them: [Styling the redline](../redline/styling.md).
+
 ## The base CSS
 
 ope adds this before the template CSS. A template can override any of it.

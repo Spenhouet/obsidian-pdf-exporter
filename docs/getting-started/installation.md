@@ -75,7 +75,7 @@ When WeasyPrint still cannot find the libraries, set `OBSIDIAN_PDF_GTK_PATH` to 
 
 | Tool | Needed for |
 | ---- | ---------- |
-| git | [Redline](../redline.md), the version label from the commit hash, and the vault root for Dataview. |
+| git | [Redline](../redline/index.md), the version label from the commit hash, and the vault root for Dataview. |
 | Node.js (`npx`) or `mmdc` | [Mermaid](../obsidian/mermaid.md) diagrams. Without it, Mermaid blocks stay code blocks. |
 
 ## In CI

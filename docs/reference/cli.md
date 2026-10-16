@@ -130,7 +130,7 @@ Generate a redline (tracked-changes) PDF between two git commits.
 ope redline ROOT [OPTIONS]
 ```
 
-Builds a tracked-changes PDF between two git commits. Must run inside the git repository that holds `ROOT`. See [Redline](../redline.md).
+Builds a tracked-changes PDF between two git commits. Must run inside the git repository that holds `ROOT`. See [Redline](../redline/index.md).
 
 | Argument | Description |
 | -------- | ----------- |
