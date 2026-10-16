@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from collections.abc import Sequence
     from pathlib import Path
 
     from obsidian_pdf_exporter.core.vault_index import VaultIndex
@@ -85,6 +86,10 @@ class ObsidianPlugin:
     - :meth:`extract_block` — resolve a block reference (``![[Note#^id]]``)
       in a way core does not know. The Block Link Plus plugin uses this
       for ``^id-id`` ranges.
+    - :meth:`process_document` — transform the assembled markdown of the
+      whole document. :meth:`reader_extensions` and :meth:`pandoc_args`
+      add what the plugin needs to the pandoc call. The citations plugin
+      uses these for ``--citeproc``.
     - :meth:`process_svg` — rewrite an SVG image while it is inlined into
       the HTML. The draw.io plugin uses this.
     - :meth:`process_html` — transform the HTML of the whole document
@@ -103,7 +108,7 @@ class ObsidianPlugin:
 
     #: Pipeline priority. Lower values run earlier. Built-in plugins use
     #: 5 (Folder Notes), 10 (Dataview), 15 (Excalidraw), 20 (Meta Bind), 30
-    #: (Block Link Plus) and 40 (draw.io); third-party
+    #: (Block Link Plus), 40 (draw.io) and 50 (citations); third-party
     #: plugins should leave room around them.
     priority: int = 100
 
@@ -128,6 +133,21 @@ class ObsidianPlugin:
         that carries ``^block_id``.
         """
         return None
+
+    def process_document(self, markdown: str, context: DocumentContext) -> str:
+        """Transform the assembled markdown of the whole document. Default is a no-op.
+
+        Runs after the markdown hook has run on every page, before pandoc.
+        """
+        return markdown
+
+    def reader_extensions(self, context: DocumentContext) -> Sequence[str]:
+        """Pandoc reader extensions this plugin needs. Asked after :meth:`process_document`."""
+        return ()
+
+    def pandoc_args(self, context: DocumentContext) -> Sequence[str]:
+        """Extra pandoc arguments, like ``--citeproc``. Asked after :meth:`process_document`."""
+        return ()
 
     def process_svg(self, svg: str, context: DocumentContext) -> str:
         """Rewrite an SVG image while it is inlined into the HTML. Default is a no-op."""
