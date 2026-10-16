@@ -1,0 +1,44 @@
+name: Redline
+
+on:
+  pull_request:
+    paths:
+      - "Handbook/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  redline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # both commits must be in the history
+      - uses: astral-sh/setup-uv@v6
+      - run: uv tool install obsidian-pdf-exporter
+      - run: ope setup --yes
+
+      - name: Build the redline
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          base=$(git merge-base "origin/$BASE_REF" "$HEAD_SHA")
+          ope redline ./Handbook --from-commit "$base" --to-commit "$HEAD_SHA" -o redline.pdf
+
+      - name: Upload the PDF
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: redline
+          path: redline.pdf
+
+      - name: Link the PDF in the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          URL: ${{ steps.upload.outputs.artifact-url }}
+        run: |
+          gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "Redline PDF of this pull request: $URL"

@@ -1,0 +1,33 @@
+name: Redline release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write # to upload the PDF to the release
+
+jobs:
+  redline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # all tags and their history
+      - uses: astral-sh/setup-uv@v6
+      - run: uv tool install obsidian-pdf-exporter
+      - run: ope setup --yes
+
+      - name: Build the redline against the previous release
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          previous=$(git describe --tags --abbrev=0 "$TAG^")
+          ope redline ./Handbook --from-commit "$previous" --to-commit "$TAG" \
+            --subtitle "Changes from $previous to $TAG" -o "Handbook $TAG redline.pdf"
+
+      - name: Attach the PDF to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" "Handbook $TAG redline.pdf" --repo "$GITHUB_REPOSITORY"
