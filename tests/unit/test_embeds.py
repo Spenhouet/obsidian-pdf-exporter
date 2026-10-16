@@ -262,6 +262,24 @@ def test_embed_inside_code_block_is_not_expanded(tmp_path: Path) -> None:
     assert out == page.read_text()
 
 
+def test_embed_inside_inline_code_is_not_expanded(tmp_path: Path) -> None:
+    vault = tmp_path / "vault"
+    _write(vault / "Note.md", "Text. ^id\n")
+    content = "Write `![[Note#^id]]` or ``a `![[Note]]` b``.\n\n`![[Missing]]`\n\n![[Note#^id]]\n"
+    page = _write(vault / "Page.md", content)
+    messages: list[str] = []
+    out = expand_note_embeds(content, page, _ctx(vault, tmp_path / "b", messages))
+    kept = "Write `![[Note#^id]]` or ``a `![[Note]]` b``.\n\n`![[Missing]]`\n\n"
+    assert out == f"{kept}\nText. ^id\n\n"
+    assert messages == []
+
+
+def test_strip_block_ids_and_comments_skip_inline_code() -> None:
+    assert strip_block_ids("Use `x ^abc` like this ^real") == "Use `x ^abc` like this"
+    assert strip_block_ids("`^abc`") == "`^abc`"
+    assert strip_obsidian_comments("a `%% kept %%` b %% gone `x` %%") == "a `%% kept %%` b "
+
+
 def test_process_page_expands_embeds_and_strips_markers(tmp_path: Path) -> None:
     vault = tmp_path / "vault"
     _write(
