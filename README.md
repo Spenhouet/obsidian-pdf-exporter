@@ -16,6 +16,7 @@
 
 - Folder-tree → single PDF, preserving Obsidian's folder-note convention.
 - Wiki links and embedded images resolved against a one-pass vault index.
+- Embedded notes, headings, blocks and Block Link Plus ranges (`![[Note#^id]]`) are transcluded.
 - Obsidian callouts styled per type, YAML frontmatter parsed and stripped.
 - Built-in support for [Folder Notes](https://github.com/LostPaul/obsidian-folder-notes), [Dataview](https://github.com/blacksmithgu/obsidian-dataview), and [Meta Bind](https://github.com/mProjectsCode/obsidian-meta-bind-plugin); third-party plugin support is pip-installable. See [PLUGINS.md](PLUGINS.md).
 - **Redline** PDFs: tracked-changes diff between two git commits.
