@@ -59,7 +59,7 @@ git log --format='%h %ad %s' --date=short -- Handbook/Security
 ope redline ./Handbook/Security --from-commit 3f2c9a1 --to-commit 8b41d07
 ```
 
-`ROOT` is always a folder. To redline one note, give it its own folder named like the note (`Security/Security.md`), as for [`ope export`](../obsidian/structure.md). A redline of the parent folder still shows the changes of the whole document, with every section.
+`ROOT` is always a folder. To redline one note, give it its own folder named like the note (`Security/Security.md`), as for [`ope export`](../plugins/folder-notes.md). A redline of the parent folder still shows the changes of the whole document, with every section.
 
 The last commit that changed a folder against the one before it:
 
