@@ -8,9 +8,8 @@ rendering fails, the code block stays as it is and a warning is logged.
 SVG output is forced to ``htmlLabels: false``. Mermaid otherwise puts labels
 into ``<foreignObject>`` elements, which WeasyPrint does not draw.
 
-Empty space around a diagram is trimmed, and a ``%% ope: width=8cm`` comment
-line inside a block sets the size of that one diagram. Mermaid and Obsidian
-ignore ``%%`` lines.
+Empty space around a diagram is trimmed. ``%%`` comment lines are removed
+before rendering, so they do not change the diagram or its cache key.
 """
 
 from __future__ import annotations
@@ -49,12 +48,11 @@ _RE_TEXT_DY_BEFORE_TSPAN_DY = re.compile(
     r'(<text\b[^>]*?)\sdy="[^"]*"([^>]*>\s*<tspan\b[^>]*\sdy=)'
 )
 
-# ``%% ope: width=8cm height=6cm`` inside a Mermaid block.
-RE_SIZE_HINT = re.compile(r"^[ \t]*%%[ \t]*ope[ \t]*:(?P<args>.*)(?:\n|$)", re.MULTILINE)
+# A ``%%`` comment line. ``%%{...}%%`` directives change the diagram and stay.
+_RE_COMMENT_LINE = re.compile(r"^[ \t]*%%(?!\{).*(?:\n|$)", re.MULTILINE)
 _RE_LENGTH = re.compile(r"^(?P<value>\d+(?:\.\d+)?|\.\d+)(?P<unit>px|cm|mm|in|pt|pc|%)?$")
 #: CSS pixels per unit.
 _UNITS = {"px": 1.0, "cm": 96 / 2.54, "mm": 96 / 25.4, "in": 96.0, "pt": 96 / 72, "pc": 16.0}
-_SIZE_KEYS = ("width", "height")
 #: Space kept around the visible diagram when trimming, in CSS pixels.
 _TRIM_MARGIN = 8
 
@@ -177,7 +175,7 @@ def render_mermaid_blocks(
     ext = settings.image_format
     sources = {}
     for m in blocks:
-        code, _ = split_size_hint(m.group("code"))
+        code = strip_comments(m.group("code"))
         sources[_digest(code, config, settings)] = code
     todo = [d for d in sources if not (build_dir / f"mermaid-{d}.{ext}").exists()]
     if todo:
@@ -188,15 +186,13 @@ def render_mermaid_blocks(
 
     def replace(m: re.Match) -> str:
         nonlocal failed
-        code, hint = split_size_hint(m.group("code"))
+        code = strip_comments(m.group("code"))
         image = build_dir / f"mermaid-{_digest(code, config, settings)}.{ext}"
         if not image.exists():
             failed += 1
             return m.group(0)
-        for problem in hint.problems:
-            log(f"  Warning: Mermaid size hint ignored: {problem}")
         attrs = ".doc-image .mermaid"
-        style = _size_style(image, hint, settings)
+        style = _size_style(image, settings)
         if style:
             attrs += f' style="{style}"'
         return f"![]({image.name}){{{attrs}}}"
@@ -424,40 +420,12 @@ def _number(value: float) -> str:
     return f"{round(value, 3) + 0.0:.3f}".rstrip("0").rstrip(".")
 
 
-@dataclass
-class SizeHint:
-    """Size set with a ``%% ope: width=... height=...`` line in a Mermaid block."""
+def strip_comments(code: str) -> str:
+    """Remove ``%%`` comment lines from Mermaid ``code``.
 
-    width: str = ""
-    height: str = ""
-    problems: list[str] = field(default_factory=list)
-
-
-def split_size_hint(code: str) -> tuple[str, SizeHint]:
-    """Remove ``%% ope: ...`` lines from Mermaid ``code`` and parse them.
-
-    Each line holds ``key=value`` pairs separated by spaces or commas. Known
-    keys are ``width`` and ``height``. Values are CSS lengths (``8cm``,
-    ``60mm``, ``300px``, ``4in``, ``200pt``); a bare number means pixels and
-    ``width`` also accepts a percentage of the text width. Unknown keys and
-    bad values are listed in :attr:`SizeHint.problems`.
+    Mermaid ignores them anyway. ``%%{init: ...}%%`` directives are kept.
     """
-    hint = SizeHint()
-    for match in RE_SIZE_HINT.finditer(code):
-        for item in re.split(r"[\s,;]+", match.group("args").strip()):
-            if not item:
-                continue
-            key, sep, value = item.partition("=")
-            key = key.strip().lower()
-            value = value.strip().lower()
-            length = _parse_length(value)
-            if not sep or key not in _SIZE_KEYS:
-                hint.problems.append(f"unknown setting {item!r}, use width=... or height=...")
-            elif length is None or (key == "height" and length[1] == "%"):
-                hint.problems.append(f"{key}={value!r} is not a valid length")
-            else:
-                setattr(hint, key, value)
-    return RE_SIZE_HINT.sub("", code).strip("\n"), hint
+    return _RE_COMMENT_LINE.sub("", code).strip("\n")
 
 
 def _parse_length(value: str) -> tuple[float, str] | None:
@@ -494,39 +462,20 @@ def _natural_size(image: Path, scale: int) -> tuple[float, float] | None:
     return natural, natural * h / w
 
 
-def _size_style(image: Path, hint: SizeHint, settings: MermaidSettings) -> str:
+def _size_style(image: Path, settings: MermaidSettings) -> str:
     """Return the CSS ``style`` for a diagram image, or ``""`` for its natural size.
 
-    Only the width is set. The height follows from the aspect ratio, so a
-    ``height`` hint and ``mermaid.max_height`` turn into a width.
+    Only the width is set. The height follows from the aspect ratio, so
+    ``mermaid.max_height`` turns into a width.
     """
     size = _natural_size(image, settings.scale)
     if size is None or size[0] <= 0 or size[1] <= 0:
-        return f"width:{hint.width}" if hint.width else ""
+        return ""
     natural_width, natural_height = size
-    aspect = natural_width / natural_height
-
-    width = _parse_length(hint.width) if hint.width else None
-    height = _parse_length(hint.height) if hint.height else None
-    if height is None and not hint.width and settings.max_height:
-        max_height = _parse_length(settings.max_height)
-        if max_height and max_height[0] < natural_height:
-            height = max_height
-
-    percent = ""
-    if width and width[1] == "%":
-        percent, width = hint.width, None
-    if width is None and height is None:
-        if percent:
-            return f"width:{percent}"
-        return f"width:{natural_width:g}px" if image.suffix == ".png" else ""
-
-    px = min(
-        width[0] if width else float("inf"),
-        height[0] * aspect if height else float("inf"),
-    )
-    style = f"width:{px:.2f}px"
-    return f"{style};max-width:{percent}" if percent else style
+    max_height = _parse_length(settings.max_height) if settings.max_height else None
+    if max_height and max_height[0] < natural_height:
+        return f"width:{max_height[0] * natural_width / natural_height:.2f}px"
+    return f"width:{natural_width:g}px" if image.suffix == ".png" else ""
 
 
 def _render_config(settings: MermaidSettings) -> dict[str, object]:
