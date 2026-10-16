@@ -109,8 +109,6 @@ table {
   page-break-inside: auto;
   table-layout: auto;
 }
-table col { width: auto !important; }
-
 thead tr {
   background-color: var(--color-grey);
   color: white;
