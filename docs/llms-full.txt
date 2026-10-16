@@ -3245,19 +3245,11 @@ Headers and footers are drawn in the page margins with [CSS Paged Media](https:/
 
 ## Margin boxes
 
-Every page has 16 margin boxes around the page area. The ones used most:
+Every page has 16 margin boxes around the page area. The page below is rendered by ope with a template that fills each box with its own name (`examples/_templates/margin-boxes/page.css`). Headers and footers mostly use the three boxes of the top and the bottom edge.
 
-```text
-┌─────────────┬──────────────┬──────────────┐
-│ @top-left   │ @top-center  │ @top-right   │
-├─────────────┴──────────────┴──────────────┤
-│                                           │
-│                 page area                 │
-│                                           │
-├─────────────┬──────────────┬──────────────┤
-│ @bottom-left│@bottom-center│ @bottom-right│
-└─────────────┴──────────────┴──────────────┘
-```
+![The 16 margin boxes of a page, each labelled with its name](../img/templates/margin-boxes.png){ width="420" }
+
+A box is only as wide as its content unless it gets a `width`. The three boxes of an edge share its width, so `width: 33.333%` gives each of them a third.
 
 A box shows its `content`. Text, `counter(page)`, `counter(pages)`, `string(...)` and `element(...)` can be combined:
 
