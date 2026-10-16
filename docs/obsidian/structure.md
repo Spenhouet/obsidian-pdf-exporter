@@ -5,34 +5,26 @@ description: How a vault folder becomes a document, with sections, folder notes,
 
 # Folder structure
 
-`ope export ROOT` walks the folder `ROOT`. Every subfolder becomes a section, and the note named like its folder is the text of that section:
-
-```text
-Handbook/
-├── Handbook.md            ← root note, the first text of the document
-├── images/                ← an attachments folder, its name does not matter
-│   └── logo.png
-├── Introduction/
-│   └── Introduction.md    ← folder note of "Introduction"
-├── Part A/
-│   ├── Part A.md
-│   ├── img/               ← scoped attachments, picked over images/ on ties
-│   │   └── logo.png
-│   ├── Chapter 1/
-│   │   └── Chapter 1.md
-│   └── Chapter 2/
-│       └── Chapter 2.md
-└── Part B/
-    └── Part B.md
-```
+`ope export ROOT` walks the folder `ROOT`. Every subfolder becomes a section, and the note named like its folder is the text of that section. The root note is the first text of the document.
 
 <div class="ope-example" markdown>
 <div markdown>
-<p class="ope-label">Markdown</p>
+<p class="ope-label">Folder</p>
 
-````markdown
---8<-- "examples/structure/structure.md"
-````
+```text
+structure/
+├── structure.md          ← root note
+├── Introduction/
+│   └── Introduction.md   ← section 1
+├── Part A/
+│   ├── Part A.md         ← section 2
+│   ├── Chapter 1/
+│   │   └── Chapter 1.md  ← section 2.1
+│   └── Chapter 2/
+│       └── Chapter 2.md  ← section 2.2
+└── Part B/
+    └── Part B.md         ← section 3
+```
 
 </div>
 <div markdown>
