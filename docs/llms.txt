@@ -11,6 +11,8 @@
 - [obsidian-pdf-exporter](https://spenhouet.com/obsidian-pdf-exporter/): Export Obsidian vaults to PDF with plugin support. Runs locally or in CI.
 - [Introduction](https://spenhouet.com/obsidian-pdf-exporter/intro/): What obsidian-pdf-exporter does, how it works and when to use it.
 - [Redline](https://spenhouet.com/obsidian-pdf-exporter/redline/): A tracked-changes PDF between two git commits of a vault.
+- [Use with AI agents](https://spenhouet.com/obsidian-pdf-exporter/agents/): Use ope with AI coding agents. Install the Claude Code plugin and skill, copy the skill by hand, or point any agent at llms.txt and AGENTS.md.
+- [Contributing](https://spenhouet.com/obsidian-pdf-exporter/contributing/): Development setup, architecture, tests, docs and pull request guidelines for obsidian-pdf-exporter.
 
 ## Getting started
 
@@ -68,14 +70,6 @@
 - [Python templates](https://spenhouet.com/obsidian-pdf-exporter/templating/python/): The Template class, ExportContext and Decorations, hooks for Markdown and HTML, and how to register and publish a template.
 - [Recipes](https://spenhouet.com/obsidian-pdf-exporter/templating/recipes/): Complete templates for a company letterhead, a new footer, a confidentiality label, and compact and dark variants, each with before and after.
 - [Debugging](https://spenhouet.com/obsidian-pdf-exporter/templating/debugging/): Inspect the Markdown and HTML of an export with --debug, open final.html in a browser and find why a template rule does not apply.
-
-## AI agents
-
-- [Use with AI agents](https://spenhouet.com/obsidian-pdf-exporter/agents/): Use ope with AI coding agents. Install the Claude Code plugin and skill, copy the skill by hand, or point any agent at llms.txt and AGENTS.md.
-
-## Project
-
-- [Contributing](https://spenhouet.com/obsidian-pdf-exporter/contributing/): Development setup, architecture, tests, docs and pull request guidelines for obsidian-pdf-exporter.
 
 ## Optional
 
