@@ -24,7 +24,8 @@ Priority    Step                 Why here
 100         bracket_links        after wiki_links resolved real wiki links
 110         image_captions       after wiki_links turned ``![[img]]`` into images
 120         title_heading
-130         heading_levels       last, sees every heading of the page
+130         heading_levels       sees every heading of the page
+135         plugin_code_blocks   warns about plugin code blocks nobody rendered
 180         mermaid              document hook, runs once on all pages
 ==========  ===================  ==============================================
 
@@ -41,6 +42,7 @@ from obsidian_pdf_exporter.core.steps.base import Step
 from obsidian_pdf_exporter.core.steps.base_css import BaseCssStep
 from obsidian_pdf_exporter.core.steps.block_ids import BlockIdsStep
 from obsidian_pdf_exporter.core.steps.callouts import CalloutsStep
+from obsidian_pdf_exporter.core.steps.code_blocks import PluginCodeBlocksStep
 from obsidian_pdf_exporter.core.steps.comments import HtmlCommentsStep
 from obsidian_pdf_exporter.core.steps.comments import ObsidianCommentsStep
 from obsidian_pdf_exporter.core.steps.embeds import EmbedsStep
@@ -77,6 +79,7 @@ CORE_STEPS: tuple[type[Step], ...] = (
     ImageCaptionsStep,
     TitleHeadingStep,
     HeadingLevelsStep,
+    PluginCodeBlocksStep,
     HighlightsStep,
     LineBreaksStep,
     TasksStep,

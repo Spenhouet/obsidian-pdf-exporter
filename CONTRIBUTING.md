@@ -121,8 +121,8 @@ listed.
 2. Obsidian core syntax ([`core/steps/`](obsidian_pdf_exporter/core/steps/)).
    Every piece of syntax that Obsidian itself supports is a small step:
    frontmatter, comments, embeds, block IDs, callouts, heading links, wiki
-   links, image captions, headings, highlights, line breaks, tasks, math,
-   Mermaid, SVG images and table fixes. All steps are listed in
+   links, image captions, headings, warnings about plugin code blocks,
+   highlights, line breaks, tasks, math, Mermaid, SVG images and table fixes. All steps are listed in
    `CORE_STEPS` in [`core/steps/__init__.py`](obsidian_pdf_exporter/core/steps/__init__.py).
 3. Community plugins ([`plugins/`](obsidian_pdf_exporter/plugins/)).
    Support for syntax from community Obsidian plugins and other tools:
@@ -144,7 +144,7 @@ obsidian_pdf_exporter/
 │   │   ├── base.py         # Step, PageContext, DocumentContext
 │   │   ├── frontmatter.py, plugins.py, comments.py, embeds.py, block_ids.py,
 │   │   ├── callouts.py, heading_links.py, wiki_links.py, image_captions.py,
-│   │   ├── headings.py, highlights.py, line_breaks.py, tasks.py, math.py,
+│   │   ├── headings.py, code_blocks.py, highlights.py, line_breaks.py, tasks.py, math.py,
 │   │   └── mermaid.py, svg_images.py, tables.py, base_css.py
 │   ├── code.py             # outside_code: keeps fenced and inline code as written
 │   └── embeds.py, callouts.py, wiki_links.py, mermaid.py, ...  # the work behind the steps
@@ -217,9 +217,12 @@ plugin. Everything else is a plugin (see below).
 3. Leave code alone. Obsidian shows fenced code blocks and inline code
    as written, so wrap the rewrite in `outside_code` from
    [`core/code.py`](obsidian_pdf_exporter/core/code.py).
-4. Add tests. [`test_steps.py`](tests/unit/test_steps.py) checks the
+4. Never drop content silently. When the step sees syntax it can not
+   render, it keeps it in a simple form and reports it with
+   `context.warn(...)`, which prints a line starting with `Warning:`.
+5. Add tests. [`test_steps.py`](tests/unit/test_steps.py) checks the
    order of all steps, so update the expected lists there.
-5. Describe the syntax in [MARKDOWN.md](MARKDOWN.md).
+6. Describe the syntax in [MARKDOWN.md](MARKDOWN.md).
 
 ## Adding support for an Obsidian plugin
 

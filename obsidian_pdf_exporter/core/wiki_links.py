@@ -12,6 +12,8 @@ from obsidian_pdf_exporter.core.tree import lookup_page
 from obsidian_pdf_exporter.core.util import slugify
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from obsidian_pdf_exporter.core.vault_index import VaultIndex
 
 RE_WIKI_EMBED_IMAGE = re.compile(r"!\[\[([^\]|\\]+?)(?:\\?\|([^\]]*))?\]\]")
@@ -91,34 +93,55 @@ def _legacy_attachments_lookup(img_name: str, page_folder: Path) -> Path | None:
     return None
 
 
+def _render_embed(
+    target: str,
+    alt: str,
+    page_folder: Path,
+    page_index: dict,
+    build_dir: Path,
+    vault_index: VaultIndex | None,
+    report: Callable[[str], None],
+) -> str:
+    if is_image_target(target):
+        resolved = resolve_image(target, page_folder, build_dir, vault_index)
+        if resolved:
+            caption, attrs = split_image_size(alt)
+            return f"![{caption}]({resolved}){{{attrs}}}"
+        report(f"could not find image ![[{target}]]")
+        return f"*[Image: {target}]*"
+
+    kind = Path(target).suffix.lower() or "these"
+    report(f"cannot render embed ![[{target}]] ({kind} files are not rendered), kept as a link")
+    page_name = Path(target).stem
+    page_info = lookup_page(page_index, page_name.strip(), page_folder)
+    if page_info:
+        return f"[{page_name}](#{page_info['anchor']})"
+    return f"*{page_name}*"
+
+
 def convert_wiki_links(
     content: str,
     page_folder: Path,
     page_index: dict,
     build_dir: Path,
     vault_index: VaultIndex | None = None,
+    warn: Callable[[str], None] | None = None,
 ) -> str:
     """Convert ``[[wiki]]`` and ``![[image]]`` syntax into standard markdown.
 
-    Links and embeds inside code stay as written.
+    Links and embeds inside code stay as written. ``warn`` gets a message for
+    every image that cannot be found and for every embed of a file type that
+    is not rendered (such as ``.canvas`` or ``.pdf``), which becomes a link.
     """
+
+    def report(message: str) -> None:
+        if warn is not None:
+            warn(message)
 
     def replace_embed(m: re.Match) -> str:
         target = m.group(1).strip()
         alt = m.group(2).strip() if m.group(2) else ""
-
-        if is_image_target(target):
-            resolved = resolve_image(target, page_folder, build_dir, vault_index)
-            if resolved:
-                caption, attrs = split_image_size(alt)
-                return f"![{caption}]({resolved}){{{attrs}}}"
-            return f"*[Image: {target}]*"
-
-        page_name = Path(target).stem
-        page_info = lookup_page(page_index, page_name.strip(), page_folder)
-        if page_info:
-            return f"[{page_name}](#{page_info['anchor']})"
-        return f"*{page_name}*"
+        return _render_embed(target, alt, page_folder, page_index, build_dir, vault_index, report)
 
     def replace_link(m: re.Match) -> str:
         page_name = m.group(1).strip() if m.group(1) else ""

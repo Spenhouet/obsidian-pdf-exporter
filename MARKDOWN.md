@@ -31,6 +31,15 @@ Anything pandoc's GFM dialect understands works as-is. Obsidian-specific feature
 | Image followed by a single italic line       | The italic line is promoted to the image's caption.                                                                                                                                                             |
 | ` ```mermaid ` code blocks                   | Rendered to an SVG (or PNG) diagram with mermaid-cli. See [Mermaid diagrams](#mermaid-diagrams).                                                                                                                |
 
+## Content that is not rendered
+
+Some content can not be drawn in a PDF, or is not supported yet. It stays in the document in a simple form, and the export prints a line starting with `Warning:` that names the page:
+
+- An embed of a file type other than notes and images, such as `![[Board.canvas]]`, `![[Manual.pdf]]` or a video, becomes a link (or italic text when the file is not part of the export).
+- An image that can not be found becomes the italic text _[Image: name]_.
+- A code block of a plugin that the exporter does not render, such as ` ```tasks `, ` ```dataviewjs `, ` ```chart ` or an Admonition block ` ```ad-note `, stays a code block.
+- DataviewJS and `TASK` queries become a short note in italics.
+
 ## Callouts
 
 Every callout type works. The known types get the class of their style group, plus their own name for aliases (`[!caution]` becomes `callout callout-warning callout-caution`). Any other type, such as `[!information]`, gets `callout callout-information callout-note`, so it looks like a note unless the template styles it. The div also carries `data-callout="<type>"`, and the title is a `span.callout-title`.
