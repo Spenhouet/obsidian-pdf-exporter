@@ -249,7 +249,11 @@ obsidian_pdf_exporter/plugins/
 ├── dataview/
 │   ├── __init__.py  # re-exports DataviewPlugin
 │   ├── plugin.py    # the plugin class (thin)
-│   └── engine.py    # DQL parser + renderer (heavy lifting)
+│   ├── parse.py     # DQL grammar, on parsimmon.py
+│   ├── index.py     # pages, fields, tasks of the vault
+│   ├── engine.py    # query execution
+│   ├── render.py    # Markdown output of the views
+│   └── js/          # DataviewJS: dv API, Luxon, embedded V8
 ├── drawio/
 │   ├── __init__.py
 │   ├── plugin.py
@@ -268,7 +272,7 @@ The currently bundled plugins are:
 | Plugin         | What it covers                                           |
 |----------------|----------------------------------------------------------|
 | `folder_notes` | Map ``Folder/Folder.md`` onto its containing folder      |
-| `dataview`     | Render Dataview DQL ``TABLE`` / ``LIST`` queries         |
+| `dataview`     | Run Dataview queries, inline fields and DataviewJS       |
 | `excalidraw`   | Turn embedded Excalidraw drawings into images            |
 | `meta_bind`    | Resolve Meta Bind ``VIEW`` widgets, strip INPUT/BUTTON   |
 | `block_link_plus` | Resolve ``![[Note#^id-id]]`` range embeds             |
