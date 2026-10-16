@@ -32,6 +32,14 @@ td, th { overflow-wrap: break-word; }
 }
 .footnote::footnote-marker { content: attr(data-footnote-number) ". "; }
 .footnote-paragraph { display: block; }
+figure.pdf-embed { break-inside: auto; page-break-inside: auto; }
+img.pdf-embed-page {
+  display: block; margin: 0 auto 0.8em; box-sizing: border-box;
+  width: auto; height: auto; max-width: 100%; max-height: 22cm;
+  border: 0.75pt solid #999; break-inside: avoid;
+}
+.pdf-embed-more { font-size: 0.85em; color: #666; margin: 0 0 0.3em; }
+figure.pdf-embed figcaption { break-before: avoid; page-break-before: avoid; }
 @page { @footnote { margin-top: 0.8em; padding-top: 0.3em; border-top: 0.5pt solid #999; } }
 """
 
