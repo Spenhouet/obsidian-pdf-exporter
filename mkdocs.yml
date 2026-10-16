@@ -74,6 +74,9 @@ markdown_extensions:
 
 plugins:
   - search
+  - redirects:
+      redirect_maps:
+        obsidian/structure.md: plugins/folder-notes.md
 
 extra:
   social:
@@ -87,10 +90,15 @@ extra:
 extra_css:
   - stylesheets/extra.css
 
+extra_javascript:
+  - javascripts/nav-state.js
+  - javascripts/site.js
+
 nav:
   - Home: index.md
   - Introduction: intro.md
   - Getting started:
+      - getting-started/index.md
       - Installation: getting-started/installation.md
       - Quick start: getting-started/quick-start.md
       - CLI reference: reference/cli.md
@@ -107,7 +115,6 @@ nav:
       - Math: markdown/math.md
   - Obsidian:
       - obsidian/index.md
-      - Folder structure: obsidian/structure.md
       - Wiki links: obsidian/wiki-links.md
       - Embeds: obsidian/embeds.md
       - Block IDs: obsidian/block-ids.md

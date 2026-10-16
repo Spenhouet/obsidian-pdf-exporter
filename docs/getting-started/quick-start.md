@@ -11,7 +11,7 @@ description: Export a vault folder to PDF, set title and version, pick a templat
 ope export ./MyVault/Handbook
 ```
 
-The PDF is written to `./.export/Handbook.pdf`. The folder name is the title. Every subfolder becomes a section, see [Folder structure](../obsidian/structure.md).
+The PDF is written to `./.export/Handbook.pdf`. The folder name is the title. Every subfolder becomes a section, see [Folder Notes](../plugins/folder-notes.md).
 
 ## Title, version and output
 

@@ -7,7 +7,7 @@ description: How headings, emphasis and horizontal rules look in the PDF.
 
 ## Headings
 
-Headings are numbered and go into the table of contents (down to level 4). The headings of a page nest under the page's own heading, so a note's `##` becomes a level below its section. See [Folder structure](../obsidian/structure.md).
+Headings are numbered and go into the table of contents (down to level 4). The headings of a page nest under the page's own heading, so a note's `##` becomes a level below its section. See [Folder Notes](../plugins/folder-notes.md).
 
 <div class="ope-example" markdown>
 <div markdown>
