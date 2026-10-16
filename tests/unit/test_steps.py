@@ -44,6 +44,7 @@ _MARKDOWN_ORDER = [
     "image_captions",
     "title_heading",
     "heading_levels",
+    "plugin_code_blocks",
 ]
 
 _HTML_ORDER = [
