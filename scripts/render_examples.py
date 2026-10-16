@@ -19,7 +19,8 @@ Run from the repository root:
     uv run python scripts/render_examples.py             # everything
     uv run python scripts/render_examples.py callouts    # some examples
 
-Needs ``pdftoppm`` (poppler) and, for the Mermaid example, Node.js.
+Needs ``pdftoppm`` (poppler) and, for the Mermaid example, Node.js. The
+Redline screenshots come from ``scripts/render_redline_examples.py``.
 """
 
 from __future__ import annotations
@@ -109,8 +110,6 @@ def main() -> None:
         for name, example in VARIANTS.items():
             if not names or name in names:
                 render_example(name, EXAMPLES / (example.folder or name), example, work)
-        if not names or "redline" in names:
-            render_redline(work)
         render_recipes(work, names)
 
 
@@ -123,36 +122,6 @@ def render_example(name: str, folder: Path, example: Example, work: Path) -> Non
     if example.collapse:
         images = [collapse(image) for image in images]
     save(stack(images), FEATURES_OUT / f"{name}.png")
-
-
-def render_redline(work: Path) -> None:
-    """Redline the two versions in ``examples/_redline`` through a throwaway git repository."""
-    repo = work / "redline-repo"
-    note = repo / "Policy" / "Policy.md"
-    note.parent.mkdir(parents=True)
-    git = ["git", "-C", str(repo), "-c", "user.name=docs", "-c", "user.email=docs@example.com"]
-    subprocess.run([*git[:3], "init", "-q"], check=True)
-    for version in ("before", "after"):
-        shutil.copyfile(EXAMPLES / "_redline" / f"{version}.md", note)
-        subprocess.run([*git, "add", "-A"], check=True)
-        subprocess.run([*git, "commit", "-q", "-m", version], check=True)
-    pdf = work / "redline.pdf"
-    template = shot_template("redline", work)
-    ope(
-        [
-            "redline",
-            str(note.parent),
-            "--from-commit",
-            "HEAD~1",
-            "-T",
-            str(template),
-            "--no-toc",
-            "-o",
-            str(pdf),
-        ],
-        cwd=repo,
-    )
-    save(stack([trim(p) for p in rasterize(pdf, DPI, None)]), FEATURES_OUT / "redline.png")
 
 
 def render_recipes(work: Path, names: set[str]) -> None:

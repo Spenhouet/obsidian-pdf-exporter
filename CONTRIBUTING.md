@@ -592,6 +592,11 @@ Generated content:
   Run `uv run python scripts/render_examples.py [name ...]` after a change
   that affects the output. It needs `pdftoppm` (poppler) and Node.js for
   Mermaid. Commit the images.
+- `docs/img/redline/*.png` come from `examples/_redline/`. Each case
+  folder there holds a `before/` and an `after/` version of a small vault.
+  `uv run python scripts/render_redline_examples.py [case ...]` commits both
+  into a temporary git repository (fixed dates, so the hashes do not
+  change), runs `ope redline` and writes the images. Commit them.
 - `docs/llms.txt` and `docs/llms-full.txt` come from the pages. Run
   `uv run python scripts/gen_llms_txt.py` after adding or renaming a page.
   CI fails when they are out of date.
