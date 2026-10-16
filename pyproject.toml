@@ -203,6 +203,12 @@ skip-magic-trailing-comma = false # respects magic trailing commas
   "FBT001",  # Often conflicts in tests
   "PLR2004", # Magic numbers are acceptable in tests
 ]
+# Functions and methods of the Bases expression language are looked up in
+# tables, so they all share one signature even when they ignore an argument.
+"obsidian_pdf_exporter/core/bases/evaluate.py" = [
+  "ARG001",  # unused function argument
+  "ARG005",  # unused lambda argument
+]
 # Typer's option-as-default pattern is idiomatic; lint rules that fight it
 # only add noise in the CLI module.
 "obsidian_pdf_exporter/main.py" = [

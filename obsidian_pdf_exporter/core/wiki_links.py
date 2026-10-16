@@ -17,7 +17,8 @@ if TYPE_CHECKING:
     from obsidian_pdf_exporter.core.vault_index import VaultIndex
 
 RE_WIKI_EMBED_IMAGE = re.compile(r"!\[\[([^\]|\\]+?)(?:\\?\|([^\]]*))?\]\]")
-RE_WIKI_LINK = re.compile(r"\[\[([^\]#|]+?)(?:#([^\]|]*))?(?:\|([^\]]*))?\]\]")
+# ``\|`` separates the display text inside tables, as in Obsidian.
+RE_WIKI_LINK = re.compile(r"\[\[([^\]#|\\]+?)(?:#([^\]|\\]*))?(?:\\?\|([^\]]*))?\]\]")
 # Matches [[inner] rest](url) — a markdown link whose text starts with a bracketed
 # term. Must run after wiki link conversion so [[page]] is already resolved.
 RE_BRACKET_LINK = re.compile(r"\[\[([^\]\n]+)\]([^\]\n]*)\]\(([^)\n]+)\)")
