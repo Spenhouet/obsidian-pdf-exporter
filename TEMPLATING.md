@@ -402,7 +402,7 @@ The exporter relies on a stable set of class names emitted by pandoc + the post-
 | `pre`, `code`, `pre code` | Code blocks and inline code. |
 | `blockquote` | Quotes (note: Obsidian callouts are _not_ blockquotes after conversion). |
 | `.callout`, `.callout-note`, `.callout-info`, `.callout-tip`, `.callout-warning`, `.callout-danger`, `.callout-important`, `.callout-example`, `.callout-abstract`, `.callout-todo`, `.callout-success`, `.callout-question`, `.callout-quote` | Obsidian callout types. |
-| `.wide-table-section` | Auto-detected wide table block. The exporter sets `page: landscape-page;` and `break-before/after: page;` on this class — your CSS should also declare a `@page landscape-page { size: A4 landscape; … }` rule with appropriate margins. |
+| `.wide-table-section` | Wide table block (see `tables.landscape` in [MARKDOWN.md](MARKDOWN.md#wide-tables)). The exporter sets `page: landscape-page;` and `break-before/after: page;` on this class — your CSS should also declare a `@page landscape-page { size: A4 landscape; … }` rule with appropriate margins. |
 | `img.doc-image` | Embedded images (`![[…]]` and standard markdown images). |
 | `figure`, `figcaption` | Pandoc emits these when an image has alt text. |
 | `.header-section-number`, `nav#TOC .toc-section-number` | Pandoc's auto-numbered headings. |
