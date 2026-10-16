@@ -181,3 +181,21 @@ def test_runtime_register_plugin_round_trip() -> None:
     assert "mock-plugin-test" in names
     # Priorities: folder_notes (5), dataview (10), meta_bind (20), mock (50)
     assert names[-1] == "mock-plugin-test"
+
+
+@pytest.mark.parametrize(
+    ("value", "render", "expected"),
+    [
+        ("2026-03-05", "date(D MMMM YYYY)", "5 March 2026"),
+        ("2026-03-05", "date(DD.MM.YYYY)", "05.03.2026"),
+        ("2026-03-05", "DATE(D.M.YY)", "5.3.26"),
+        ("2026-03-05", "date(MMM D, YYYY)", "Mar 5, 2026"),
+        ("2026-11-25", "date(YYYY-MM-DD)", "2026-11-25"),
+        ("2026-03-05T07:04:09", "datetime(DD.MM.YYYY HH:mm:ss)", "05.03.2026 07:04:09"),
+        ("2026-03-05T07:04:09", "datetime(H:mm)", "7:04"),
+        ("2026-03-05", "datetime(HH:mm)", "00:00"),
+        ("not a date", "date(YYYY)", "not a date"),
+    ],
+)
+def test_meta_bind_formats_dates(value: str, render: str, expected: str) -> None:
+    assert _meta_bind(f"`VIEW[{{d}}][{render}]`", {"d": value}) == expected
