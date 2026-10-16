@@ -25,7 +25,7 @@ Source: https://spenhouet.com/obsidian-pdf-exporter/
 
     Every folder is a section, every folder note its text. Headings are numbered and listed in a table of contents.
 
-    [:octicons-arrow-right-24: Folder structure](obsidian/structure.md)
+    [:octicons-arrow-right-24: Folder Notes](plugins/folder-notes.md)
 
 -   :simple-obsidian: __Obsidian syntax__
 
@@ -1010,6 +1010,32 @@ obsidian-pdf-exporter/
 
 ---
 
+Source: https://spenhouet.com/obsidian-pdf-exporter/getting-started/
+
+# Getting started
+
+ope runs on Linux, macOS and Windows. Install it once, then export a folder of your vault with one command.
+
+-   :material-download-outline: __Installation__
+
+    Install the CLI and the native libraries WeasyPrint and pandoc need.
+
+    [:octicons-arrow-right-24: Installation](installation.md)
+
+-   :material-rocket-launch-outline: __Quick start__
+
+    Export a folder, set title and version, pick a template and inspect the result.
+
+    [:octicons-arrow-right-24: Quick start](quick-start.md)
+
+-   :material-console: __CLI reference__
+
+    Every command, argument, option, environment variable and exit code.
+
+    [:octicons-arrow-right-24: CLI reference](../reference/cli.md)
+
+---
+
 Source: https://spenhouet.com/obsidian-pdf-exporter/getting-started/installation/
 
 # Installation
@@ -1130,7 +1156,7 @@ Source: https://spenhouet.com/obsidian-pdf-exporter/getting-started/quick-start/
 ope export ./MyVault/Handbook
 ```
 
-The PDF is written to `./.export/Handbook.pdf`. The folder name is the title. Every subfolder becomes a section, see [Folder structure](../obsidian/structure.md).
+The PDF is written to `./.export/Handbook.pdf`. The folder name is the title. Every subfolder becomes a section, see [Folder Notes](../plugins/folder-notes.md).
 
 ## Title, version and output
 
@@ -1284,7 +1310,7 @@ Export an Obsidian-format folder tree to a single PDF file.
 ope export ROOT [OPTIONS]
 ```
 
-Builds one PDF from a vault folder. Git is not required. When the folder is in a git repository and `--version` is not set, the short commit hash is shown as the version label. See [Folder structure](../obsidian/structure.md) for how the folder becomes sections.
+Builds one PDF from a vault folder. Git is not required. When the folder is in a git repository and `--version` is not set, the short commit hash is shown as the version label. See [Folder Notes](../plugins/folder-notes.md) for how the folder becomes sections.
 
 | Argument | Description |
 | -------- | ----------- |
@@ -1446,7 +1472,7 @@ Source: https://spenhouet.com/obsidian-pdf-exporter/markdown/text/
 
 ## Headings
 
-Headings are numbered and go into the table of contents (down to level 4). The headings of a page nest under the page's own heading, so a note's `##` becomes a level below its section. See [Folder structure](../obsidian/structure.md).
+Headings are numbered and go into the table of contents (down to level 4). The headings of a page nest under the page's own heading, so a note's `##` becomes a level below its section. See [Folder Notes](../plugins/folder-notes.md).
 
 Markdown:
 
@@ -1849,7 +1875,7 @@ The second layer of an export handles the syntax Obsidian adds to Markdown, with
 
 | Feature | Page |
 | ------- | ---- |
-| Folders as sections, folder notes, table of contents, numbering | [Folder structure](structure.md) |
+| Folders as sections, table of contents, numbering (folder notes come from a plugin) | [Folder Notes](../plugins/folder-notes.md) |
 | `[[Page]]`, `[[Page\|alias]]`, `[[#Heading]]` | [Wiki links](wiki-links.md) |
 | `![[image.png\|300]]`, `![[Note]]`, `![[Note#Heading]]`, `![[Note#^id]]` | [Embeds](embeds.md) |
 | `^block-id` | [Block IDs](block-ids.md) |
@@ -1905,56 +1931,6 @@ Check the warnings of an export to find such places:
 ```bash
 ope export ./Vault 2>&1 | grep Warning:
 ```
-
----
-
-Source: https://spenhouet.com/obsidian-pdf-exporter/obsidian/structure/
-
-# Folder structure
-
-`ope export ROOT` walks the folder `ROOT`. Every subfolder becomes a section, and the note named like its folder is the text of that section. The root note is the first text of the document.
-
-Folder:
-
-```text
-structure/
-├── structure.md          ← root note
-├── Introduction/
-│   └── Introduction.md   ← section 1
-├── Part A/
-│   ├── Part A.md         ← section 2
-│   ├── Chapter 1/
-│   │   └── Chapter 1.md  ← section 2.1
-│   └── Chapter 2/
-│       └── Chapter 2.md  ← section 2.2
-└── Part B/
-    └── Part B.md         ← section 3
-```
-
-PDF:
-
-![Table of contents and numbered sections made from the folders](../img/features/structure.png)
-
-## Rules
-
-- Sections are sorted by folder name. The folder name is the section heading.
-- Headings inside a note nest under the section heading, so a note's `##` sits one level below its folder.
-- Folders without Markdown, such as attachment folders, are left out. `.git`, `.obsidian`, `.vscode` and every other dot folder are skipped.
-- `--include` and `--exclude` pick top-level subfolders by name. `--no-toc` leaves out the table of contents.
-
-## The root note
-
-Three layouts are recognised:
-
-1. `Handbook/Handbook.md` exists: it is the root note.
-2. `Handbook/Handbook/Handbook.md` exists: the inner folder is the root, its siblings become sections.
-3. Neither: the root has no text, the subfolders are the sections.
-
-The mapping from folder to note is done by the [Folder Notes](../plugins/folder-notes.md) plugin, so a third-party plugin can change it (for example to `README.md` per folder).
-
-## The vault
-
-Links, embeds and images are looked up in the whole vault, not only in the exported folder. The vault is the folder that holds `.obsidian`, or else the root of the git repository. When several files share a name, the one closest to the linking page wins: `Part A/img/logo.png` beats `images/logo.png` for every page inside `Part A/`.
 
 ---
 
@@ -2702,9 +2678,54 @@ Source: https://spenhouet.com/obsidian-pdf-exporter/plugins/folder-notes/
 
 # Folder Notes
 
-The [Folder Notes](https://github.com/LostPaul/obsidian-folder-notes) plugin stores the note of a folder inside it, with the folder's name: `Chapter A/Chapter A.md`. The `folder_notes` plugin maps that note onto its folder while the page tree is built, so the note becomes the text of the folder's section.
+`ope export ROOT` walks the folder `ROOT`. Every subfolder becomes a section. The [Folder Notes](https://github.com/LostPaul/obsidian-folder-notes) plugin stores the note of a folder inside it, with the folder's name: `Chapter A/Chapter A.md`. The `folder_notes` plugin maps that note onto its folder while the page tree is built, so the note becomes the text of the folder's section. The root note `ROOT/ROOT.md` is the first text of the document.
 
-The result is shown on [Folder structure](../obsidian/structure.md). Without this plugin (`--disable-plugin folder_notes`) the folders have no text.
+Folder:
+
+```text
+folder-notes/
+├── folder-notes.md       ← root note
+├── Introduction/
+│   └── Introduction.md   ← section 1
+├── Part A/
+│   ├── Part A.md         ← section 2
+│   ├── Chapter 1/
+│   │   └── Chapter 1.md  ← section 2.1
+│   └── Chapter 2/
+│       └── Chapter 2.md  ← section 2.2
+└── Part B/
+    └── Part B.md         ← section 3
+```
+
+PDF:
+
+![Table of contents and numbered sections made from the folders](../img/features/folder-notes.png)
+
+## Without the plugin
+
+With `--disable-plugin folder_notes` the folders still become numbered sections, with the folder name as heading, but the sections have no text: `Folder/Folder.md` is not used.
+
+## Sections, table of contents and numbering
+
+- Sections are sorted by folder name. The folder name is the section heading.
+- Headings are numbered and listed in the table of contents. `--no-toc` leaves out the table of contents.
+- Headings inside a note nest under the section heading, so a note's `##` sits one level below its folder.
+- `--include` and `--exclude` pick top-level subfolders by name.
+- Folders without Markdown, such as attachment folders, are left out. `.git`, `.obsidian`, `.vscode` and every other dot folder are skipped.
+
+## The root note
+
+Three layouts are recognised:
+
+1. `Handbook/Handbook.md` exists: it is the root note.
+2. `Handbook/Handbook/Handbook.md` exists: the inner folder is the root, its siblings become sections.
+3. Neither: the root has no text, the subfolders are the sections.
+
+## The vault
+
+Links, embeds and images are looked up in the whole vault, not only in the exported folder. The vault is the folder that holds `.obsidian`, or else the root of the git repository. When several files share a name, the one closest to the linking page wins: `Part A/img/logo.png` beats `images/logo.png` for every page inside `Part A/`.
+
+## Other conventions
 
 A third-party plugin can change the convention with the `find_folder_note` hook, for example to use `Folder/README.md` or the note with `folder-note: true` in its frontmatter. See [Write a plugin](write-a-plugin.md#hooks).
 

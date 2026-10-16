@@ -77,7 +77,7 @@ class Example:
 
 SETTINGS: dict[str, Example] = {
     "wiki-links": Example(pages=[1]),
-    "structure": Example(toc=True),
+    "folder-notes": Example(toc=True),
     "footnotes": Example(collapse=True),
 }
 
