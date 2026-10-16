@@ -56,6 +56,7 @@ meta_bind = "obsidian_pdf_exporter.plugins.meta_bind:MetaBindPlugin"
 block_link_plus = "obsidian_pdf_exporter.plugins.block_link_plus:BlockLinkPlusPlugin"
 drawio = "obsidian_pdf_exporter.plugins.drawio:DrawioPlugin"
 excalidraw = "obsidian_pdf_exporter.plugins.excalidraw:ExcalidrawPlugin"
+citations = "obsidian_pdf_exporter.plugins.citations:CitationsPlugin"
 
 [tool.hatch.build.targets.wheel]
 packages = ["obsidian_pdf_exporter"]

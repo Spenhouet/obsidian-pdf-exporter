@@ -31,6 +31,7 @@ Anything pandoc's GFM dialect understands works as-is. Obsidian-specific feature
 | Code blocks and inline code                  | Shown as written. Links, embeds, block IDs and `%%` comments inside code are not processed, as in Obsidian.                                                                                                     |
 | Image followed by a single italic line       | The italic line is promoted to the image's caption.                                                                                                                                                             |
 | `![[Books.base]]`, `![[Books.base#View]]`, ` ```base ` blocks | [Obsidian Bases](https://help.obsidian.md/bases) rendered as static tables and lists. See [Bases](#bases). |
+| `[@key]`, `[@key, p. 12]`, `[@a; @b]`, `@key` | Citations rendered with `pandoc --citeproc` and a reference list, when a bibliography is found. Handled by the `citations` plugin. See [Citations](#citations). |
 | `![[Drawing.excalidraw]]` | [Excalidraw](https://github.com/zsviczian/obsidian-excalidraw-plugin) drawing as an image: the plugin's auto-export SVG or PNG if there is one, otherwise drawn from the scene. Handled by the `excalidraw` plugin. See [Excalidraw drawings](#excalidraw-drawings). |
 | ` ```mermaid ` code blocks                   | Rendered to an SVG (or PNG) diagram with mermaid-cli. See [Mermaid diagrams](#mermaid-diagrams).                                                                                                                |
 
@@ -102,6 +103,32 @@ The expression language of filters and formulas is supported to this extent:
 | Summaries | `Average`, `Min`, `Max`, `Sum`, `Range`, `Median`, `Stddev`, `Earliest`, `Latest`, `Checked`, `Unchecked`, `Empty`, `Filled`, `Unique`, and custom summaries from the base's `summaries` with `values` |
 
 Anything else, such as `html()`, `icon()`, `random()` or a function that does not exist, is not dropped silently. The export prints a warning that names the base and the expression. A filter that can not be evaluated is ignored, so the view shows more files rather than fewer, and a column that can not be evaluated stays empty. Property types come from the YAML (a date written as `2024-05-01` is a date); the property types set in Obsidian (`.obsidian/types.json`) are not read. Dates are shown as `YYYY-MM-DD`, checkboxes as ☑ / ☐.
+
+## Citations
+
+The `citations` plugin renders [pandoc citations](https://pandoc.org/MANUAL.html#citation-syntax), as the [Citations](https://github.com/hans/obsidian-citation-plugin) plugin and the Zotero integration plugins write them:
+
+| Written                      | Rendered (default Chicago author-date style) |
+| ---------------------------- | -------------------------------------------- |
+| `[@doe2020]`                 | (Doe 2020)                                   |
+| `[@doe2020, p. 12]`          | (Doe 2020, 12)                               |
+| `[see @doe2020; @roe2021]`   | (see Doe 2020; Roe 2021)                     |
+| `[-@doe2020]`                | (2020)                                       |
+| `@doe2020 shows`             | Doe (2020) shows                             |
+
+The bibliography is the first one found of:
+
+1. `-O citations.bibliography=refs.bib` (several files separated by `,`). Relative paths start at the current folder or the exported folder.
+2. The export path of the Citations plugin: `citationExportPath` in `.obsidian/plugins/obsidian-citation-plugin/data.json`, relative to the vault.
+3. `bibliography:` in the frontmatter of the exported notes (a path or a list), relative to the note.
+
+BibLaTeX and BibTeX (`.bib`, `.bibtex`), CSL JSON (`.json`) and CSL YAML (`.yaml`) work. `-O citations.csl=style.csl` (or `csl:` in the frontmatter) picks a [CSL style](https://www.zotero.org/styles). Citations link to their entry in the reference list.
+
+The reference list goes into a `::: {#refs}` block when the document has one, otherwise below the last heading named `References`, `Bibliography`, `Works cited`, `Literature` or `Sources`. Without either, a `References` heading (set the text with `-O citations.title=...`) and the list are added at the end.
+
+`@word` outside brackets becomes a citation only when `word` is a key of the bibliography, so `@mentions` and e-mail addresses stay text. A link to a literature note such as `[[@doe2020]]` becomes the in-text citation `@doe2020` when the note is not part of the export.
+
+Without a bibliography, citations stay as written and the export prints one warning. A bracketed citation whose key is not in the bibliography also prints a warning (pandoc shows it as `(doe2020?)`).
 
 ## Excalidraw drawings
 
