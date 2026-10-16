@@ -278,17 +278,8 @@ def _render_table(pages: list[dict], fields: list[tuple[str, str]], *, without_i
     if not pages:
         return "*No results.*"
 
-    if not fields:
-        seen: set[str] = set()
-        all_keys: list[str] = []
-        for page in pages:
-            for k in page["fm"]:
-                if k not in seen and k != "tags":
-                    seen.add(k)
-                    all_keys.append(k)
-        fields = [(k, k.replace("_", " ").title()) for k in all_keys] or [("name", "Name")]
-
-    if without_id:
+    # ``TABLE`` without a field list shows only the file column, as in Obsidian.
+    if without_id and fields:
         headers = [label for _, label in fields]
         rows = [[_field_value(p, f) for f, _ in fields] for p in pages]
     else:
