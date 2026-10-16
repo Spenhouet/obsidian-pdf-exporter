@@ -29,6 +29,7 @@ class WikiLinksStep(Step):
             context.page_index,
             context.build_dir,
             context.vault_index,
+            warn=lambda message: context.warn(f"{message} in {context.where}"),
         )
 
 

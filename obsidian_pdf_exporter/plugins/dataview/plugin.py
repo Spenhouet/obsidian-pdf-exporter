@@ -12,6 +12,9 @@ from obsidian_pdf_exporter.plugins.base import ObsidianPlugin
 from obsidian_pdf_exporter.plugins.base import PluginContext
 from obsidian_pdf_exporter.plugins.dataview.engine import resolve_dataview_blocks
 
+#: Text that :func:`resolve_dataview_blocks` puts in place of a query it cannot run.
+_UNSUPPORTED = "not supported in PDF export."
+
 
 class DataviewPlugin(ObsidianPlugin):
     """Render Dataview DQL queries as static markdown tables/lists."""
@@ -28,4 +31,10 @@ class DataviewPlugin(ObsidianPlugin):
             if context.vault_root is None:
                 return content
             index = VaultIndex(context.vault_root)
-        return resolve_dataview_blocks(content, index)
+        rendered = resolve_dataview_blocks(content, index)
+        skipped = rendered.count(_UNSUPPORTED) - content.count(_UNSUPPORTED)
+        warn = getattr(context, "warn", None)
+        if skipped > 0 and warn is not None:
+            where = getattr(context, "where", "the page")
+            warn(f"cannot render {skipped} DataviewJS or TASK query(s) in {where}")
+        return rendered

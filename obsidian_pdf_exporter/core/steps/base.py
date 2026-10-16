@@ -54,6 +54,18 @@ class PageContext(PluginContext):
     embed_stack: tuple[tuple[Path, str], ...] = ()
     log: Callable[[str], None] | None = None
 
+    @property
+    def where(self) -> str:
+        """The source file as a vault path, for messages."""
+        if self.source_file is None:
+            return "the page"
+        if self.vault_root is not None:
+            try:
+                return self.source_file.resolve().relative_to(self.vault_root.resolve()).as_posix()
+            except ValueError:
+                pass
+        return self.source_file.name
+
     def warn(self, message: str) -> None:
         """Report a problem through ``log`` or the module logger."""
         if self.log is not None:
