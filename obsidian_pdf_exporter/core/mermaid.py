@@ -7,6 +7,10 @@ rendering fails, the code block stays as it is and a warning is logged.
 
 SVG output is forced to ``htmlLabels: false``. Mermaid otherwise puts labels
 into ``<foreignObject>`` elements, which WeasyPrint does not draw.
+
+Empty space around a diagram is trimmed, and a ``%% ope: width=8cm`` comment
+line inside a block sets the size of that one diagram. Mermaid and Obsidian
+ignore ``%%`` lines.
 """
 
 from __future__ import annotations
@@ -45,6 +49,15 @@ _RE_TEXT_DY_BEFORE_TSPAN_DY = re.compile(
     r'(<text\b[^>]*?)\sdy="[^"]*"([^>]*>\s*<tspan\b[^>]*\sdy=)'
 )
 
+# ``%% ope: width=8cm height=6cm`` inside a Mermaid block.
+RE_SIZE_HINT = re.compile(r"^[ \t]*%%[ \t]*ope[ \t]*:(?P<args>.*)(?:\n|$)", re.MULTILINE)
+_RE_LENGTH = re.compile(r"^(?P<value>\d+(?:\.\d+)?|\.\d+)(?P<unit>px|cm|mm|in|pt|pc|%)?$")
+#: CSS pixels per unit.
+_UNITS = {"px": 1.0, "cm": 96 / 2.54, "mm": 96 / 25.4, "in": 96.0, "pt": 96 / 72, "pc": 16.0}
+_SIZE_KEYS = ("width", "height")
+#: Space kept around the visible diagram when trimming, in CSS pixels.
+_TRIM_MARGIN = 8
+
 _FORMATS = ("svg", "png")
 _OFF_VALUES = {"0", "false", "no", "off"}
 _TIMEOUT_SECONDS = 600
@@ -60,6 +73,8 @@ class MermaidSettings:
     config: dict[str, object] = field(default_factory=dict)
     cli: str = ""
     puppeteer_config: str = ""
+    trim: bool = True
+    max_height: str = ""
 
 
 def mermaid_settings(
@@ -77,6 +92,8 @@ def mermaid_settings(
     * ``mermaid.theme=NAME``: shortcut for the ``theme`` config key.
     * ``mermaid.cli=COMMAND``: command that runs mermaid-cli.
     * ``mermaid.puppeteer_config=PATH``: passed to mermaid-cli as ``-p``.
+    * ``mermaid.trim=off``: keep the empty space mermaid leaves around diagrams.
+    * ``mermaid.max_height=LENGTH``: largest height of a diagram, e.g. ``10cm``.
     """
     image_format = options.get("mermaid.format", "svg").strip().lower()
     if image_format not in _FORMATS:
@@ -101,7 +118,18 @@ def mermaid_settings(
         config=config,
         cli=options.get("mermaid.cli", ""),
         puppeteer_config=options.get("mermaid.puppeteer_config", ""),
+        trim=options.get("mermaid.trim", "on").strip().lower() not in _OFF_VALUES,
+        max_height=_checked_length("mermaid.max_height", options.get("mermaid.max_height", "")),
     )
+
+
+def _checked_length(name: str, value: str) -> str:
+    value = value.strip()
+    length = _parse_length(value) if value else None
+    if value and (length is None or length[1] == "%"):
+        msg = f"{name} must be a length such as 10cm, 80mm or 400px, got {value!r}"
+        raise ValueError(msg)
+    return value
 
 
 def find_mermaid_cli(override: str = "") -> list[str] | None:
@@ -147,7 +175,10 @@ def render_mermaid_blocks(
 
     config = _render_config(settings)
     ext = settings.image_format
-    sources = {_digest(m.group("code"), config, settings): m.group("code") for m in blocks}
+    sources = {}
+    for m in blocks:
+        code, _ = split_size_hint(m.group("code"))
+        sources[_digest(code, config, settings)] = code
     todo = [d for d in sources if not (build_dir / f"mermaid-{d}.{ext}").exists()]
     if todo:
         log(f"  Rendering {len(todo)} Mermaid diagram(s)...")
@@ -157,14 +188,17 @@ def render_mermaid_blocks(
 
     def replace(m: re.Match) -> str:
         nonlocal failed
-        digest = _digest(m.group("code"), config, settings)
-        image = build_dir / f"mermaid-{digest}.{ext}"
+        code, hint = split_size_hint(m.group("code"))
+        image = build_dir / f"mermaid-{_digest(code, config, settings)}.{ext}"
         if not image.exists():
             failed += 1
             return m.group(0)
+        for problem in hint.problems:
+            log(f"  Warning: Mermaid size hint ignored: {problem}")
         attrs = ".doc-image .mermaid"
-        if ext == "png":
-            attrs += f' style="width:{_png_width(image) // settings.scale}px"'
+        style = _size_style(image, hint, settings)
+        if style:
+            attrs += f' style="{style}"'
         return f"![]({image.name}){{{attrs}}}"
 
     result = RE_MERMAID_BLOCK.sub(replace, markdown)
@@ -181,40 +215,82 @@ def _render(
     settings: MermaidSettings,
     log,  # noqa: ANN001
 ) -> None:
-    """Render all ``sources`` in one mermaid-cli run, one by one if that fails."""
+    """Render all ``sources`` and store them in ``build_dir``.
+
+    For trimmed SVG output, a second run renders transparent PNGs to find the
+    visible part of each diagram.
+    """
     work = build_dir / "_mermaid"
     work.mkdir(parents=True, exist_ok=True)
     args = ["-c", str(_write_json(work / "config.json", config))]
-    args += ["-e", settings.image_format]
-    if settings.image_format == "png":
-        args += ["-s", str(settings.scale), "-b", "white"]
     puppeteer = _puppeteer_config(work, settings)
     if puppeteer:
         args += ["-p", str(puppeteer)]
 
+    ext = settings.image_format
+    out_args = ["-e", ext]
+    if ext == "png":
+        out_args += ["-s", str(settings.scale), "-b", "white"]
+    outputs = _render_batch(cli, [*args, *out_args], sources, work, ext, "out", log)
+
+    boxes: dict[str, tuple[float, float, float, float] | None] = {}
+    if ext == "svg" and settings.trim and outputs:
+        measure_args = [*args, "-e", "png", "-s", "1", "-b", "transparent"]
+        pngs = _render_batch(
+            cli, measure_args, {d: sources[d] for d in outputs}, work, "png", "measure", None
+        )
+        boxes = {d: _content_box(p, transparent=True) for d, p in pngs.items()}
+
+    for digest, path in outputs.items():
+        dest = build_dir / f"mermaid-{digest}.{ext}"
+        if ext == "svg":
+            svg = _tidy_svg(path.read_text(encoding="utf-8"), digest)
+            box = boxes.get(digest)
+            if box:
+                svg = _trim_svg(svg, box)
+            dest.write_text(svg, encoding="utf-8")
+        else:
+            shutil.copyfile(path, dest)
+            if settings.trim:
+                _trim_png(dest, settings.scale)
+
+
+def _render_batch(
+    cli: list[str],
+    args: list[str],
+    sources: dict[str, str],
+    work: Path,
+    ext: str,
+    name: str,
+    log,  # noqa: ANN001 - callable(str), or None to stay silent
+) -> dict[str, Path]:
+    """Render ``sources`` in one mermaid-cli run, one by one if that fails.
+
+    Returns the produced file for every digest that rendered.
+    """
     digests = list(sources)
-    batch = work / "diagrams.md"
+    batch = work / f"{name}.md"
     batch.write_text(
         "\n\n".join(f"```mermaid\n{sources[d]}\n```" for d in digests) + "\n",
         encoding="utf-8",
     )
-    ok, _ = _run([*cli, *args, "-i", str(batch), "-o", str(work / "out.md")], work)
-    produced = [work / f"out-{i}.{settings.image_format}" for i in range(1, len(digests) + 1)]
+    ok, _ = _run([*cli, *args, "-i", str(batch), "-o", str(work / f"{name}-out.md")], work)
+    produced = [work / f"{name}-out-{i}.{ext}" for i in range(1, len(digests) + 1)]
     if ok and all(p.exists() for p in produced):
-        for digest, path in zip(digests, produced, strict=True):
-            _store(path, build_dir, digest, settings.image_format)
-        return
+        return dict(zip(digests, produced, strict=True))
 
+    outputs = {}
     for digest in digests:
         source = work / f"{digest}.mmd"
         source.write_text(sources[digest] + "\n", encoding="utf-8")
-        out = work / f"{digest}.{settings.image_format}"
+        out = work / f"{name}-{digest}.{ext}"
         ok, stderr = _run([*cli, *args, "-i", str(source), "-o", str(out)], work)
         if ok and out.exists():
-            _store(out, build_dir, digest, settings.image_format)
-        else:
+            outputs[digest] = out
+        elif log:
             first_line = stderr.strip().splitlines()[0] if stderr.strip() else "unknown error"
             log(f"  Warning: Mermaid diagram failed to render: {first_line}")
+    return outputs
 
 
 def _run(argv: list[str], cwd: Path) -> tuple[bool, str]:
@@ -230,14 +306,6 @@ def _run(argv: list[str], cwd: Path) -> tuple[bool, str]:
     except (OSError, subprocess.SubprocessError) as e:
         return False, str(e)
     return result.returncode == 0, result.stderr or result.stdout
-
-
-def _store(path: Path, build_dir: Path, digest: str, image_format: str) -> None:
-    dest = build_dir / f"mermaid-{digest}.{image_format}"
-    if image_format == "svg":
-        dest.write_text(_tidy_svg(path.read_text(encoding="utf-8"), digest), encoding="utf-8")
-    else:
-        shutil.copyfile(path, dest)
 
 
 def _tidy_svg(svg: str, digest: str) -> str:
@@ -263,10 +331,202 @@ def _tidy_svg(svg: str, digest: str) -> str:
     return svg
 
 
-def _png_width(path: Path) -> int:
+def _png_size(path: Path) -> tuple[int, int]:
     with path.open("rb") as f:
         header = f.read(24)
-    return struct.unpack(">I", header[16:20])[0]
+    return struct.unpack(">II", header[16:24])
+
+
+def _content_box(path: Path, *, transparent: bool) -> tuple[float, float, float, float] | None:
+    """Return the visible part of a PNG as fractions ``(left, top, right, bottom)``.
+
+    The background is either transparent or white. Returns None when the
+    image can not be read or is empty.
+    """
+    try:
+        from PIL import Image
+        from PIL import ImageChops
+
+        with Image.open(path) as image:
+            if transparent:
+                bbox = image.convert("RGBA").getchannel("A").getbbox()
+            else:
+                rgb = image.convert("RGB")
+                bbox = ImageChops.difference(rgb, Image.new("RGB", rgb.size, "white")).getbbox()
+            width, height = image.size
+    except (OSError, ValueError, SyntaxError):
+        return None
+    if not bbox or not width or not height:
+        return None
+    left, top, right, bottom = bbox
+    return left / width, top / height, right / width, bottom / height
+
+
+def _trim_png(path: Path, scale: int) -> None:
+    """Crop a white-background PNG to its content plus a small margin."""
+    box = _content_box(path, transparent=False)
+    if not box:
+        return
+    from PIL import Image
+
+    with Image.open(path) as image:
+        width, height = image.size
+        margin = _TRIM_MARGIN * scale
+        crop = (
+            max(0, round(box[0] * width) - margin),
+            max(0, round(box[1] * height) - margin),
+            min(width, round(box[2] * width) + margin),
+            min(height, round(box[3] * height) + margin),
+        )
+        if crop == (0, 0, width, height):
+            return
+        cropped = image.crop(crop)
+    cropped.save(path)
+
+
+def _trim_svg(svg: str, box: tuple[float, float, float, float]) -> str:
+    """Shrink the ``viewBox`` and ``width`` of a tidied SVG to ``box`` plus a margin.
+
+    ``box`` is the visible part as fractions of the current view, see
+    :func:`_content_box`.
+    """
+    root = re.search(r"<svg\b[^>]*>", svg)
+    if not root:
+        return svg
+    tag = root.group(0)
+    view = re.search(r'\sviewBox="([^"]*)"', tag)
+    width = re.search(r'\swidth="([\d.]+)"', tag)
+    if not view or not width:
+        return svg
+    try:
+        x, y, w, h = (float(v) for v in view.group(1).replace(",", " ").split())
+    except ValueError:
+        return svg
+    natural = float(width.group(1))
+    if w <= 0 or h <= 0 or natural <= 0:
+        return svg
+    margin = _TRIM_MARGIN * w / natural
+    left = max(x, x + box[0] * w - margin)
+    top = max(y, y + box[1] * h - margin)
+    right = min(x + w, x + box[2] * w + margin)
+    bottom = min(y + h, y + box[3] * h + margin)
+    if right <= left or bottom <= top:
+        return svg
+    new_view = " ".join(_number(v) for v in (left, top, right - left, bottom - top))
+    new_tag = tag.replace(view.group(0), f' viewBox="{new_view}"', 1)
+    new_width = _number(natural * (right - left) / w)
+    new_tag = new_tag.replace(width.group(0), f' width="{new_width}"', 1)
+    return svg.replace(tag, new_tag, 1)
+
+
+def _number(value: float) -> str:
+    """Format an SVG coordinate with at most three decimals."""
+    return f"{round(value, 3) + 0.0:.3f}".rstrip("0").rstrip(".")
+
+
+@dataclass
+class SizeHint:
+    """Size set with a ``%% ope: width=... height=...`` line in a Mermaid block."""
+
+    width: str = ""
+    height: str = ""
+    problems: list[str] = field(default_factory=list)
+
+
+def split_size_hint(code: str) -> tuple[str, SizeHint]:
+    """Remove ``%% ope: ...`` lines from Mermaid ``code`` and parse them.
+
+    Each line holds ``key=value`` pairs separated by spaces or commas. Known
+    keys are ``width`` and ``height``. Values are CSS lengths (``8cm``,
+    ``60mm``, ``300px``, ``4in``, ``200pt``); a bare number means pixels and
+    ``width`` also accepts a percentage of the text width. Unknown keys and
+    bad values are listed in :attr:`SizeHint.problems`.
+    """
+    hint = SizeHint()
+    for match in RE_SIZE_HINT.finditer(code):
+        for item in re.split(r"[\s,;]+", match.group("args").strip()):
+            if not item:
+                continue
+            key, sep, value = item.partition("=")
+            key = key.strip().lower()
+            value = value.strip().lower()
+            length = _parse_length(value)
+            if not sep or key not in _SIZE_KEYS:
+                hint.problems.append(f"unknown setting {item!r}, use width=... or height=...")
+            elif length is None or (key == "height" and length[1] == "%"):
+                hint.problems.append(f"{key}={value!r} is not a valid length")
+            else:
+                setattr(hint, key, value)
+    return RE_SIZE_HINT.sub("", code).strip("\n"), hint
+
+
+def _parse_length(value: str) -> tuple[float, str] | None:
+    """Parse a CSS length into ``(value, unit)``; absolute units become pixels."""
+    match = _RE_LENGTH.match(value.strip().lower())
+    if not match:
+        return None
+    number = float(match.group("value"))
+    unit = match.group("unit") or "px"
+    if unit == "%":
+        return number, "%"
+    return number * _UNITS[unit], "px"
+
+
+def _natural_size(image: Path, scale: int) -> tuple[float, float] | None:
+    """Return the natural size of a rendered diagram in CSS pixels."""
+    if image.suffix == ".png":
+        width, height = _png_size(image)
+        return width / scale, height / scale
+    root = re.search(r"<svg\b[^>]*>", image.read_text(encoding="utf-8"))
+    if not root:
+        return None
+    width = re.search(r'\swidth="([\d.]+)"', root.group(0))
+    view = re.search(r'\sviewBox="([^"]*)"', root.group(0))
+    if not width or not view:
+        return None
+    try:
+        _, _, w, h = (float(v) for v in view.group(1).replace(",", " ").split())
+    except ValueError:
+        return None
+    if w <= 0:
+        return None
+    natural = float(width.group(1))
+    return natural, natural * h / w
+
+
+def _size_style(image: Path, hint: SizeHint, settings: MermaidSettings) -> str:
+    """Return the CSS ``style`` for a diagram image, or ``""`` for its natural size.
+
+    Only the width is set. The height follows from the aspect ratio, so a
+    ``height`` hint and ``mermaid.max_height`` turn into a width.
+    """
+    size = _natural_size(image, settings.scale)
+    if size is None or size[0] <= 0 or size[1] <= 0:
+        return f"width:{hint.width}" if hint.width else ""
+    natural_width, natural_height = size
+    aspect = natural_width / natural_height
+
+    width = _parse_length(hint.width) if hint.width else None
+    height = _parse_length(hint.height) if hint.height else None
+    if height is None and not hint.width and settings.max_height:
+        max_height = _parse_length(settings.max_height)
+        if max_height and max_height[0] < natural_height:
+            height = max_height
+
+    percent = ""
+    if width and width[1] == "%":
+        percent, width = hint.width, None
+    if width is None and height is None:
+        if percent:
+            return f"width:{percent}"
+        return f"width:{natural_width:g}px" if image.suffix == ".png" else ""
+
+    px = min(
+        width[0] if width else float("inf"),
+        height[0] * aspect if height else float("inf"),
+    )
+    style = f"width:{px:.2f}px"
+    return f"{style};max-width:{percent}" if percent else style
 
 
 def _render_config(settings: MermaidSettings) -> dict[str, object]:
@@ -296,7 +556,9 @@ def _write_json(path: Path, data: dict[str, object]) -> Path:
 
 
 def _digest(code: str, config: dict[str, object], settings: MermaidSettings) -> str:
-    key = json.dumps([code, config, settings.image_format, settings.scale], sort_keys=True)
+    key = json.dumps(
+        [code, config, settings.image_format, settings.scale, settings.trim], sort_keys=True
+    )
     return hashlib.sha256(key.encode("utf-8")).hexdigest()[:12]
 
 
