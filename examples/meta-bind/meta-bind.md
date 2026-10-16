@@ -8,7 +8,7 @@ platforms: |
 ---
 Release notes for `VIEW[{product}][text]` version `VIEW[{version}][text]`.
 
-Released on `VIEW[{released}][text]`.
+Released on `VIEW[{released}][date(D MMMM YYYY)]` (`VIEW[{released}][date(DD.MM.YYYY)]`).
 
 | Field     | Value                                     |
 | --------- | ----------------------------------------- |

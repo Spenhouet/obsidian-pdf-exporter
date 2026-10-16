@@ -25,9 +25,7 @@ The `meta_bind` plugin fills [Meta Bind](https://github.com/mProjectsCode/obsidi
 </div>
 
 - `{key}` is the value of a frontmatter field. `+` joins values and quoted text.
+- `[date(D MMMM YYYY)]` and `[datetime(DD.MM.YYYY HH:mm)]` format an ISO date or date and time with moment.js tokens: `D`, `DD`, `M`, `MM`, `MMM`, `MMMM`, `YY`, `YYYY`, `H`, `HH`, `mm` and `ss`. Month names are English. Other text in the format is kept. A value that is not a date is shown as written.
 - A multi-line value shown inside text, such as in a table cell, stays in its cell: list items become an HTML list, other lines are joined with line breaks. A field alone on its line keeps the lines as they are.
 - Fields inside code blocks are left as written.
 - In an embedded note, the fields use the embedded note's frontmatter.
-
-!!! warning "Date formats"
-    `VIEW[{date}][date(...)]` is meant to format a date with moment.js tokens. The format is currently lowercased, so the result is wrong ([#61](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/61)). Use `[text]` to show the value as written.

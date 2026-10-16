@@ -29,11 +29,12 @@ A wiki link to a page of the export becomes a link to that page's section in the
 | `[[Page]]` | Link to the section of `Page`. |
 | `[[Page\|alias]]` | Same link, showing the alias. |
 | `[[#Heading]]`, `[[#Heading\|alias]]` | Link to the heading on the same page. When several pages share a heading name, the one on the linking page wins. |
-| `[[Page#Heading]]` | Link to the section of `Page`. The heading part is not used yet ([#60](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/60)). |
-| `[[Folder/Page]]` | A link with a path is not resolved yet and shows as plain text ([#60](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/60)). Use the page name. |
-| `[[Missing page]]` | A page outside the export shows as plain text. |
+| `[[Page#Heading]]`, `[[Page#Heading\|alias]]` | Link to that heading on `Page`. Without an alias the label is `Page > Heading`. When `Page` has no such heading, the link goes to the page. `[[Page#A#B]]` uses the last heading, `B`. |
+| `[[Page#^id]]` | Link to the section of `Page`. |
+| `[[Folder/Page]]`, `[[Page.md]]` | The last path part is the page name and a `.md` suffix is ignored. When several pages have that name, the one whose path ends with `Folder/Page` wins. |
+| `[[Missing page]]` | A page outside the export shows as italic text. |
 | `[[https://example.com\|text]]` | An external link. |
 
-When two pages have the same name, the link goes to the one closest to the linking page. Links inside code are left as written.
+When two pages have the same name, the link goes to the one closest to the linking page. Each of them has its own anchor in the PDF (`page`, `page-1`, ...). Links inside code are left as written.
 
 Standard Markdown links (`[text](https://...)`) are covered in [Links and images](../markdown/links-images.md).
