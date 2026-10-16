@@ -138,5 +138,9 @@ nav:
       - Python templates: templating/python.md
       - Recipes: templating/recipes.md
       - Debugging: templating/debugging.md
-  - Use with AI agents: agents.md
-  - Contributing: contributing.md
+  # Single pages after a section group render as part of that group with
+  # navigation.sections, so each one gets a section of its own.
+  - AI agents:
+      - Use with AI agents: agents.md
+  - Project:
+      - Contributing: contributing.md
