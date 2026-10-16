@@ -70,8 +70,15 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add pyproject.toml uv.lock README.md
-          git commit -m "Bump version to ${{ env.NEW_VERSION }}"
-          git push
+          # main only accepts changes through pull requests. When the bump
+          # was merged through a pull request already, run with
+          # custom_version set to that version and nothing is left to commit.
+          if git diff --cached --quiet; then
+            echo "Version ${{ env.NEW_VERSION }} is already committed"
+          else
+            git commit -m "Bump version to ${{ env.NEW_VERSION }}"
+            git push
+          fi
 
       - name: Create release tag
         run: |
