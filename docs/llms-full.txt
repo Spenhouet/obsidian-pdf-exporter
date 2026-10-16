@@ -444,7 +444,7 @@ listed.
    highlights, `hard_line_breaks` for line breaks or `--mathml` for math.
 2. Obsidian core syntax ([`core/steps/`](https://github.com/Spenhouet/obsidian-pdf-exporter/tree/main/obsidian_pdf_exporter/core/steps/)).
    Every piece of syntax that Obsidian itself supports is a small step:
-   frontmatter, comments, Bases, embeds, block IDs, callouts, heading links, wiki
+   frontmatter, comments, Bases, PDF embeds, embeds, block IDs, callouts, heading links, wiki
    links, image captions, headings, warnings about plugin code blocks,
    highlights, line breaks, tasks, math, footnotes, Mermaid, landscape
    diagrams, SVG images and table fixes. All steps are listed in
@@ -471,7 +471,7 @@ obsidian_pdf_exporter/
 │   │   ├── frontmatter.py, plugins.py, comments.py, bases.py, embeds.py, block_ids.py,
 │   │   ├── callouts.py, heading_links.py, wiki_links.py, image_captions.py,
 │   │   ├── headings.py, code_blocks.py, highlights.py, line_breaks.py, tasks.py, math.py,
-│   │   ├── footnotes.py, landscape.py,
+│   │   ├── footnotes.py, landscape.py, pdf_embeds.py,
 │   │   └── mermaid.py, svg_images.py, tables.py, base_css.py
 │   ├── bases/              # Bases: expression parser, evaluator and views
 │   ├── code.py             # outside_code: keeps fenced and inline code as written
@@ -513,7 +513,7 @@ already resolved. The table in the docstring of
 gives the reason for each position.
 
 Embedded notes (`![[Note]]`) run through the steps marked `embedded`
-(`plugins`, `html_comments`, `bases`, `embeds`, `footnotes` and `wiki_links`) with the context of
+(`plugins`, `html_comments`, `bases`, `pdf_embeds`, `embeds`, `footnotes` and `wiki_links`) with the context of
 the embedded note, so links and images resolve from its folder. The
 embedded text then becomes part of the page and passes the remaining steps.
 
@@ -1368,6 +1368,9 @@ the template. These keys are read by ope itself:
 | `mermaid.landscape_ratio` | number | `1.4` | [Mermaid](../obsidian/mermaid.md#wide-diagrams) |
 | `mermaid.landscape_min_font` | points | `7` | [Mermaid](../obsidian/mermaid.md#wide-diagrams) |
 | `footnotes` | `page`, `end` | `page` | [Footnotes](../markdown/footnotes.md) |
+| `pdf_embeds` | `pages`, `link` | `pages` | [Embeds](../obsidian/embeds.md#pdf) |
+| `pdf_embeds.max_pages` | number | `10` | [Embeds](../obsidian/embeds.md#pdf) |
+| `pdf_embeds.dpi` | number | `150` | [Embeds](../obsidian/embeds.md#pdf) |
 | `citations` | `off` | on | [Citations](../plugins/citations.md#options) |
 | `citations.bibliography` | paths, separated by `,` | auto | [Citations](../plugins/citations.md#bibliography) |
 | `citations.csl` | path to a CSL style | Chicago author-date | [Citations](../plugins/citations.md#options) |
@@ -1844,6 +1847,7 @@ The markdown steps run on every page in this order. The order matters: an embed 
 | 20 | `plugins` | Community plugins see Obsidian source syntax. |
 | 30 | `html_comments` | Commented-out embeds are not expanded. |
 | 35 | `bases` | Before embeds, so `![[x.base]]` is rendered as a view. |
+| 38 | `pdf_embeds` | Before embeds, so `![[x.pdf#page=2]]` is not read as a note and heading. |
 | 40 | `embeds` | Embedded content then passes all later steps. |
 | 50 | `obsidian_comments` | After embeds, so embedded comments go too. |
 | 60 | `block_ids` | After embeds, so embedded markers go too. |
@@ -1864,7 +1868,8 @@ After pandoc, the HTML steps run: `base_css`, `empty_table_headers`, `column_wid
 
 Some content cannot be drawn in a PDF, or is not supported yet. It stays in the document in a simple form, and the export prints a line starting with `Warning:` that names the page:
 
-- An embed of a file type other than notes and images, such as `![[Board.canvas]]`, `![[Manual.pdf]]` or a video, becomes a link (or italic text when the file is not part of the export).
+- An embed of a file type other than notes, images and PDF files, such as `![[Board.canvas]]` or a video, becomes a link (or italic text when the file is not part of the export).
+- A PDF embed that cannot be found or opened (for example an encrypted PDF) becomes a link the same way.
 - An image that cannot be found becomes the italic text _[Image: name]_.
 - A code block of a plugin ope does not render, such as ` ```tasks `, ` ```dataviewjs `, ` ```chart ` or an Admonition block ` ```ad-note `, stays a code block.
 - DataviewJS and `TASK` queries become a short note in italics.
@@ -2033,19 +2038,41 @@ PDF:
 
 ## PDF
 
+`![[file.pdf]]` draws the pages of a PDF file as images, one below the other, each with a thin border. The file name is the caption. A page is at most as wide as the text and at most 22 cm high.
+
 Markdown:
 
 ````markdown
-A PDF embed:
+All pages of a PDF, 260 pixels wide:
 
-![[sample.pdf]]
+![[slides.pdf|260]]
+
+One page:
+
+![[slides.pdf#page=2|260]]
 ````
 
 PDF:
 
-![A PDF embed shows as the file name](../img/features/embed-pdf.png)
+![A three-page PDF and one page of it, drawn as images](../img/features/embed-pdf.png)
 
-A PDF embed is not rendered. It shows as the file name in italics. Export the page as an image to include it.
+| Syntax | Result |
+| ------ | ------ |
+| `![[file.pdf]]` | All pages, up to `pdf_embeds.max_pages`. |
+| `![[file.pdf#page=3]]` | Only page 3. |
+| `![[file.pdf#page=2-4]]` | Pages 2 to 4. |
+| `![[file.pdf#height=400]]` | Every page 400 px high. |
+| `![[file.pdf\|300]]` | Every page 300 px wide. `300x200` sets both. |
+
+| Option | Default | Effect |
+| ------ | ------- | ------ |
+| `-O pdf_embeds.max_pages=N` | `10` | Most pages drawn per embed. When pages are left out, a line such as "… 4 more pages in file.pdf" follows the last page. |
+| `-O pdf_embeds.dpi=N` | `150` | Resolution of the page images. Higher values are sharper and make a larger PDF. |
+| `-O pdf_embeds=link` | `pages` | Keep PDF embeds as links, as before version 0.8. |
+
+The pages are drawn with [pypdfium2](https://github.com/pypdfium2-team/pypdfium2), which is installed with ope and needs no system package. WeasyPrint cannot place a page of another PDF as vector content, so the pages are PNG images: text in them cannot be selected or searched. A PDF that cannot be found or opened, for example because it is encrypted, becomes a link and the export prints a warning. Embeds inside code stay as written.
+
+Templates can style `figure.pdf-embed`, the page images `img.pdf-embed-page` and the note `p.pdf-embed-more`.
 
 ## Notes, headings and blocks
 
@@ -3417,6 +3444,7 @@ Tips:
 | -------- | ---------- |
 | `img.doc-image`, `svg.doc-image` | Embedded images. SVG files are inline `svg` elements with the same class. |
 | `figure`, `figcaption` | An image with a caption. |
+| `figure.pdf-embed`, `img.pdf-embed-page`, `p.pdf-embed-more` | A [PDF embed](../obsidian/embeds.md#pdf): the figure, one image per page and the note about pages left out. The figure may break between pages. A page taller than the text area of a template needs a smaller `max-height` on `img.pdf-embed-page`. |
 | `.mermaid`, `.mermaid-<type>` | A rendered [Mermaid](../obsidian/mermaid.md) diagram, such as `.mermaid-flowchart`, `.mermaid-pie`, `.mermaid-gantt`, `.mermaid-sequenceDiagram`. `graph` blocks get `mermaid-flowchart`. The type keeps its case. |
 | `.landscape-figure`, `.landscape` | A wide diagram on a landscape page: the wrapper (with `.wide-table-section`) and the diagram. |
 | `span.math.inline`, `span.math.display`, `svg.math-svg` | [Math](../markdown/math.md). `.math-source` is a formula that failed and is shown as code. |
@@ -3475,6 +3503,14 @@ svg.math-svg { display: inline; overflow: visible; }
 .math-source code { white-space: pre-wrap; }
 td, th { overflow-wrap: break-word; }
 .landscape-figure .landscape { margin-left: auto; margin-right: auto; }
+figure.pdf-embed { break-inside: auto; page-break-inside: auto; }
+img.pdf-embed-page {
+  display: block; margin: 0 auto 0.8em; box-sizing: border-box;
+  width: auto; height: auto; max-width: 100%; max-height: 22cm;
+  border: 0.75pt solid #999; break-inside: avoid;
+}
+.pdf-embed-more { font-size: 0.85em; color: #666; margin: 0 0 0.3em; }
+figure.pdf-embed figcaption { break-before: avoid; page-break-before: avoid; }
 ```
 
 plus the footnote rules above, and one rule per image width used in the document (`:where(img[width="300"]) { width: 300px; }`), because WeasyPrint ignores the `width` attribute.

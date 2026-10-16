@@ -91,6 +91,9 @@ the template. These keys are read by ope itself:
 | `mermaid.landscape_ratio` | number | `1.4` | [Mermaid](../obsidian/mermaid.md#wide-diagrams) |
 | `mermaid.landscape_min_font` | points | `7` | [Mermaid](../obsidian/mermaid.md#wide-diagrams) |
 | `footnotes` | `page`, `end` | `page` | [Footnotes](../markdown/footnotes.md) |
+| `pdf_embeds` | `pages`, `link` | `pages` | [Embeds](../obsidian/embeds.md#pdf) |
+| `pdf_embeds.max_pages` | number | `10` | [Embeds](../obsidian/embeds.md#pdf) |
+| `pdf_embeds.dpi` | number | `150` | [Embeds](../obsidian/embeds.md#pdf) |
 | `citations` | `off` | on | [Citations](../plugins/citations.md#options) |
 | `citations.bibliography` | paths, separated by `,` | auto | [Citations](../plugins/citations.md#bibliography) |
 | `citations.csl` | path to a CSL style | Chicago author-date | [Citations](../plugins/citations.md#options) |
