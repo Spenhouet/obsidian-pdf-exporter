@@ -89,24 +89,9 @@ ope export ./Notes -O mermaid.config=mermaid.json
 
 ### Diagram size
 
-A diagram keeps its natural size and only shrinks when it is wider than the page. A comment line that starts with `%% ope:` sets the size of one diagram. Mermaid and Obsidian ignore `%%` lines, so the note looks the same in Obsidian.
+A diagram keeps its natural size and only shrinks when it is wider than the page. `-O mermaid.max_height` scales down diagrams that are taller. Any other sizing belongs in the template's CSS, so the notes contain no export settings.
 
-````markdown
-```mermaid
-%% ope: width=8cm
-pie title Time spent
-    "Planning" : 20
-    "Building" : 50
-    "Testing" : 30
-```
-````
-
-| Setting         | Effect                                                                          |
-| --------------- | ------------------------------------------------------------------------------- |
-| `width=LENGTH`  | Width of the diagram. A percentage is relative to the text width.               |
-| `height=LENGTH` | Height of the diagram. The width follows from the aspect ratio.                 |
-
-Lengths use the units `cm`, `mm`, `in`, `pt`, `pc` and `px`; a number without unit means `px`. Settings are separated by spaces or commas, for example `%% ope: width=12cm, height=6cm`. With both, the diagram is as large as possible inside that box and keeps its aspect ratio. A diagram never gets wider than the text width. `mermaid.max_height` applies to diagrams without a size setting. Unknown settings and invalid lengths are ignored with a warning.
+`%%` comment lines are allowed in a block. Mermaid ignores them, and the exporter removes them before rendering, so they do not change the diagram.
 
 Mermaid leaves empty space around some diagram types. The exporter trims it, so the size applies to the visible diagram, with a margin of 8px. PNG images are cropped. For SVG, mermaid-cli renders a second, transparent PNG of each diagram to find the visible area, and the exporter shrinks the `viewBox` to it. This second run takes a few seconds; `-O mermaid.trim=off` skips it.
 
