@@ -128,6 +128,7 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
             plugins=plugins,
             plugin_options=request.options,
             vault_index=vault_index,
+            log=log,
         )
         label = request.version or git_short_hash(root_folder)
         markdown = _prepend_metadata(markdown, title, request.subtitle, label, date)
@@ -378,6 +379,7 @@ def _assemble_if_present(
         plugins=plugins,
         plugin_options=plugin_options,
         vault_index=vault_index,
+        log=log,
     )
 
 

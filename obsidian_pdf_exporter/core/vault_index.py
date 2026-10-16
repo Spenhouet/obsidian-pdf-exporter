@@ -92,6 +92,30 @@ class VaultIndex:
         from_resolved = from_folder.resolve()
         return min(candidates, key=lambda p: _proximity_key(p, from_resolved))
 
+    def find_markdown_by_path(self, path: str, from_folder: Path) -> Path | None:
+        """Find a ``.md`` file by a vault path such as ``Folder/Note``.
+
+        The path is matched case-insensitively against the end of each
+        file's path relative to the vault root, so ``Folder/Note`` finds
+        ``Area/Folder/Note.md``. An exact match from the vault root wins;
+        among other matches the one closest to ``from_folder`` is used.
+        """
+        wanted = [p for p in path.replace("\\", "/").lower().split("/") if p]
+        if not wanted:
+            return None
+        wanted[-1] = wanted[-1].removesuffix(".md")
+        candidates = []
+        for md in self._by_name.get(wanted[-1] + ".md", []):
+            rel = [p.lower() for p in md.relative_to(self.root).with_suffix("").parts]
+            if rel == wanted:
+                return md
+            if rel[-len(wanted) :] == wanted:
+                candidates.append(md)
+        if not candidates:
+            return None
+        from_resolved = from_folder.resolve()
+        return min(candidates, key=lambda p: _proximity_key(p, from_resolved))
+
 
 def _proximity_key(file_path: Path, from_folder: Path) -> tuple[int, int, str]:
     """Sort key: tree distance from ``from_folder``, then path length, then name."""
