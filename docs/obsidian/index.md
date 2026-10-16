@@ -11,7 +11,7 @@ The second layer of an export handles the syntax Obsidian adds to Markdown, with
 
 | Feature | Page |
 | ------- | ---- |
-| Folders as sections, folder notes, table of contents, numbering | [Folder structure](structure.md) |
+| Folders as sections, table of contents, numbering (folder notes come from a plugin) | [Folder Notes](../plugins/folder-notes.md) |
 | `[[Page]]`, `[[Page\|alias]]`, `[[#Heading]]` | [Wiki links](wiki-links.md) |
 | `![[image.png\|300]]`, `![[Note]]`, `![[Note#Heading]]`, `![[Note#^id]]` | [Embeds](embeds.md) |
 | `^block-id` | [Block IDs](block-ids.md) |
