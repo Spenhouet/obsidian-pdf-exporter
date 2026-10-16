@@ -29,6 +29,7 @@ Anything pandoc's GFM dialect understands works as-is. Obsidian-specific feature
 | Wide tables                                  | Tables that need more width than a portrait page has are rendered on landscape pages. See [Wide tables](#wide-tables).                                                                                         |
 | Code blocks and inline code                  | Shown as written. Links, embeds, block IDs and `%%` comments inside code are not processed, as in Obsidian.                                                                                                     |
 | Image followed by a single italic line       | The italic line is promoted to the image's caption.                                                                                                                                                             |
+| `![[Drawing.excalidraw]]` | [Excalidraw](https://github.com/zsviczian/obsidian-excalidraw-plugin) drawing as an image: the plugin's auto-export SVG or PNG if there is one, otherwise drawn from the scene. Handled by the `excalidraw` plugin. See [Excalidraw drawings](#excalidraw-drawings). |
 | ` ```mermaid ` code blocks                   | Rendered to an SVG (or PNG) diagram with mermaid-cli. See [Mermaid diagrams](#mermaid-diagrams).                                                                                                                |
 
 ## Content that is not rendered
@@ -66,6 +67,33 @@ draw.io stores labels as HTML in `<foreignObject>`, which WeasyPrint does not dr
 - Mixed formatting inside one label (a bold word, a second color) is flattened to the label's main style.
 - Labels with word wrap are wrapped again with an estimated character width, so line breaks can differ a little from draw.io.
 - For full fidelity, export the diagram from draw.io with "Convert labels to SVG" turned on, or as PNG.
+
+## Excalidraw drawings
+
+The `excalidraw` plugin turns embeds of [Excalidraw](https://github.com/zsviczian/obsidian-excalidraw-plugin) drawings into images:
+
+- `![[Drawing.excalidraw]]` or `![[Drawing.excalidraw.md]]`: the drawing note `Drawing.excalidraw.md`.
+- `![[Drawing]]`: any note with `excalidraw-plugin` in its frontmatter.
+- `![[Sketch.excalidraw]]`: a plain `.excalidraw` JSON file, as saved by excalidraw.com.
+- A width works as for images: `![[Drawing.excalidraw|400]]`.
+
+When the plugin's "Auto-export SVG" or "Auto-export PNG" setting wrote `Drawing.excalidraw.svg` (or `.light.svg`, `.png`, `.light.png`) next to the drawing, that file is used as it is. It looks exactly like the drawing in Obsidian. Turn this off with `-O excalidraw.auto_export=off`.
+
+Otherwise the exporter reads the scene from the `## Drawing` section of the note (a ` ```json ` block, or a ` ```compressed-json ` block in LZ-String base64) and draws it as SVG. The hand-drawn look of Excalidraw comes from rough.js in the browser. The exporter draws the same shapes with clean strokes instead, so the PDF needs neither Node.js nor a browser:
+
+| Drawn                                                               | Not drawn (with a warning)                            |
+| ------------------------------------------------------------------- | ----------------------------------------------------- |
+| Rectangles (with rounded corners), diamonds, ellipses               | Embedded web pages, which become an outlined box with their link |
+| Solid fills, and hachure, cross-hatch and zigzag fills as straight hatching | LaTeX equations                               |
+| Lines, curves, elbow arrows and all arrowheads                      | Embedded notes, PDFs and drawings inside a drawing    |
+| Free drawing, as a line of even width                               | Image cropping (the whole image is drawn)             |
+| Text, also inside shapes and on arrows                              | Element links and `#^group=` / `#^area=` / `#^frame=` parts of an embed (the whole drawing is shown) |
+| Images from the vault or from a data URL, mirrored images           |                                                       |
+| Stroke color, width, dashed and dotted strokes, opacity, rotation   |                                                       |
+
+Frames are not drawn, as in an Excalidraw export. Text uses the Excalidraw fonts when they are installed and falls back to a sans-serif (hand-drawn fonts), sans-serif or monospace font. The frontmatter keys `excalidraw-export-transparent` and `excalidraw-export-padding` are honored. Dark drawings are drawn with their light colors.
+
+Running Excalidraw's own `exportToSvg` (from `@excalidraw/utils`) would keep the hand-drawn look, but it needs a browser DOM: in Node.js it only works with jsdom and extra stand-ins for browser APIs. For an exact copy, turn on auto-export in the plugin.
 
 ## Mermaid diagrams
 
