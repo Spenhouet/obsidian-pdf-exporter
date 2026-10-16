@@ -21,6 +21,7 @@ dependencies = [
     "pyyaml",
     "ziamath>=0.13",
     "pillow>=9.1",
+    "pypdfium2>=4.20",
 ]
 
 

@@ -35,6 +35,7 @@ The markdown steps run on every page in this order. The order matters: an embed 
 | 20 | `plugins` | Community plugins see Obsidian source syntax. |
 | 30 | `html_comments` | Commented-out embeds are not expanded. |
 | 35 | `bases` | Before embeds, so `![[x.base]]` is rendered as a view. |
+| 38 | `pdf_embeds` | Before embeds, so `![[x.pdf#page=2]]` is not read as a note and heading. |
 | 40 | `embeds` | Embedded content then passes all later steps. |
 | 50 | `obsidian_comments` | After embeds, so embedded comments go too. |
 | 60 | `block_ids` | After embeds, so embedded markers go too. |
@@ -55,7 +56,8 @@ After pandoc, the HTML steps run: `base_css`, `empty_table_headers`, `column_wid
 
 Some content cannot be drawn in a PDF, or is not supported yet. It stays in the document in a simple form, and the export prints a line starting with `Warning:` that names the page:
 
-- An embed of a file type other than notes and images, such as `![[Board.canvas]]`, `![[Manual.pdf]]` or a video, becomes a link (or italic text when the file is not part of the export).
+- An embed of a file type other than notes, images and PDF files, such as `![[Board.canvas]]` or a video, becomes a link (or italic text when the file is not part of the export).
+- A PDF embed that cannot be found or opened (for example an encrypted PDF) becomes a link the same way.
 - An image that cannot be found becomes the italic text _[Image: name]_.
 - A code block of a plugin ope does not render, such as ` ```tasks `, ` ```dataviewjs `, ` ```chart ` or an Admonition block ` ```ad-note `, stays a code block.
 - DataviewJS and `TASK` queries become a short note in italics.

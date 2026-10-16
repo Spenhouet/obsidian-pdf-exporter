@@ -59,6 +59,8 @@ SVG files are inlined into the HTML, so lines and text stay sharp at any zoom an
 
 ## PDF
 
+`![[file.pdf]]` draws the pages of a PDF file as images, one below the other, each with a thin border. The file name is the caption. A page is at most as wide as the text and at most 22 cm high.
+
 <div class="ope-example" markdown>
 <div markdown>
 <p class="ope-label">Markdown</p>
@@ -71,12 +73,28 @@ SVG files are inlined into the HTML, so lines and text stay sharp at any zoom an
 <div markdown>
 <p class="ope-label">PDF</p>
 
-![A PDF embed shows as the file name](../img/features/embed-pdf.png)
+![A three-page PDF and one page of it, drawn as images](../img/features/embed-pdf.png)
 
 </div>
 </div>
 
-A PDF embed is not rendered. It shows as the file name in italics. Export the page as an image to include it.
+| Syntax | Result |
+| ------ | ------ |
+| `![[file.pdf]]` | All pages, up to `pdf_embeds.max_pages`. |
+| `![[file.pdf#page=3]]` | Only page 3. |
+| `![[file.pdf#page=2-4]]` | Pages 2 to 4. |
+| `![[file.pdf#height=400]]` | Every page 400 px high. |
+| `![[file.pdf\|300]]` | Every page 300 px wide. `300x200` sets both. |
+
+| Option | Default | Effect |
+| ------ | ------- | ------ |
+| `-O pdf_embeds.max_pages=N` | `10` | Most pages drawn per embed. When pages are left out, a line such as "… 4 more pages in file.pdf" follows the last page. |
+| `-O pdf_embeds.dpi=N` | `150` | Resolution of the page images. Higher values are sharper and make a larger PDF. |
+| `-O pdf_embeds=link` | `pages` | Keep PDF embeds as links, as before version 0.8. |
+
+The pages are drawn with [pypdfium2](https://github.com/pypdfium2-team/pypdfium2), which is installed with ope and needs no system package. WeasyPrint cannot place a page of another PDF as vector content, so the pages are PNG images: text in them cannot be selected or searched. A PDF that cannot be found or opened, for example because it is encrypted, becomes a link and the export prints a warning. Embeds inside code stay as written.
+
+Templates can style `figure.pdf-embed`, the page images `img.pdf-embed-page` and the note `p.pdf-embed-more`.
 
 ## Notes, headings and blocks
 

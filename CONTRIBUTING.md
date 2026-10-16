@@ -121,7 +121,7 @@ listed.
    highlights, `hard_line_breaks` for line breaks or `--mathml` for math.
 2. Obsidian core syntax ([`core/steps/`](https://github.com/Spenhouet/obsidian-pdf-exporter/tree/main/obsidian_pdf_exporter/core/steps/)).
    Every piece of syntax that Obsidian itself supports is a small step:
-   frontmatter, comments, Bases, embeds, block IDs, callouts, heading links, wiki
+   frontmatter, comments, Bases, PDF embeds, embeds, block IDs, callouts, heading links, wiki
    links, image captions, headings, warnings about plugin code blocks,
    highlights, line breaks, tasks, math, footnotes, Mermaid, landscape
    diagrams, SVG images and table fixes. All steps are listed in
@@ -148,7 +148,7 @@ obsidian_pdf_exporter/
 │   │   ├── frontmatter.py, plugins.py, comments.py, bases.py, embeds.py, block_ids.py,
 │   │   ├── callouts.py, heading_links.py, wiki_links.py, image_captions.py,
 │   │   ├── headings.py, code_blocks.py, highlights.py, line_breaks.py, tasks.py, math.py,
-│   │   ├── footnotes.py, landscape.py,
+│   │   ├── footnotes.py, landscape.py, pdf_embeds.py,
 │   │   └── mermaid.py, svg_images.py, tables.py, base_css.py
 │   ├── bases/              # Bases: expression parser, evaluator and views
 │   ├── code.py             # outside_code: keeps fenced and inline code as written
@@ -190,7 +190,7 @@ already resolved. The table in the docstring of
 gives the reason for each position.
 
 Embedded notes (`![[Note]]`) run through the steps marked `embedded`
-(`plugins`, `html_comments`, `bases`, `embeds`, `footnotes` and `wiki_links`) with the context of
+(`plugins`, `html_comments`, `bases`, `pdf_embeds`, `embeds`, `footnotes` and `wiki_links`) with the context of
 the embedded note, so links and images resolve from its folder. The
 embedded text then becomes part of the page and passes the remaining steps.
 
