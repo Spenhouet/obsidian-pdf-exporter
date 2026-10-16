@@ -1,0 +1,72 @@
+/* ---- Style E: diff blocks ----
+   Like a code review: each group of changed blocks gets a header with its
+   section, then the removed version (- gutter, orange tint) and the added
+   version (+ gutter, blue tint), with the changed words in a stronger tint.
+   Lists, tables and code show only the changed items twice. */
+
+:root {
+  --e-minus: #fff1e5; --e-minus-strong: #ffd2ad; --e-minus-mark: #b0450d;
+  --e-plus: #e4f1fd; --e-plus-strong: #b5d8f8; --e-plus-mark: #0b57b0;
+  --e-move: #f2ebf8; --e-move-mark: #6b3d9a;
+}
+del { background: var(--e-minus-strong); text-decoration: line-through; text-decoration-color: rgba(120, 50, 10, 0.6); color: inherit; border-radius: 1.5pt; }
+ins { background: var(--e-plus-strong); text-decoration: none; color: inherit; border-radius: 1.5pt; }
+.rl-fmt, .rl-link a { border-bottom: 0.8pt dotted var(--fmt); }
+
+.rl-hunk-diff { margin: 0.7em 0 1em; }
+.rl-d-head {
+  display: flex; justify-content: space-between; gap: 4mm;
+  font-family: var(--font-mono); font-size: 7.2pt; color: var(--color-grey);
+  background: #eef0f2; padding: 0.35em 2.5mm; break-after: avoid;
+}
+.rl-d-sec { font-weight: bold; color: var(--color-dark); white-space: nowrap; }
+.rl-d-sum { text-align: right; }
+.rl-d-row { position: relative; padding: 0.3em 2.5mm 0.05em 8mm; }
+.rl-d-row::before {
+  position: absolute; left: 2.5mm; top: 0.3em; font-family: var(--font-mono); font-weight: bold;
+}
+.rl-d-row > *:first-child, .rl-d-row > .rl-block > *:first-child { margin-top: 0; }
+.rl-d-row p, .rl-d-row ul, .rl-d-row table, .rl-d-row pre { margin-bottom: 0.3em; }
+.rl-d-minus { background: var(--e-minus); }
+.rl-d-minus::before { content: "\2212"; color: var(--e-minus-mark); }
+.rl-d-plus { background: var(--e-plus); }
+.rl-d-plus::before { content: "+"; color: var(--e-plus-mark); }
+.rl-d-movefrom, .rl-d-moveto { background: var(--e-move); }
+.rl-d-movefrom::before { content: "\21c4"; color: var(--e-move-mark); }
+.rl-d-moveto::before { content: "\21c4"; color: var(--e-move-mark); }
+.rl-d-movefrom .rl-block > :not(.rl-move-label) { color: #6d6475; }
+.rl-d-minus .rl-block.rl-del > :not(.rl-img-label), .rl-d-minus > .rl-fake-h { color: #5b4a40; }
+.rl-d-minus img, .rl-d-minus svg { opacity: 0.55; }
+.rl-d-unified { padding-left: 2.5mm; border-left: 0; background: none; }
+.rl-d-row h1, .rl-d-row h2, .rl-d-row h3, .rl-d-row h4, .rl-d-row .rl-fake-h { margin: 0.1em 0 0.2em; break-before: auto; }
+
+/* Unified lists and tables: changed items appear twice. */
+li.rl-u-minus, li.rl-u-plus { position: relative; }
+li.rl-u-minus { background: var(--e-minus); }
+li.rl-u-plus { background: var(--e-plus); }
+li.rl-u-minus::after, li.rl-u-plus::after { position: absolute; left: -11mm; top: 0; font-family: var(--font-mono); font-weight: bold; }
+li.rl-u-minus::after { content: "\2212"; color: var(--e-minus-mark); }
+li.rl-u-plus::after { content: "+"; color: var(--e-plus-mark); }
+li.rl-u-plus > ul > li:not(.rl-u-minus):not(.rl-u-plus), li.rl-u-minus > ul > li:not(.rl-u-minus):not(.rl-u-plus) { background: white; }
+tr.rl-u-minus td { background: var(--e-minus); }
+tr.rl-u-plus td { background: var(--e-plus); }
+td.rl-col-ins, th.rl-col-ins { background: var(--e-plus); }
+tr.rl-u-minus td:first-child, tr.rl-u-plus td:first-child { position: relative; }
+tr.rl-u-minus td:first-child::before, tr.rl-u-plus td:first-child::before { position: absolute; left: -5.5mm; font-family: var(--font-mono); font-weight: bold; }
+tr.rl-u-minus td:first-child::before { content: "\2212"; color: var(--e-minus-mark); }
+tr.rl-u-plus td:first-child::before { content: "+"; color: var(--e-plus-mark); }
+pre.rl-code { background: #f6f7f8; padding-left: 0; padding-right: 0; }
+pre.rl-code .rl-line { padding-left: 6mm; position: relative; }
+pre.rl-code .rl-line::before { position: absolute; left: 2mm; content: " "; }
+pre.rl-code .rl-line-del { background: var(--e-minus); }
+pre.rl-code .rl-line-del::before { content: "\2212"; color: var(--e-minus-mark); }
+pre.rl-code .rl-line-ins { background: var(--e-plus); }
+pre.rl-code .rl-line-ins::before { content: "+"; color: var(--e-plus-mark); }
+.rl-lg-minus { background: var(--e-minus); color: var(--e-minus-mark); padding: 0 0.3em; font-weight: bold; }
+.rl-lg-plus { background: var(--e-plus); color: var(--e-plus-mark); padding: 0 0.3em; font-weight: bold; }
+.rl-url { font-family: var(--font-mono); }
+
+/* Moved list items keep the move colour. */
+li.rl-li-move-from.rl-u-minus, li.rl-li-move-to.rl-u-plus { background: var(--e-move); }
+li.rl-li-move-from.rl-u-minus::after, li.rl-li-move-to.rl-u-plus::after { content: "\21c4"; color: var(--e-move-mark); }
+li.rl-li-move-from ins, li.rl-li-move-from del, li.rl-li-move-to ins, li.rl-li-move-to del { background: none; }

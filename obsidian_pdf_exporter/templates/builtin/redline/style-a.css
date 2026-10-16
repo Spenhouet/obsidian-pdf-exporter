@@ -1,0 +1,45 @@
+/* ---- Style A: blackline ----
+   Insertions blue with a double underline, deletions vermilion and struck,
+   moves purple. A black change bar in the left margin marks every changed
+   block, list item and table row. No backgrounds, no boxes. */
+
+ins { color: var(--ins); text-decoration: underline double; text-decoration-color: var(--ins); }
+del { color: var(--del); text-decoration: line-through; text-decoration-color: var(--del); }
+ins.rl-moved { color: var(--move); text-decoration: underline double; }
+del.rl-moved { color: var(--move); text-decoration: line-through double; }
+.rl-fmt { text-decoration: underline dotted; text-decoration-color: var(--fmt); }
+.rl-link a { text-decoration: underline dotted; text-decoration-color: var(--fmt); }
+
+/* Whole blocks: the marks go on the children, so labels stay unmarked. */
+.rl-block.rl-ins > :not(.rl-img-label):not(.rl-move-label) { color: var(--ins); text-decoration: underline double; text-decoration-color: var(--ins); }
+.rl-block.rl-del, .rl-block.rl-del > :not(.rl-img-label):not(.rl-move-label) { color: var(--del); }
+.rl-block.rl-del > :not(.rl-img-label):not(.rl-move-label) { text-decoration: line-through; text-decoration-color: var(--del); }
+.rl-block.rl-del.rl-heading { text-decoration: line-through; }
+.rl-block.rl-move-from > :not(.rl-move-label) { color: var(--move); text-decoration: line-through double; }
+.rl-block.rl-move-to > :not(.rl-move-label) { color: var(--move); }
+.rl-block.rl-move-to:not([data-rl-edited]) > :not(.rl-move-label) { text-decoration: underline double; }
+h1.rl-ins, h2.rl-ins, h3.rl-ins, h4.rl-ins { color: var(--ins); text-decoration: underline double; }
+.rl-block.rl-del td, .rl-block.rl-del th { text-decoration: line-through; color: var(--del); }
+.rl-block.rl-ins td, .rl-block.rl-ins th { text-decoration: underline double; color: var(--ins); }
+tr.rl-tr-ins td { color: var(--ins); }
+tr.rl-tr-del td { color: var(--del); }
+.rl-block[data-rl-kind="image"].rl-del > :not(.rl-img-label) { opacity: 0.35; text-decoration: none; }
+.rl-block[data-rl-kind="image"].rl-ins > :not(.rl-img-label) { text-decoration: none; }
+.rl-block[data-rl-kind="image"].rl-del .rl-img-label { color: var(--del); }
+.rl-block[data-rl-kind="image"].rl-ins .rl-img-label { color: var(--ins); }
+.rl-block[data-rl-kind="code"] pre { text-decoration: none; }
+pre.rl-code .rl-line-del { color: var(--del); }
+pre.rl-code .rl-line-ins { color: var(--ins); }
+.rl-block.rl-del pre.rl-code .rl-line, .rl-block.rl-move-from pre.rl-code .rl-line { text-decoration: line-through; }
+
+/* Change bars in the left margin. */
+.rl-hunk {
+  margin-left: -7mm;
+  padding-left: calc(7mm - 1.6pt);
+  border-left: 1.6pt solid var(--bar);
+}
+.rl-hunk > :first-child { margin-top: 0; }
+.rl-hunk > .rl-block > :first-child, .rl-hunk > .rl-block > ul:first-child { margin-top: 0; }
+
+/* A bar inside a callout lines up with the other bars, outside the callout. */
+.callout .rl-hunk { margin-left: calc(-7mm - 0.9em - 3pt); padding-left: calc(7mm + 0.9em + 3pt - 1.6pt); }

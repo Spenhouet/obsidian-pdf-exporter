@@ -10,6 +10,9 @@ from dataclasses import field
 from pathlib import Path
 
 from obsidian_pdf_exporter.core.assemble import assemble_document
+from obsidian_pdf_exporter.core.blame import annotate
+from obsidian_pdf_exporter.core.blame import build_index
+from obsidian_pdf_exporter.core.blame import range_commits
 from obsidian_pdf_exporter.core.pandoc import render_html
 from obsidian_pdf_exporter.core.pdf import apply_decorations
 from obsidian_pdf_exporter.core.pdf import html_to_pdf
@@ -18,6 +21,7 @@ from obsidian_pdf_exporter.core.pipeline import run_document
 from obsidian_pdf_exporter.core.pipeline import run_html
 from obsidian_pdf_exporter.core.redline import diff_markdown
 from obsidian_pdf_exporter.core.redline import extract_commit
+from obsidian_pdf_exporter.core.redline import redline_source_info
 from obsidian_pdf_exporter.core.redline import resolve_short_hash
 from obsidian_pdf_exporter.core.steps import core_steps
 from obsidian_pdf_exporter.core.steps.base import DocumentContext
@@ -53,6 +57,7 @@ class ExportRequest:
     disabled_plugins: set[str] = field(default_factory=set)
     debug: bool = False
     toc: bool = True
+    blame: bool = False
 
 
 @dataclass
@@ -70,6 +75,7 @@ class RedlineRequest:
     disabled_plugins: set[str] = field(default_factory=set)
     debug: bool = False
     toc: bool = True
+    blame: bool = False
 
 
 def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
@@ -177,6 +183,8 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
         html = run_html(html, doc_ctx, steps)
         html = request.template.process_html(html, ctx)
         html = apply_decorations(html, request.template.decorations(ctx))
+        if request.blame:
+            html = _apply_blame(html, root_folder, "", request.options, log)
 
         (build_dir / "final.html").write_text(html, encoding="utf-8")
 
@@ -274,16 +282,21 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
             diff_body = diff_markdown(old_md, new_md)
 
             label = f"Redline: {from_hash} -> {to_hash}"
-            markdown = _prepend_metadata(diff_body, title, request.subtitle or label, label, date)
+            subtitle = request.subtitle or f"Changes from {request.from_commit} to {request.to_commit}"
+            markdown = _prepend_metadata(diff_body, title, subtitle, "", date)
+            options = dict(request.options)
+            options.update(
+                redline_source_info(repo, request.from_commit, request.to_commit, rel_path)
+            )
 
             ctx = ExportContext(
                 title=title,
-                subtitle=request.subtitle or label,
+                subtitle=subtitle,
                 date=date,
                 label=label,
                 output_path=output_path,
                 build_dir=build_dir,
-                options=dict(request.options),
+                options=options,
             )
             doc_ctx = DocumentContext(
                 build_dir=build_dir,
@@ -314,6 +327,16 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
             html = run_html(html, doc_ctx, steps)
             html = request.template.process_html(html, ctx)
             html = apply_decorations(html, request.template.decorations(ctx))
+            if request.blame:
+                html = _apply_blame(
+                    html,
+                    repo / rel_path,
+                    request.to_commit,
+                    request.options,
+                    log,
+                    highlight=range_commits(repo, request.from_commit, request.to_commit),
+                    range_label=f"{request.from_commit}..{request.to_commit}",
+                )
 
             (build_dir / "redline_final.html").write_text(html, encoding="utf-8")
 
@@ -326,6 +349,30 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
             return output_path
     finally:
         _cleanup(build_dir, output_path, debug=request.debug, log=log)
+
+
+def _apply_blame(
+    html: str,
+    folder: Path,
+    commit: str,
+    options: dict[str, str],
+    log,  # noqa: ANN001
+    *,
+    highlight: set[str] | None = None,
+    range_label: str = "",
+) -> str:
+    if not is_git_repo(folder if folder.exists() else Path.cwd()):
+        log("  Warning: --blame needs a git repository, skipped")
+        return html
+    repo = git_root(folder if folder.exists() else Path.cwd())
+    log("  Blaming source files...")
+    index = build_index(repo, folder, commit)
+    layout = options.get("blame.layout", "margin")
+    html, share = annotate(
+        html, index, layout=layout, highlight=highlight, range_label=range_label
+    )
+    log(f"  Blame: {share:.0%} of the blocks matched a source line")
+    return html
 
 
 def _resolve_root(root: Path) -> Path:

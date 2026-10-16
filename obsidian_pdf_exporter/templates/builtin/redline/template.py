@@ -1,22 +1,42 @@
-"""Template that styles the inserted/deleted markup produced by the redline pipeline."""
+"""Template that styles the inserted/deleted markup produced by the redline pipeline.
+
+The look is chosen with ``-O redline.style=a|b|c|d|e`` (default ``a``):
+
+- ``a`` blackline: underlined insertions, struck deletions, change bars,
+- ``b`` track changes: as ``a`` plus a balloon per change in the right margin,
+- ``c`` clean copy: the text reads as final, deletions become numbered notes,
+- ``d`` side by side: changed blocks in Before | After columns,
+- ``e`` diff blocks: removed and added versions with a - / + gutter.
+"""
 
 from __future__ import annotations
 
 from importlib import resources
 
+from obsidian_pdf_exporter.core.redline_html import STYLES
+from obsidian_pdf_exporter.core.redline_html import render_redline
 from obsidian_pdf_exporter.templates.base import Decorations
 from obsidian_pdf_exporter.templates.base import ExportContext
 from obsidian_pdf_exporter.templates.base import Template
 
 
 class RedlineTemplate(Template):
-    """Diff-aware template: same chrome as the default plus ``ins`` / ``del`` styling."""
+    """Diff-aware template: same chrome as the default plus the styles of the changes."""
 
     name = "redline"
     description = "Tracked-changes styling for redline exports between two git commits"
 
     def get_css(self) -> str:
-        return resources.files(__package__).joinpath("redline.css").read_text(encoding="utf-8")
+        return _read("redline.css")
+
+    def process_html(self, html: str, context: ExportContext) -> str:
+        if "redline.from_ref" not in context.options and "redline.style" not in context.options:
+            return html
+        style = context.options.get("redline.style", "a").strip().lower()[:1]
+        style = style if style in STYLES else "a"
+        html = render_redline(html, context.options)
+        css = _read(f"style-{style}.css")
+        return html.replace("</head>", f"<style>{css}</style>\n</head>", 1)
 
     def decorations(self, context: ExportContext) -> Decorations | None:
         title_he = _esc_html(_truncate(context.title, 70))
@@ -73,6 +93,10 @@ class RedlineTemplate(Template):
 }}
 """
         return Decorations(running_html=running_html, page_css=page_css)
+
+
+def _read(name: str) -> str:
+    return resources.files(__package__).joinpath(name).read_text(encoding="utf-8")
 
 
 def _esc_html(s: str) -> str:
