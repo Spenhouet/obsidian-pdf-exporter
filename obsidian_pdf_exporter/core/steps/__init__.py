@@ -23,6 +23,7 @@ Priority    Step                 Why here
 65          footnotes            after embeds, so each embedded note gets its own labels
 70          callouts
 80          heading_links        tags links with the page they are written on
+85          markdown_images      after comments, before wiki_links writes images
 90          wiki_links
 100         bracket_links        after wiki_links resolved real wiki links
 110         image_captions       after wiki_links turned ``![[img]]`` into images
@@ -60,6 +61,7 @@ from obsidian_pdf_exporter.core.steps.highlights import HighlightsStep
 from obsidian_pdf_exporter.core.steps.image_captions import ImageCaptionsStep
 from obsidian_pdf_exporter.core.steps.landscape import LandscapeFiguresStep
 from obsidian_pdf_exporter.core.steps.line_breaks import LineBreaksStep
+from obsidian_pdf_exporter.core.steps.markdown_images import MarkdownImagesStep
 from obsidian_pdf_exporter.core.steps.math import MathStep
 from obsidian_pdf_exporter.core.steps.mermaid import MermaidStep
 from obsidian_pdf_exporter.core.steps.pdf_embeds import PdfEmbedsStep
@@ -85,6 +87,7 @@ CORE_STEPS: tuple[type[Step], ...] = (
     FootnotesStep,
     CalloutsStep,
     HeadingLinksStep,
+    MarkdownImagesStep,
     WikiLinksStep,
     BracketLinksStep,
     ImageCaptionsStep,

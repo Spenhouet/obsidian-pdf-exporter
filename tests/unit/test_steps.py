@@ -42,6 +42,7 @@ _MARKDOWN_ORDER = [
     "footnotes",
     "callouts",
     "heading_links",
+    "markdown_images",
     "wiki_links",
     "bracket_links",
     "image_captions",
@@ -100,6 +101,7 @@ def test_embedded_steps() -> None:
         "pdf_embeds",
         "embeds",
         "footnotes",
+        "markdown_images",
         "wiki_links",
     ]
 
