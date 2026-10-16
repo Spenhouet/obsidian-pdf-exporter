@@ -33,7 +33,7 @@ DESCRIPTIONS: dict[str, str] = {
     ),
     "redline": (
         "Builds a tracked-changes PDF between two git commits. Must run inside the git "
-        "repository that holds `ROOT`. See [Redline](../redline.md)."
+        "repository that holds `ROOT`. See [Redline](../redline/index.md)."
     ),
     "setup": (
         "Installs missing native dependencies (Pango, HarfBuzz, Fontconfig and pandoc) "

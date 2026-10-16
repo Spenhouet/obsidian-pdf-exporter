@@ -110,3 +110,51 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Featured block on the home page (Redline). */
+.md-typeset .ope-feature {
+  margin: 0 0 2.5rem;
+  padding: 1.2rem 1.4rem 1.4rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 8px;
+  background: var(--md-accent-fg-color--transparent);
+}
+
+.md-typeset .ope-feature > h2 {
+  margin-top: 0;
+}
+
+.md-typeset .ope-feature .ope-feature-pitch {
+  font-size: 0.9rem;
+  max-width: 46rem;
+}
+
+/* The pages sit on white paper, also in the dark theme. */
+.md-typeset .ope-feature img {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #ffffff;
+  border-radius: 4px;
+  margin: 1rem 0;
+}
+
+@media screen and (max-width: 44.9375em) {
+  .md-typeset .ope-feature {
+    padding: 0.8rem 0.8rem 1rem;
+  }
+}
+
+/* Redline example: before and after next to each other, the PDF below. */
+.md-typeset .ope-redline > .ope-redline-pdf {
+  grid-column: 1 / -1;
+}
+
+.md-typeset .ope-redline pre > code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.md-typeset .ope-redline .ope-redline-pdf img {
+  max-width: 50rem;
+}

@@ -14,7 +14,7 @@ The PDF is laid out by [WeasyPrint](https://weasyprint.org/), which supports [CS
 | Name | Look |
 | ---- | ---- |
 | `default` | A4 portrait. Document title at the top left, date at the bottom left, version and page counter at the bottom right. |
-| `redline` | Same as `default`, plus the styles for [tracked changes](../redline.md). Used by `ope redline`. |
+| `redline` | Same as `default`, plus the styles for [tracked changes](../redline/index.md). Used by `ope redline`. |
 
 <div class="ope-pages" markdown>
 <figure markdown>
