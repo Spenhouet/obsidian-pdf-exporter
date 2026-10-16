@@ -5,6 +5,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from obsidian_pdf_exporter.core.callouts import convert_callouts
+from obsidian_pdf_exporter.core.embeds import EmbedContext
+from obsidian_pdf_exporter.core.embeds import expand_note_embeds
+from obsidian_pdf_exporter.core.embeds import strip_block_ids
+from obsidian_pdf_exporter.core.embeds import strip_obsidian_comments
 from obsidian_pdf_exporter.core.frontmatter import parse_frontmatter
 from obsidian_pdf_exporter.core.frontmatter import strip_frontmatter
 from obsidian_pdf_exporter.core.frontmatter import strip_html_comments
@@ -16,6 +20,7 @@ from obsidian_pdf_exporter.core.wiki_links import promote_image_captions
 from obsidian_pdf_exporter.plugins import PluginContext
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
     from obsidian_pdf_exporter.core.tree import PageNode
@@ -32,6 +37,7 @@ def process_page(
     plugins: list[ObsidianPlugin] | None = None,
     plugin_options: dict[str, str] | None = None,
     vault_index: VaultIndex | None = None,
+    log: Callable[[str], None] | None = None,
 ) -> str:
     """Read and pre-process a single page's markdown content.
 
@@ -59,10 +65,20 @@ def process_page(
             content = plugin.process_markdown(content, ctx)
 
     content = strip_html_comments(content)
-    content = convert_callouts(content)
-    content = convert_wiki_links(
-        content, node.md_file.parent, page_index, build_dir, vault_index
+    embed_ctx = EmbedContext(
+        page_index=page_index,
+        build_dir=build_dir,
+        vault_root=vault_root,
+        vault_index=vault_index,
+        plugins=plugins,
+        plugin_options=dict(plugin_options or {}),
+        log=log,
     )
+    content = expand_note_embeds(content, node.md_file, embed_ctx)
+    content = strip_obsidian_comments(content)
+    content = strip_block_ids(content)
+    content = convert_callouts(content)
+    content = convert_wiki_links(content, node.md_file.parent, page_index, build_dir, vault_index)
     content = normalize_bracket_links(content)
     content = promote_image_captions(content)
     content = strip_title_heading(content, node.name)
@@ -82,6 +98,7 @@ def assemble_document(
     plugins: list[ObsidianPlugin] | None = None,
     plugin_options: dict[str, str] | None = None,
     vault_index: VaultIndex | None = None,
+    log: Callable[[str], None] | None = None,
 ) -> str:
     """Recursively concatenate every page into one markdown blob."""
     parts: list[str] = []
@@ -99,6 +116,7 @@ def assemble_document(
         plugins=plugins,
         plugin_options=plugin_options,
         vault_index=vault_index,
+        log=log,
     )
     if content:
         parts.append(content)
@@ -112,6 +130,7 @@ def assemble_document(
             plugins=plugins,
             plugin_options=plugin_options,
             vault_index=vault_index,
+            log=log,
         )
         if child_content:
             parts.append(child_content)

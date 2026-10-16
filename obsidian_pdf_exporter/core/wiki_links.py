@@ -20,6 +20,13 @@ RE_WIKI_LINK = re.compile(r"\[\[([^\]#|]+?)(?:#([^\]|]*))?(?:\|([^\]]*))?\]\]")
 RE_BRACKET_LINK = re.compile(r"\[\[([^\]\n]+)\]([^\]\n]*)\]\(([^)\n]+)\)")
 
 _IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"}
+
+
+def is_image_target(target: str) -> bool:
+    """True if an embed target names an image file."""
+    return Path(target.strip()).suffix.lower() in _IMAGE_EXTENSIONS
+
+
 # Obsidian image size suffix: ``|300`` (width) or ``|300x200`` (width x height).
 RE_IMAGE_SIZE = re.compile(r"^(\d+)(?:x(\d+))?$")
 RE_EMBED_PIPE = re.compile(r"\\?\|")
@@ -96,8 +103,7 @@ def convert_wiki_links(
         target = m.group(1).strip()
         alt = m.group(2).strip() if m.group(2) else ""
 
-        ext = Path(target).suffix.lower()
-        if ext in _IMAGE_EXTENSIONS:
+        if is_image_target(target):
             resolved = resolve_image(target, page_folder, build_dir, vault_index)
             if resolved:
                 caption, attrs = split_image_size(alt)
