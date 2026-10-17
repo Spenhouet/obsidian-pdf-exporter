@@ -1,11 +1,16 @@
 ---
 title: Comparing versions
-description: Which two versions a redline compares. Git commits, tags, branches, HEAD~n, the history of one note, a pull request against main, CI, and what to do when the versions are not in git.
+description: Which two versions a redline compares. Git commits, tags, branches, HEAD~n, the history of one note, a pull request against main, CI, and two folders or notes on disk without git.
 ---
 
 # Comparing versions
 
-A redline compares two versions of a folder. Today both versions come from git: `--from-commit` names the older one and `--to-commit` the newer one (default `HEAD`). The command runs inside the repository, and both commits must be in its history.
+A redline compares two versions of a folder or a note. They come from one of two places:
+
+- Git: `--from-commit` names the older commit and `--to-commit` the newer one (default `HEAD`). The command runs inside the repository, and both commits must be in its history.
+- Disk: `--from-path` names an older copy of the folder or note, and `ROOT` is the newer one, both read as they are on disk. No git is needed. See [Without git](#without-git).
+
+The two ways cannot be mixed: `--from-path` is refused together with `--from-commit` or `--to-commit`.
 
 ## Git refs
 
@@ -59,7 +64,13 @@ git log --format='%h %ad %s' --date=short -- Handbook/Security
 ope redline ./Handbook/Security --from-commit 3f2c9a1 --to-commit 8b41d07
 ```
 
-`ROOT` is always a folder. To redline one note, give it its own folder named like the note (`Security/Security.md`), as for [`ope export`](../plugins/folder-notes.md). A redline of the parent folder still shows the changes of the whole document, with every section.
+`ROOT` can also be a single note. Then only that note is compared, as a document of one page:
+
+```bash
+ope redline ./Handbook/Security/Security.md --from-commit 3f2c9a1
+```
+
+A redline of the parent folder still shows the changes of the whole document, with every section.
 
 The last commit that changed a folder against the one before it:
 
@@ -74,24 +85,23 @@ The checkout must hold the history of both commits: `fetch-depth: 0` in `actions
 
 ## Without git
 
-ope can only compare git commits today. Comparing two folders, two notes or two exported versions directly, without git, is planned: [#92](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/92).
-
-Until then, two copies of a folder can be put into a throwaway repository, one commit each:
+`--from-path` compares two folders, or two notes, as they are on disk. `ROOT` is the newer version and `--from-path` the older one:
 
 ```bash
-old=./handbook-1.0/Handbook   # the older copy of the folder
-new=./Handbook                # the newer copy
-work=$(mktemp -d)
-git -C "$work" init -q
-cp -r "$old" "$work/Handbook"
-git -C "$work" add -A && git -C "$work" -c user.name=redline -c user.email=redline@localhost commit -qm old
-rm -rf "$work/Handbook" && cp -r "$new" "$work/Handbook"
-git -C "$work" add -A && git -C "$work" -c user.name=redline -c user.email=redline@localhost commit -qm new
-out="$PWD/Handbook_redline.pdf"
-(cd "$work" && ope redline ./Handbook --from-commit HEAD~1 -o "$out")
-rm -rf "$work"
+ope redline ./Handbook --from-path ./archive/handbook-1.0/Handbook          # folder against folder
+ope redline ./Handbook/Security.md --from-path ./old/Security.md            # note against note
 ```
 
-Notes, images and attachments outside the folder are not copied, so embeds of them stay unresolved. Copy them into the throwaway repository too when the folder embeds them. The docs screenshots of this section are made the same way, see `scripts/render_redline_examples.py`.
+Both must be folders, or both must be notes. Neither side has to be in git, and uncommitted changes are included because the files are read from disk. This also compares the working tree with an older copy, or two exports of a vault from different places.
+
+Each side is read in its own vault: links, embeds and images are looked up from the closest folder above it that holds `.obsidian` (or `.git`). Without such a folder, the folder of the side itself is the vault, so notes and images outside of it are not found. Copy the whole vault, or at least its `.obsidian` folder and the attachments, when the folder embeds files from elsewhere. A copy of an old version made with `git archive` keeps the vault together:
+
+```bash
+mkdir -p /tmp/handbook-1.0
+git archive v1.0.0 | tar -x -C /tmp/handbook-1.0
+ope redline ./Handbook --from-path /tmp/handbook-1.0/Handbook
+```
+
+The change summary names both paths as they were given, each with the date of the newest file in it (`(folder, modified 2026-03-30)`), and lists no commits. The subtitle is `Changes from <old path> to <new path>` unless `--subtitle` replaces it. `--blame` needs the git history of both versions and is refused with `--from-path`.
 
 Two PDFs cannot be compared: ope reads the Markdown, not the PDF.

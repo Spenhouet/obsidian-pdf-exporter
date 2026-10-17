@@ -60,4 +60,5 @@ The log of the command shows how many blocks matched, for example `Blame: 97% of
 - Embedded notes from outside the exported folder are not blamed, so their blocks have no line.
 - Text that occurs in several notes is matched to the note that explains most of it.
 - Lines that are not committed yet are shown as "Not committed yet" in an export.
-- The strip makes the PDF larger, because every page gets a second content stream and its lines.
+- `--blame` needs the git history of both versions, so it is not available with [`--from-path`](compare.md#without-git).
+- The strip adds its lines, the hover buttons and, for the key line, an italic font to the PDF. The rest is written exactly as without `--blame`, with the same fonts and the same compression. A 50-page document of text grows by about 4 %.

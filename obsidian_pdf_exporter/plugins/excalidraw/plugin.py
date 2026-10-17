@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import hashlib
 import mimetypes
-import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from obsidian_pdf_exporter.core.build_files import content_digest
+from obsidian_pdf_exporter.core.build_files import stage_bytes
 from obsidian_pdf_exporter.core.code import outside_code
 from obsidian_pdf_exporter.core.embeds import resolve_note
 from obsidian_pdf_exporter.core.wiki_links import RE_WIKI_EMBED_IMAGE
@@ -107,25 +107,27 @@ class ExcalidrawPlugin(ObsidianPlugin):
     # -- images ----------------------------------------------------------
 
     def image_for(self, path: Path, context: PluginContext) -> str | None:
-        """Write the image of drawing ``path`` to the build folder and return its file name."""
+        """Write the image of drawing ``path`` to the build folder and return its name there."""
         build_dir = getattr(context, "build_dir", None)
         if build_dir is None:
             return None
         key = (path.resolve(), path.stat().st_mtime)
         if key in self._images:
             return self._images[key]
-        digest = hashlib.sha1(str(key[0]).encode(), usedforsecurity=False).hexdigest()[:12]
         use_export = context.options.get("excalidraw.auto_export", "on").lower()
         exported = None if use_export in _OFF_VALUES else auto_export_file(path)
         if exported is not None:
-            filename = f"excalidraw-{digest}{exported.suffix.lower()}"
-            shutil.copy2(exported, build_dir / filename)
+            data, suffix = exported.read_bytes(), exported.suffix.lower()
         else:
             svg = self._render(path, context)
             if svg is None:
                 return None
-            filename = f"excalidraw-{digest}.svg"
-            (build_dir / filename).write_text(svg, encoding="utf-8")
+            data, suffix = svg.encode("utf-8"), ".svg"
+        # Named by the drawing file and the image, so an unchanged drawing gets the same
+        # name in both versions of a redline, and a changed drawing file or a changed
+        # image inside the drawing a different one.
+        digest = content_digest(path.read_bytes() + data)
+        filename = stage_bytes(f"excalidraw-{digest}{suffix}", data, build_dir)
         self._images[key] = filename
         return filename
 

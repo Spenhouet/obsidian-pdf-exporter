@@ -32,8 +32,10 @@ DESCRIPTIONS: dict[str, str] = {
         "folder becomes sections."
     ),
     "redline": (
-        "Builds a tracked-changes PDF between two git commits. Must run inside the git "
-        "repository that holds `ROOT`. See [Redline](../redline/index.md)."
+        "Builds a tracked-changes PDF between two git commits of `ROOT` (`--from-commit`, "
+        "run inside the git repository that holds `ROOT`), or between two folders or notes "
+        "on disk without git (`--from-path`). See [Redline](../redline/index.md) and "
+        "[Comparing versions](../redline/compare.md)."
     ),
     "setup": (
         "Installs missing native dependencies (Pango, HarfBuzz, Fontconfig and pandoc) "
@@ -191,6 +193,7 @@ METAVARS = {
     "disable_plugin": "NAME",
     "from_commit": "REF",
     "to_commit": "REF",
+    "from_path": "PATH",
 }
 
 

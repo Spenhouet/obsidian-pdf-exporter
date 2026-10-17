@@ -143,6 +143,7 @@ obsidian_pdf_exporter/
 │   ├── redline_side_by_side.py, redline_collapse.py  # the side-by-side style, collapse
 │   ├── blame.py            # --blame: match blocks to git blame, the strip next to the page
 │   ├── htmltree.py         # parse and write the HTML as a tree (lxml)
+│   ├── build_files.py      # copy images into the build folder, named by their content
 │   ├── assets/             # CSS of the redline marks, side by side and the blame strip
 │   ├── assemble.py         # runs the markdown hooks on every page
 │   ├── pipeline.py         # the loops over the steps, one per stage
