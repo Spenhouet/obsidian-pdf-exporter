@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "obsidian-pdf-exporter"
-version = "0.12.0"
+version = "0.12.1"
 description = "Export Obsidian vaults to PDF with plugin support, and make redline PDFs of the changes between two git commits. Runs locally or in CI."
 keywords = ["obsidian", "pdf", "export", "markdown", "vault"]
 readme = "README.md"
