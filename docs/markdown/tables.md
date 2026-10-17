@@ -65,3 +65,11 @@ ope export ./Notes -O tables.landscape=off
 ```
 
 A template styles the landscape page with `@page landscape-page`, see [Header and footer](../templating/header-footer.md#landscape-pages).
+
+## Large tables
+
+Pandoc writes a `style` attribute on every cell of a column with an alignment. WeasyPrint 70.0 computes the style of each such cell on its own, which makes the layout of large tables slow. Until a WeasyPrint release includes the fix ([Kozea/WeasyPrint#2981](https://github.com/Kozea/WeasyPrint/pull/2981)), the export applies the same change as a small patch: cells with the same `style` attribute share one computed style. The PDF is the same, only faster. The patch is applied only to WeasyPrint versions known to lack the fix, and only when the WeasyPrint function it wraps looks as expected.
+
+| Option | Effect | Default |
+| ------ | ------ | ------- |
+| `-O weasyprint.patches=on\|off` | `off` renders with WeasyPrint as installed, without the patch. | `on` |
