@@ -1,31 +1,26 @@
 /* ============================================================
-   Redline Template — tracked-changes styling
+   Redline Template: the page, type and blocks of a redline PDF.
+   The change marks, the summary and the side-by-side layout come from the
+   redline engine (core/assets/*.css) and can be restyled here.
    ============================================================ */
 
 :root {
   --color-accent: #2c5282;
-  --color-grey: #606872;
-  --color-light-grey: #f5f5f5;
-  --color-mid-grey: #e0e2e4;
+  --color-grey: #5f6670;
+  --color-light-grey: #f4f5f6;
+  --color-mid-grey: #d9dcdf;
   --color-dark: #1a1a1a;
   --color-link: var(--color-accent);
-  --color-ins-bg: #e6ffed;
-  --color-ins-text: #08611a;
-  --color-del-bg: #ffeef0;
-  --color-del-text: #b31d28;
-  --font-sans: 'Arial', 'Helvetica', sans-serif;
-  --font-mono: 'Courier New', monospace;
+  --font-sans: 'Arial', 'Liberation Sans', 'Helvetica', sans-serif;
+  --font-mono: 'DejaVu Sans Mono', 'Courier New', monospace;
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 html { font-size: 12pt; }
 
 body {
+  font-size: 10.5pt;
   font-family: var(--font-sans);
   color: var(--color-dark);
   line-height: 1.5;
@@ -34,172 +29,80 @@ body {
 
 @page {
   size: A4 portrait;
-  margin: 25mm 20mm 22mm 20mm;
+  margin: 25mm 20mm 22mm 22mm;
 }
 
 /* ---- Headings ---- */
-h1, h2, h3, h4, h5, h6 {
+h1, h2, h3, h4, h5, h6, .rl-heading {
   font-family: var(--font-sans);
   color: var(--color-dark);
   margin-top: 1.4em;
   margin-bottom: 0.4em;
   line-height: 1.25;
+  font-weight: bold;
   page-break-after: avoid;
 }
-h1 { font-size: 1.6em; margin-top: 0; }
-h2 { font-size: 1.3em; }
-h3 { font-size: 1.1em; }
-h4 { font-size: 1em; font-style: italic; }
-h5, h6 { font-size: 0.95em; color: var(--color-grey); }
+h1, .rl-heading[data-level="1"] { font-size: 1.6em; }
+h2, .rl-heading[data-level="2"] { font-size: 1.3em; }
+h3, .rl-heading[data-level="3"] { font-size: 1.1em; }
+h4, .rl-heading[data-level="4"] { font-size: 1em; font-style: italic; }
+h1 { break-before: page; margin-top: 0; }
+.header-section-number { margin-right: 0.35em; }
 
 p { margin-bottom: 0.7em; orphans: 3; widows: 3; }
 
-/* ---- Pandoc title block ---- */
-header#title-block-header { margin-bottom: 2em; }
-header#title-block-header .title {
-  font-size: 2em;
-  font-weight: bold;
-  color: var(--color-dark);
-  line-height: 1.2;
-}
-header#title-block-header .subtitle {
-  font-size: 1.2em;
-  color: var(--color-grey);
-  margin-top: 0.3em;
-}
+/* ---- Title block ---- */
+header#title-block-header { margin-bottom: 1.2em; }
+header#title-block-header .title { font-size: 2em; font-weight: bold; line-height: 1.2; break-before: avoid; }
+header#title-block-header .subtitle { font-size: 1.15em; color: var(--color-grey); margin-top: 0.2em; }
+header#title-block-header .date { display: none; }
 
 /* ---- Table of contents ---- */
-nav#TOC { margin-bottom: 2.5em; }
+nav#TOC { margin-top: 1.5em; }
 nav#TOC::before {
   content: "Table of Contents";
   display: block;
   font-weight: bold;
-  font-size: 0.85em;
+  font-size: 0.8em;
   color: var(--color-grey);
   margin-bottom: 0.6em;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
 }
 nav#TOC a { color: var(--color-dark); text-decoration: none; }
 nav#TOC ul { list-style: none; padding-left: 0; margin: 0; }
-nav#TOC li { margin: 0.25em 0; font-size: 0.9em; }
-nav#TOC ul ul { padding-left: 0.9em; }
+nav#TOC li { margin: 0.2em 0; font-size: 0.92em; }
+nav#TOC ul ul { padding-left: 1.2em; }
 
-/* ---- Lists / tables / code ---- */
-ul, ol { margin: 0.4em 0 0.7em 1.5em; padding: 0; }
-li { margin-bottom: 0.2em; }
+/* ---- Lists, tables, code ---- */
+ul, ol { margin: 0.3em 0 0.7em 6mm; padding: 0; }
+li { margin-bottom: 0.15em; }
+li > ul, li > ol { margin-bottom: 0.2em; }
 
-table {
-  border-collapse: collapse;
-  width: 100%;
-  margin: 0.8em 0;
-  font-size: 0.9em;
-}
-th, td {
-  padding: 0.4em 0.7em;
-  border: 1px solid var(--color-mid-grey);
-  vertical-align: top;
-}
-thead tr {
-  background-color: var(--color-grey);
-  color: white;
-}
-tr:nth-child(even) { background-color: var(--color-light-grey); }
+table { border-collapse: collapse; width: 100%; margin: 0.8em 0; font-size: 0.92em; }
+th, td { padding: 0.35em 0.6em; border-bottom: 0.75pt solid var(--color-mid-grey); vertical-align: top; text-align: left; }
+thead th { border-bottom: 1.2pt solid var(--color-dark); font-weight: bold; }
 tr { page-break-inside: avoid; }
 
-pre, code {
-  font-family: var(--font-mono);
-  font-size: 0.85em;
-}
+pre, code { font-family: var(--font-mono); font-size: 0.86em; }
 pre {
   background: var(--color-light-grey);
-  border: 1px solid var(--color-mid-grey);
-  padding: 0.8em 1em;
+  padding: 0.7em 0.9em;
   margin: 0.7em 0;
   white-space: pre-wrap;
   word-wrap: break-word;
   page-break-inside: avoid;
 }
-code {
-  background: var(--color-light-grey);
-  padding: 0.1em 0.3em;
-  border-radius: 2px;
-  color: #444;
-}
+code { background: var(--color-light-grey); padding: 0.05em 0.25em; border-radius: 2px; }
+pre code { background: none; padding: 0; }
 
-a {
-  color: var(--color-link);
-  text-decoration: none;
-}
+a { color: var(--color-link); text-decoration: none; }
+img.doc-image { max-width: 100%; height: auto; display: block; margin: 0.6em auto; }
 
-img.doc-image {
-  max-width: 100%;
-  height: auto;
-  display: block;
-  margin: 0.8em auto;
-}
+.callout { display: block; padding: 0.6em 0.9em; margin: 0.8em 0; border-left: 3pt solid; page-break-inside: avoid; }
+.callout-title { display: block; font-weight: bold; margin-bottom: 0.2em; }
+.callout-note, .callout-info { background: #eef5fb; border-color: #4a7fb5; }
+.callout-tip { background: #eef7f5; border-color: #3f8f7f; }
+.callout-warning, .callout-caution { background: #fdf7e8; border-color: #c48a16; }
+.callout-danger, .callout-failure, .callout-bug { background: #fbefec; border-color: #b0493a; }
 
-/* ---- Inline word-level diff markers ---- */
-ins {
-  background: var(--color-ins-bg);
-  color: var(--color-ins-text);
-  text-decoration: underline;
-  padding: 0 0.15em;
-  border-radius: 2px;
-}
-
-del {
-  background: var(--color-del-bg);
-  color: var(--color-del-text);
-  text-decoration: line-through;
-  padding: 0 0.15em;
-  border-radius: 2px;
-}
-
-/* ---- Block-level diff containers ---- */
-.redline-ins,
-.redline-del {
-  border-radius: 4px;
-  padding: 0.6em 1em;
-  margin: 0.8em 0;
-  border-left: 4px solid;
-  page-break-inside: avoid;
-}
-
-.redline-ins {
-  background: var(--color-ins-bg);
-  border-color: #2ea44f;
-}
-
-.redline-ins > * {
-  color: var(--color-ins-text);
-}
-
-.redline-del {
-  background: var(--color-del-bg);
-  border-color: #cb2431;
-  text-decoration: line-through;
-}
-
-.redline-del > * {
-  color: var(--color-del-text);
-}
-
-/* ---- Callouts (subset, since redline output may include them verbatim) ---- */
-.callout {
-  display: block;
-  border-radius: 4px;
-  padding: 0.7em 1em;
-  margin: 0.8em 0;
-  page-break-inside: avoid;
-  border-left: 4px solid;
-}
-.callout-note, .callout-info {
-  background: #e8f4fd; border-color: #3498db; color: #1a5276;
-}
-.callout-warning, .callout-caution {
-  background: #fef9e7; border-color: #f39c12; color: #7d6608;
-}
-.callout-danger, .callout-failure, .callout-bug {
-  background: #fdedec; border-color: #c0392b; color: #922b21;
-}
