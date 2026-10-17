@@ -1,0 +1,15 @@
+{#-
+  Template of the home page (docs/index.md sets "template: home.html").
+  The page content is shown on its own, without the page actions and the
+  automatic title, in a wider column. The styles are in extra.css under
+  ".ope-home".
+-#}
+{% extends "main.html" %}
+
+{% block container %}
+  <div class="md-content ope-home" data-md-component="content">
+    <article class="md-content__inner md-typeset">
+      {{ page.content }}
+    </article>
+  </div>
+{% endblock %}

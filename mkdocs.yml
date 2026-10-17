@@ -1,7 +1,8 @@
 site_name: obsidian-pdf-exporter
 site_description: >-
-  Export Obsidian vaults to PDF with plugin support, and make redline PDFs
-  that show the tracked changes between two git commits. Runs locally or in CI.
+  Turn a folder of Obsidian notes into one polished PDF, with wiki links,
+  embeds, callouts, Mermaid and community plugins, and make redline PDFs of
+  the changes between two versions. Runs locally or in CI.
 site_url: https://spenhouet.com/obsidian-pdf-exporter/
 site_author: Sebastian Penhouet
 copyright: Copyright &copy; 2026 Sebastian Penhouet

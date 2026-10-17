@@ -8,7 +8,7 @@
 
 ## Overview
 
-- [obsidian-pdf-exporter](https://spenhouet.com/obsidian-pdf-exporter/): Export Obsidian vaults to PDF with plugin support, and make redline PDFs that show the tracked changes between two git commits. Runs locally or in CI.
+- [obsidian-pdf-exporter](https://spenhouet.com/obsidian-pdf-exporter/): Turn a folder of Obsidian notes into one polished PDF, with wiki links, embeds, callouts, Mermaid and community plugins. Make redline PDFs of the changes between two versions. Runs locally or in CI.
 - [Introduction](https://spenhouet.com/obsidian-pdf-exporter/intro/): What obsidian-pdf-exporter does, how it works and when to use it.
 - [Use with AI agents](https://spenhouet.com/obsidian-pdf-exporter/agents/): Use ope with AI coding agents. Install the Claude Code plugin and skill, copy the skill by hand, or point any agent at llms.txt and AGENTS.md.
 - [Contributing](https://spenhouet.com/obsidian-pdf-exporter/contributing/): Development setup, architecture, tests, docs and pull request guidelines for obsidian-pdf-exporter.
