@@ -38,6 +38,7 @@ _MARKDOWN_ORDER = [
     "pdf_embeds",
     "embeds",
     "obsidian_comments",
+    "raw_html",
     "block_ids",
     "footnotes",
     "callouts",

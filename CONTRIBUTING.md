@@ -121,7 +121,7 @@ listed.
    highlights, `hard_line_breaks` for line breaks or `--mathml` for math.
 2. Obsidian core syntax ([`core/steps/`](https://github.com/Spenhouet/obsidian-pdf-exporter/tree/main/obsidian_pdf_exporter/core/steps/)).
    Every piece of syntax that Obsidian itself supports is a small step:
-   frontmatter, comments, Bases, PDF embeds, embeds, block IDs, callouts, heading links,
+   frontmatter, comments, Bases, PDF embeds, embeds, stray HTML tags, block IDs, callouts, heading links,
    Markdown images, wiki links, image captions, headings, warnings about plugin code blocks,
    highlights, line breaks, tasks, math, footnotes, Mermaid, landscape
    diagrams, SVG images and table fixes. All steps are listed in
@@ -152,8 +152,8 @@ obsidian_pdf_exporter/
 │   ├── steps/              # layer 2: one module per piece of core syntax
 │   │   ├── __init__.py     # CORE_STEPS, the ordered list of steps
 │   │   ├── base.py         # Step, PageContext, DocumentContext
-│   │   ├── frontmatter.py, plugins.py, comments.py, bases.py, embeds.py, block_ids.py,
-│   │   ├── callouts.py, heading_links.py, wiki_links.py, image_captions.py,
+│   │   ├── frontmatter.py, plugins.py, comments.py, bases.py, embeds.py, raw_html.py,
+│   │   ├── block_ids.py, callouts.py, heading_links.py, wiki_links.py, image_captions.py,
 │   │   ├── headings.py, code_blocks.py, highlights.py, line_breaks.py, tasks.py, math.py,
 │   │   ├── footnotes.py, landscape.py, pdf_embeds.py,
 │   │   └── mermaid.py, svg_images.py, tables.py, base_css.py
