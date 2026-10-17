@@ -66,4 +66,4 @@ pdfinfo handbook.pdf                                        # page count and pag
 | Wide tables have other margins | The template changed `@page` but not `@page landscape-page`. |
 | A table leaves a big gap | `break-inside: avoid` is set on `table`. Put it on `tr`. |
 | An image jumps to the next page | Images cannot be split. Limit the size with `max-height`. |
-| Mermaid blocks stay code | Neither `mmdc` nor `npx` was found. Install Node.js or mermaid-cli. |
+| A Mermaid block stays code | Pele could not draw it, for example because of a syntax error. The `Warning:` line of the export names the diagram type and the error. |

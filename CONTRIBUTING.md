@@ -601,8 +601,8 @@ Generated content:
   from the example vault in `examples/`. Each folder there (not starting
   with `_`) is one example and becomes `docs/img/features/<folder>.png`.
   Run `uv run python scripts/render_examples.py [name ...]` after a change
-  that affects the output. It needs `pdftoppm` (poppler) and Node.js for
-  Mermaid. Commit the images.
+  that affects the output. It needs `pdftoppm` (poppler). Commit the
+  images.
 - `docs/img/redline/*.png` come from `examples/_redline/`. Each case
   folder there holds a `before/` and an `after/` version of a small vault.
   `uv run python scripts/render_redline_examples.py [case ...]` commits both
