@@ -32,6 +32,11 @@ class HtmlTree:
         self.root: HtmlElement = lxml_html.document_fromstring(_RAW.sub(cut, text))
 
     @property
+    def islands(self) -> list[str]:
+        """The SVG and MathML elements kept out of the tree, as text."""
+        return self._islands
+
+    @property
     def body(self) -> HtmlElement:
         """The ``<body>`` element."""
         return self.root.body
