@@ -2460,7 +2460,7 @@ ope export ./Notes -O mermaid.config=mermaid.json
 
 A diagram keeps its natural size and only shrinks when it is wider than the text. `mermaid.max_height` scales down taller ones. Other sizes belong in the template's CSS: every diagram has the classes `doc-image`, `mermaid` and `mermaid-<type>`, see [CSS reference](../templating/css-reference.md#mermaid-diagrams).
 
-Mermaid leaves empty space around some diagram types. ope trims it to a margin of 8 px. PNG images are cropped. For SVG, mermaid-cli renders a second, transparent PNG to find the visible area, and ope shrinks the `viewBox`. That takes a few seconds, `-O mermaid.trim=off` skips it.
+Mermaid leaves empty space around some diagram types. ope trims it to a margin of 8 px. PNG images are cropped. For SVG, mermaid-cli renders a second, transparent PNG of each diagram at its natural size to find the visible area, strokes included, and ope shrinks the `viewBox`. That takes a few seconds, `-O mermaid.trim=off` skips it.
 
 `%%` comment lines in a block are removed before rendering.
 
@@ -2495,9 +2495,6 @@ A short paragraph right below the diagram that starts with a word and a number, 
 ope export ./Notes -O mermaid.landscape_ratio=2
 ope export ./Notes -O mermaid.landscape=off
 ```
-
-!!! note
-    In the picture above the right edge of the last box is cut off. That comes from the trimming of empty space ([#69](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/69)); `-O mermaid.trim=off` avoids it.
 
 ## Notes
 

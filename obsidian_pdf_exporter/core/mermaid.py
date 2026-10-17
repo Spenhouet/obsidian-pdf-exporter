@@ -21,6 +21,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import math
 import os
 import re
 import shlex
@@ -283,26 +284,52 @@ def _render(
         out_args += ["-s", str(settings.scale), "-b", "white"]
     outputs = _render_batch(cli, [*args, *out_args], sources, work, ext, "out", log)
 
-    boxes: dict[str, tuple[float, float, float, float] | None] = {}
-    if ext == "svg" and settings.trim and outputs:
-        measure_args = [*args, "-e", "png", "-s", "1", "-b", "transparent"]
-        pngs = _render_batch(
-            cli, measure_args, {d: sources[d] for d in outputs}, work, "png", "measure", None
-        )
-        boxes = {d: _content_box(p, transparent=True) for d, p in pngs.items()}
+    if ext == "svg":
+        svgs = {d: _tidy_svg(p.read_text(encoding="utf-8"), d) for d, p in outputs.items()}
+        boxes: dict[str, tuple[int, int, int, int] | None] = {}
+        if settings.trim and svgs:
+            boxes = _measure(cli, args, {d: sources[d] for d in svgs}, svgs, work)
+        for digest, svg in svgs.items():
+            box = boxes.get(digest)
+            trimmed = _trim_svg(svg, box) if box else svg
+            (build_dir / f"mermaid-{digest}.svg").write_text(trimmed, encoding="utf-8")
+        return
 
     for digest, path in outputs.items():
         dest = build_dir / f"mermaid-{digest}.{ext}"
-        if ext == "svg":
-            svg = _tidy_svg(path.read_text(encoding="utf-8"), digest)
-            box = boxes.get(digest)
-            if box:
-                svg = _trim_svg(svg, box)
-            dest.write_text(svg, encoding="utf-8")
-        else:
-            shutil.copyfile(path, dest)
-            if settings.trim:
-                _trim_png(dest, settings.scale)
+        shutil.copyfile(path, dest)
+        if settings.trim:
+            _trim_png(dest, settings.scale)
+
+
+def _measure(
+    cli: list[str],
+    args: list[str],
+    sources: dict[str, str],
+    svgs: dict[str, str],
+    work: Path,
+) -> dict[str, tuple[int, int, int, int] | None]:
+    """Return the visible part of every SVG diagram in CSS pixels.
+
+    mermaid-cli renders transparent PNGs at scale 1. Its page has a body
+    margin, and it shrinks the window to the diagram before the screenshot.
+    The diagram then gets narrower than the PNG, and its right and bottom
+    edges are no longer where the PNG size says. Without the body margin and
+    with a window wider than every diagram, each diagram is drawn at its
+    natural size from the top left corner of its PNG, so a pixel is a CSS
+    pixel of the SVG.
+    """
+    widths = [_svg_width(svg) or 0.0 for svg in svgs.values()]
+    window = max(800, math.ceil(max(widths, default=0.0)) + 1)
+    css = work / "measure.css"
+    css.write_text("body { margin: 0 !important; padding: 0 !important; }\n", encoding="utf-8")
+    measure_args = [
+        *args,
+        *("-e", "png", "-s", "1", "-b", "transparent"),
+        *("-w", str(window), "-C", str(css)),
+    ]
+    pngs = _render_batch(cli, measure_args, sources, work, "png", "measure", None)
+    return {d: _alpha_box(p) for d, p in pngs.items()}
 
 
 def _render_batch(
@@ -387,22 +414,18 @@ def _png_size(path: Path) -> tuple[int, int]:
     return struct.unpack(">II", header[16:24])
 
 
-def _content_box(path: Path, *, transparent: bool) -> tuple[float, float, float, float] | None:
-    """Return the visible part of a PNG as fractions ``(left, top, right, bottom)``.
+def _content_box(path: Path) -> tuple[float, float, float, float] | None:
+    """Return the visible part of a white PNG as fractions ``(left, top, right, bottom)``.
 
-    The background is either transparent or white. Returns None when the
-    image can not be read or is empty.
+    Returns None when the image can not be read or is empty.
     """
     try:
         from PIL import Image
         from PIL import ImageChops
 
         with Image.open(path) as image:
-            if transparent:
-                bbox = image.convert("RGBA").getchannel("A").getbbox()
-            else:
-                rgb = image.convert("RGB")
-                bbox = ImageChops.difference(rgb, Image.new("RGB", rgb.size, "white")).getbbox()
+            rgb = image.convert("RGB")
+            bbox = ImageChops.difference(rgb, Image.new("RGB", rgb.size, "white")).getbbox()
             width, height = image.size
     except (OSError, ValueError, SyntaxError):
         return None
@@ -412,9 +435,24 @@ def _content_box(path: Path, *, transparent: bool) -> tuple[float, float, float,
     return left / width, top / height, right / width, bottom / height
 
 
+def _alpha_box(path: Path) -> tuple[int, int, int, int] | None:
+    """Return the pixels of a transparent PNG that are not fully transparent.
+
+    The box is ``(left, top, right, bottom)``, right and bottom exclusive.
+    Returns None when the image can not be read or is empty.
+    """
+    try:
+        from PIL import Image
+
+        with Image.open(path) as image:
+            return image.convert("RGBA").getchannel("A").getbbox()
+    except (OSError, ValueError, SyntaxError):
+        return None
+
+
 def _trim_png(path: Path, scale: int) -> None:
     """Crop a white-background PNG to its content plus a small margin."""
-    box = _content_box(path, transparent=False)
+    box = _content_box(path)
     if not box:
         return
     from PIL import Image
@@ -434,11 +472,11 @@ def _trim_png(path: Path, scale: int) -> None:
     cropped.save(path)
 
 
-def _trim_svg(svg: str, box: tuple[float, float, float, float]) -> str:
+def _trim_svg(svg: str, box: tuple[int, int, int, int]) -> str:
     """Shrink the ``viewBox`` and ``width`` of a tidied SVG to ``box`` plus a margin.
 
-    ``box`` is the visible part as fractions of the current view, see
-    :func:`_content_box`.
+    ``box`` is the visible part in CSS pixels of the diagram drawn at its
+    natural width, see :func:`_measure`.
     """
     root = re.search(r"<svg\b[^>]*>", svg)
     if not root:
@@ -455,11 +493,12 @@ def _trim_svg(svg: str, box: tuple[float, float, float, float]) -> str:
     natural = float(width.group(1))
     if w <= 0 or h <= 0 or natural <= 0:
         return svg
-    margin = _TRIM_MARGIN * w / natural
-    left = max(x, x + box[0] * w - margin)
-    top = max(y, y + box[1] * h - margin)
-    right = min(x + w, x + box[2] * w + margin)
-    bottom = min(y + h, y + box[3] * h + margin)
+    unit = w / natural  # viewBox units per CSS pixel
+    margin = _TRIM_MARGIN * unit
+    left = max(x, x + box[0] * unit - margin)
+    top = max(y, y + box[1] * unit - margin)
+    right = min(x + w, x + box[2] * unit + margin)
+    bottom = min(y + h, y + box[3] * unit + margin)
     if right <= left or bottom <= top:
         return svg
     new_view = " ".join(_number(v) for v in (left, top, right - left, bottom - top))
@@ -467,6 +506,13 @@ def _trim_svg(svg: str, box: tuple[float, float, float, float]) -> str:
     new_width = _number(natural * (right - left) / w)
     new_tag = new_tag.replace(width.group(0), f' width="{new_width}"', 1)
     return svg.replace(tag, new_tag, 1)
+
+
+def _svg_width(svg: str) -> float | None:
+    """Return the ``width`` attribute of a tidied SVG in CSS pixels, or None."""
+    root = re.search(r"<svg\b[^>]*>", svg)
+    width = re.search(r'\swidth="([\d.]+)"', root.group(0)) if root else None
+    return float(width.group(1)) if width else None
 
 
 def _number(value: float) -> str:
