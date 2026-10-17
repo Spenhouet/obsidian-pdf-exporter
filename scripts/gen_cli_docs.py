@@ -82,6 +82,7 @@ the template. These keys are read by ope itself:
 | `tables.landscape` | `auto`, `on`, `off` | `auto` | [Tables](../markdown/tables.md#wide-tables) |
 | `tables.landscape_min_cols` | number | `6` | [Tables](../markdown/tables.md#wide-tables) |
 | `mermaid` | `off` | on | [Mermaid](../obsidian/mermaid.md) |
+| `mermaid.renderer` | `mermaid-cli`, `pele` | `mermaid-cli` | [Mermaid](../obsidian/mermaid.md#renderers) |
 | `mermaid.format` | `svg`, `png` | `svg` | [Mermaid](../obsidian/mermaid.md#options) |
 | `mermaid.scale` | number | `3` | [Mermaid](../obsidian/mermaid.md#options) |
 | `mermaid.config` | path to JSON | none | [Mermaid](../obsidian/mermaid.md#options) |

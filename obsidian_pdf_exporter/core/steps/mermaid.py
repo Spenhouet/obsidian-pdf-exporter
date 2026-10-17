@@ -24,4 +24,7 @@ class MermaidStep(Step):
         if context.template is not None and context.export is not None:
             template_config = context.template.mermaid_config(context.export)
         settings = mermaid_settings(context.options, template_config)
-        return render_mermaid_blocks(markdown, context.build_dir, settings, log=context.log)
+        css = context.template.get_css() if context.template is not None else ""
+        return render_mermaid_blocks(
+            markdown, context.build_dir, settings, log=context.log, css=css
+        )
