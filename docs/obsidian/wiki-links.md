@@ -28,7 +28,7 @@ A wiki link to a page of the export becomes a link to that page's section in the
 | ------ | ------ |
 | `[[Page]]` | Link to the section of `Page`. |
 | `[[Page\|alias]]` | Same link, showing the alias. |
-| `[[#Heading]]`, `[[#Heading\|alias]]` | Link to the heading on the same page. When several pages share a heading name, the one on the linking page wins. |
+| `[[#Heading]]`, `[[#Heading\|alias]]` | Link to the heading on the same page. When several pages share a heading name, the one on the linking page wins. When no heading of that name is in the PDF, the label stays as plain text and the export prints a warning. |
 | `[[Page#Heading]]`, `[[Page#Heading\|alias]]` | Link to that heading on `Page`. Without an alias the label is `Page > Heading`. When `Page` has no such heading, the link goes to the page. `[[Page#A#B]]` uses the last heading, `B`. |
 | `[[Page#^id]]` | Link to the section of `Page`. |
 | `[[Folder/Page]]`, `[[Page.md]]` | The last path part is the page name and a `.md` suffix is ignored. When several pages have that name, the one whose path ends with `Folder/Page` wins. |
