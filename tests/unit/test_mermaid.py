@@ -277,6 +277,11 @@ def test_disabled_keeps_blocks(tmp_path: Path, fake_cli: FakeMermaidCli) -> None
     assert fake_cli.calls == []
 
 
+def test_settings_fit_is_on_by_default() -> None:
+    assert mermaid_settings({}).fit
+    assert not mermaid_settings({"mermaid.fit": "off"}).fit
+
+
 def test_settings_merge_template_file_and_theme(tmp_path: Path) -> None:
     config_file = tmp_path / "mermaid.json"
     config_file.write_text(

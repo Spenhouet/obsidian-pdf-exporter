@@ -41,7 +41,8 @@ The default output is SVG, so text stays sharp and can be searched. Mermaid norm
 | `-O mermaid.max_height=LENGTH` | Largest height, such as `10cm`. Taller diagrams are scaled down. | none |
 | `-O mermaid.landscape=on\|off` | Put wide diagrams on landscape pages. | `on` |
 | `-O mermaid.landscape_ratio=R` | Width to height ratio from which a diagram that has to shrink goes to landscape. | `1.4` |
-| `-O mermaid.landscape_min_font=PT` | Smallest text size a diagram may shrink to on a portrait page before it goes to landscape. | `7` |
+| `-O mermaid.landscape_min_font=PT` | Smallest text size a diagram may shrink to on a portrait page before it goes to landscape, or to fit a tall diagram on one page. | `7` |
+| `-O mermaid.fit=on\|off` | Scale or split diagrams that are taller than the page. | `on` |
 
 A template can set a base config with the `mermaid` key in `template.yaml` or `Template.mermaid_config()`. `mermaid.config` is merged over it, then `mermaid.theme`.
 
@@ -90,6 +91,32 @@ A short paragraph right below the diagram that starts with a word and a number, 
 ope export ./Notes -O mermaid.landscape_ratio=2
 ope export ./Notes -O mermaid.landscape=off
 ```
+
+## Tall diagrams
+
+A diagram taller than the page would run past the bottom margin. ope keeps every diagram inside the page content box. The size of the page and its margins come from the template, for portrait and landscape pages alike.
+
+- When the diagram's text stays at least `mermaid.landscape_min_font` points tall, the diagram is scaled down to the height of the page. It keeps its aspect ratio. A caption below it stays on the same page.
+- Otherwise the diagram is cut into parts that follow each other over several pages. The parts keep the width the diagram had, so the text keeps its size. Each cut goes through a row near the bottom of the page where little is drawn, so it does not go through a box or a line of text when there is a gap between them.
+
+<div class="ope-example" markdown>
+<div markdown>
+<p class="ope-label">Markdown</p>
+
+````markdown
+--8<-- "examples/mermaid-tall/mermaid-tall.md"
+````
+
+</div>
+<div markdown>
+<p class="ope-label">PDF</p>
+
+![A long sequence diagram cut into two parts on two pages](../img/features/mermaid-tall.png)
+
+</div>
+</div>
+
+Every part holds the whole drawing and shows only its band of it, so a search in the PDF also finds the text of the hidden bands. PNG diagrams cannot be cut and are always scaled. Fitting needs a second layout of the document, which only runs when a diagram is too tall. `-O mermaid.fit=off` turns it off, `mermaid.max_height` gives all diagrams a smaller limit.
 
 ## Notes
 

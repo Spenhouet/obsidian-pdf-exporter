@@ -92,6 +92,7 @@ the template. These keys are read by ope itself:
 | `mermaid.landscape` | `on`, `off` | `on` | [Mermaid](../obsidian/mermaid.md#wide-diagrams) |
 | `mermaid.landscape_ratio` | number | `1.4` | [Mermaid](../obsidian/mermaid.md#wide-diagrams) |
 | `mermaid.landscape_min_font` | points | `7` | [Mermaid](../obsidian/mermaid.md#wide-diagrams) |
+| `mermaid.fit` | `on`, `off` | `on` | [Mermaid](../obsidian/mermaid.md#tall-diagrams) |
 | `footnotes` | `page`, `end` | `page` | [Footnotes](../markdown/footnotes.md) |
 | `pdf_embeds` | `pages`, `link` | `pages` | [Embeds](../obsidian/embeds.md#pdf) |
 | `pdf_embeds.max_pages` | number | `10` | [Embeds](../obsidian/embeds.md#pdf) |
