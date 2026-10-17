@@ -24,13 +24,13 @@ commit among those lines is the block's commit.
 from __future__ import annotations
 
 import datetime
-import io
 import re
 from collections import defaultdict
 from dataclasses import dataclass
 from dataclasses import field
 from html import escape
 from typing import TYPE_CHECKING
+from typing import Any
 from typing import Protocol
 
 from obsidian_pdf_exporter.core.htmltree import HtmlTree
@@ -41,9 +41,8 @@ from obsidian_pdf_exporter.core.util import run_git
 if TYPE_CHECKING:
     from pathlib import Path
 
+    import pydyf
     from lxml.html import HtmlElement
-    from pypdf import PdfWriter
-    from pypdf.generic import IndirectObject
 
 UNCOMMITTED = "0" * 40
 TRIGRAM = 3
@@ -416,8 +415,10 @@ def _strip_html(sizes: list[tuple[float, float]], labels: list[list[_Label]], ke
     text_width = width - x - 3 * PX_PER_MM
     place = f"left:{x:.1f}px;width:{text_width:.1f}px"
     pages, rules = [], []
-    for p, (_w, h) in enumerate(sizes):
-        rules.append(f"@page s{p} {{ size: {width:.2f}px {h:.2f}px; margin: 0; }}")
+    for p, (w, h) in enumerate(sizes):
+        # The strip page is as wide as the document page and the strip; the strip sits
+        # right of the document page (see _attach_strips).
+        rules.append(f"@page s{p} {{ size: {w + width:.2f}px {h:.2f}px; margin: 0; }}")
         items = "".join(
             f'<div class="{lb.css}" style="top:{lb.top:.2f}px;{place}">{escape(lb.text)}</div>'
             for lb in labels[p]
@@ -425,7 +426,10 @@ def _strip_html(sizes: list[tuple[float, float]], labels: list[list[_Label]], ke
         if p == 0 and key:
             top = 10 * PX_PER_MM
             items += f'<div class="bl-key" style="top:{top:.1f}px;{place}">{escape(key)}</div>'
-        pages.append(f'<div class="bl-strip" style="page: s{p}; height:{h:.1f}px">{items}</div>')
+        pages.append(
+            f'<div class="bl-strip" style="page: s{p}; height:{h:.1f}px; margin-left:{w:.2f}px">'
+            f"{items}</div>"
+        )
     from obsidian_pdf_exporter.core.redline_html import asset
 
     return (
@@ -463,7 +467,6 @@ def write_blame_pdf(
     for p, page in enumerate(document.pages):
         _first_lines(page._page_box, p, lines)
         sizes.append((page.width, page.height))
-    document.write_pdf(str(output_path))
     labels = [_page_labels(p, lines, found, index, highlight) for p in range(len(sizes))]
     key = (
         f"Blocks changed in {range_label}: author · date · commit message. "
@@ -471,97 +474,107 @@ def write_blame_pdf(
         if highlight
         else "Last change of each block: author · date · commit message. Hover a line for details."
     )
-    strip = weasyprint.HTML(string=_strip_html(sizes, labels, key)).write_pdf()
-    _merge(output_path, strip, labels)
+    strip = weasyprint.HTML(string=_strip_html(sizes, labels, key)).render()
+    _attach_strips(document, strip)
+    document.write_pdf(str(output_path), finisher=_Tooltips(sizes, labels))
     return sum(1 for _, s in found if s) / len(found) if found else 0.0
 
 
-def _merge(output_path: Path, strip_pdf: bytes, labels: list[list[_Label]]) -> None:
-    """Widen every page, draw the strip next to it and add the hover buttons.
+def _attach_strips(document: Any, strip: Any) -> None:  # noqa: ANN401 - WeasyPrint documents
+    """Widen every page of ``document`` and draw its strip page over it.
 
-    The page content stream is kept as it is (pypdf wraps it), so links, bookmarks and
-    the page itself do not change.
+    Each strip page is as wide as the document page plus the strip, with the strip at
+    its right and nothing else. Its boxes are added to the document page after the boxes
+    of the page, and the page gets the width of the strip page. The boxes of the
+    document page are not touched, so its layout, links and bookmarks stay as they are.
+    WeasyPrint then writes one PDF with shared fonts and compressed object streams, as
+    for a PDF without the strip.
     """
-    from pypdf import PdfReader
-    from pypdf import PdfWriter
-    from pypdf import Transformation
+    for page, strip_page in zip(document.pages, strip.pages, strict=True):
+        page_box, strip_box = page._page_box, strip_page._page_box
+        added = list(strip_box.children)
+        for box in added:
+            # Only the document's own root element may clip to the page.
+            box.is_for_root_element = False
+        page_box.children = [*page_box.children, *added]
+        page.width = strip_page.width
 
-    writer = PdfWriter(clone_from=PdfReader(io.BytesIO(output_path.read_bytes())))
-    strip = PdfReader(io.BytesIO(strip_pdf))
-    extra = STRIP_MM * PX_PER_MM * PT_PER_PX
-    fields = []
-    x = 3.5 * PX_PER_MM
-    width = STRIP_MM * PX_PER_MM - x - 3 * PX_PER_MM
-    for p, page in enumerate(writer.pages):
-        _x0, y0, x1, y1 = (float(v) for v in page.mediabox)
-        page.merge_transformed_page(strip.pages[p], Transformation().translate(x1, y0))
-        page.compress_content_streams()
-        page.mediabox.upper_right = (x1 + extra, y1)
-        page.cropbox.upper_right = (x1 + extra, y1)
-        for n, lb in enumerate(labels[p]):
-            top = lb.top - 1
-            rect = (
-                x1 + x * PT_PER_PX,
-                y1 - (top + FONT_PX * 1.25) * PT_PER_PX,
-                x1 + (x + width) * PT_PER_PX,
-                y1 - top * PT_PER_PX,
-            )
-            ref = _tooltip_button(writer, p, f"blame_{p}_{n}", lb.tooltip, rect)
-            if ref is not None:
-                fields.append(ref)
-    if fields:
-        _register_fields(writer, fields)
-    writer.compress_identical_objects(remove_duplicates=True, remove_unreferenced=True)
-    with output_path.open("wb") as fh:
-        writer.write(fh)
+
+class _Tooltips:
+    """A WeasyPrint finisher that adds the hover buttons of the strip lines.
+
+    Each line gets an invisible, read-only push button whose tooltip (``/TU``) is the
+    full commit. The buttons are written by WeasyPrint with the rest of the PDF, so they
+    go into its compressed object streams. Lines of the same commit share one tooltip.
+    """
+
+    def __init__(self, sizes: list[tuple[float, float]], labels: list[list[_Label]]) -> None:
+        # ``sizes`` are the document pages without the strip, in CSS pixels; the strip
+        # starts at the right edge of the document page.
+        self.sizes, self.labels = sizes, labels
+
+    def __call__(self, _document: object, pdf: pydyf.PDF) -> None:
+        import pydyf
+
+        if not any(self.labels):
+            return
+        by_number = {o.number: o for o in pdf.objects if isinstance(o, pydyf.Dictionary)}
+        # ``Kids`` holds "number 0 R" as three items per page.
+        kids = [by_number[number] for number in pdf.pages["Kids"][::3]]
+        texts: dict[str, pydyf.String] = {}
+        fields = []
+        x = 3.5 * PX_PER_MM
+        width = STRIP_MM * PX_PER_MM - x - 3 * PX_PER_MM
+        for p, page in enumerate(kids):
+            page_width, page_height = self.sizes[p]
+            left, y1 = page_width * PT_PER_PX, page_height * PT_PER_PX
+            for n, lb in enumerate(self.labels[p]):
+                if lb.tooltip not in texts:
+                    texts[lb.tooltip] = pydyf.String(lb.tooltip)
+                    pdf.add_object(texts[lb.tooltip])
+                top = lb.top - 1
+                rect = (
+                    left + x * PT_PER_PX,
+                    y1 - (top + FONT_PX * 1.25) * PT_PER_PX,
+                    left + (x + width) * PT_PER_PX,
+                    y1 - top * PT_PER_PX,
+                )
+                button = _tooltip_button(
+                    f"blame_{p}_{n}", texts[lb.tooltip].reference, rect, page.reference
+                )
+                pdf.add_object(button)
+                if "Annots" not in page:
+                    page["Annots"] = pydyf.Array()
+                page["Annots"].append(button.reference)
+                fields.append(button.reference)
+        form = pdf.catalog.get("AcroForm")
+        if not isinstance(form, pydyf.Dictionary):
+            form = pydyf.Dictionary()
+            pdf.catalog["AcroForm"] = form
+        form["Fields"] = pydyf.Array([*form.get("Fields", []), *fields])
 
 
 def _tooltip_button(
-    writer: PdfWriter, page_number: int, name: str, text: str, rect: tuple[float, ...]
-) -> IndirectObject | None:
-    """An invisible, read-only push button whose tooltip (``/TU``) holds ``text``.
+    name: str, text: bytes, rect: tuple[float, ...], page: bytes
+) -> pydyf.Dictionary:
+    """An invisible, read-only push button whose tooltip (``/TU``) is the string ``text``.
 
     It has no appearance and no border, so it draws nothing and prints nothing.
     """
-    from pypdf.generic import ArrayObject
-    from pypdf.generic import DictionaryObject
-    from pypdf.generic import FloatObject
-    from pypdf.generic import NameObject
-    from pypdf.generic import NumberObject
-    from pypdf.generic import TextStringObject
+    import pydyf
 
     pushbutton, read_only, printable = 1 << 16, 1, 4
-    button = DictionaryObject(
+    return pydyf.Dictionary(
         {
-            NameObject("/Type"): NameObject("/Annot"),
-            NameObject("/Subtype"): NameObject("/Widget"),
-            NameObject("/FT"): NameObject("/Btn"),
-            NameObject("/Ff"): NumberObject(pushbutton | read_only),
-            NameObject("/T"): TextStringObject(name),
-            NameObject("/TU"): TextStringObject(text),
-            NameObject("/Rect"): ArrayObject([FloatObject(v) for v in rect]),
-            NameObject("/F"): NumberObject(printable),
-            NameObject("/MK"): DictionaryObject(),
+            "Type": "/Annot",
+            "Subtype": "/Widget",
+            "FT": "/Btn",
+            "Ff": pushbutton | read_only,
+            "T": pydyf.String(name),
+            "TU": text,
+            "Rect": pydyf.Array(rect),
+            "F": printable,
+            "MK": pydyf.Dictionary(),
+            "P": page,
         }
     )
-    return writer.add_annotation(page_number, button).indirect_reference
-
-
-def _register_fields(writer: PdfWriter, fields: list[IndirectObject]) -> None:
-    """List the hover buttons in the form of the document."""
-    from pypdf.generic import ArrayObject
-    from pypdf.generic import DictionaryObject
-    from pypdf.generic import NameObject
-
-    root = writer.root_object
-    form = root.get("/AcroForm")
-    form = form.get_object() if form is not None else None
-    if not isinstance(form, DictionaryObject):
-        form = DictionaryObject()
-        root[NameObject("/AcroForm")] = form
-    existing = form.get("/Fields")
-    existing = existing.get_object() if existing is not None else None
-    if not isinstance(existing, ArrayObject):
-        existing = ArrayObject()
-        form[NameObject("/Fields")] = existing
-    existing.extend(fields)
