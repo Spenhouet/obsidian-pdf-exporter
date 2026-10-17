@@ -541,7 +541,7 @@ listed.
    highlights, `hard_line_breaks` for line breaks or `--mathml` for math.
 2. Obsidian core syntax ([`core/steps/`](https://github.com/Spenhouet/obsidian-pdf-exporter/tree/main/obsidian_pdf_exporter/core/steps/)).
    Every piece of syntax that Obsidian itself supports is a small step:
-   frontmatter, comments, Bases, PDF embeds, embeds, block IDs, callouts, heading links,
+   frontmatter, comments, Bases, PDF embeds, embeds, stray HTML tags, block IDs, callouts, heading links,
    Markdown images, wiki links, image captions, headings, warnings about plugin code blocks,
    highlights, line breaks, tasks, math, footnotes, Mermaid, landscape
    diagrams, SVG images and table fixes. All steps are listed in
@@ -572,8 +572,8 @@ obsidian_pdf_exporter/
 │   ├── steps/              # layer 2: one module per piece of core syntax
 │   │   ├── __init__.py     # CORE_STEPS, the ordered list of steps
 │   │   ├── base.py         # Step, PageContext, DocumentContext
-│   │   ├── frontmatter.py, plugins.py, comments.py, bases.py, embeds.py, block_ids.py,
-│   │   ├── callouts.py, heading_links.py, wiki_links.py, image_captions.py,
+│   │   ├── frontmatter.py, plugins.py, comments.py, bases.py, embeds.py, raw_html.py,
+│   │   ├── block_ids.py, callouts.py, heading_links.py, wiki_links.py, image_captions.py,
 │   │   ├── headings.py, code_blocks.py, highlights.py, line_breaks.py, tasks.py, math.py,
 │   │   ├── footnotes.py, landscape.py, pdf_embeds.py,
 │   │   └── mermaid.py, svg_images.py, tables.py, base_css.py
@@ -1972,6 +1972,18 @@ PDF:
 ![Keyboard keys, sub and superscript, colored and boxed text](../img/features/inline-html.png)
 
 HTML comments (`<!-- ... -->`) are removed. WeasyPrint draws the HTML, so scripts and interactive elements have no effect.
+
+## Tags without a closing tag
+
+Some HTML elements hold raw text or are never drawn: `<style>`, `<script>`, `<title>`, `<textarea>`, `<iframe>`, `<noscript>`, `<xmp>`, `<noembed>`, `<noframes>`, `<template>`, `<select>` and `<plaintext>`. When the opening tag of such an element has no closing tag, an HTML parser reads everything after it, to the end of the document, as its content. A sentence like "Anything inside <style> is printed as text" would then hide every later section of the PDF.
+
+Obsidian renders a note block by block, so a stray tag hides at most its own block there. The export keeps all text: an opening tag of one of these elements without a closing tag is shown as text, as it was typed, and the export prints a warning that names the note and the tag:
+
+```text
+Warning: <style> in Notes/Tools.md has no closing tag, kept as text
+```
+
+A tag counts as closed when its closing tag follows in the same paragraph, or, for a tag at the start of a line (an HTML block), anywhere later in the note. `<plaintext>` has no closing tag in HTML, so it is always shown as text. Tags inside code stay as they are. An HTML comment without its closing `-->` is also shown as text and hides nothing.
 
 ---
 
