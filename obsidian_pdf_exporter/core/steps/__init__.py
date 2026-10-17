@@ -19,6 +19,7 @@ Priority    Step                 Why here
 38          pdf_embeds           before embeds, so ``![[x.pdf#page=2]]`` is no note
 40          embeds               embedded content then passes all later steps
 50          obsidian_comments    after embeds, so embedded comments go too
+55          raw_html             after comments and embeds, so it sees what pandoc reads
 60          block_ids            after embeds, so embedded markers go too
 65          footnotes            after embeds, so each embedded note gets its own labels
 70          callouts
@@ -66,6 +67,7 @@ from obsidian_pdf_exporter.core.steps.math import MathStep
 from obsidian_pdf_exporter.core.steps.mermaid import MermaidStep
 from obsidian_pdf_exporter.core.steps.pdf_embeds import PdfEmbedsStep
 from obsidian_pdf_exporter.core.steps.plugins import PluginsStep
+from obsidian_pdf_exporter.core.steps.raw_html import RawHtmlStep
 from obsidian_pdf_exporter.core.steps.svg_images import SvgImagesStep
 from obsidian_pdf_exporter.core.steps.tables import ColumnWidthsStep
 from obsidian_pdf_exporter.core.steps.tables import EmptyTableHeadersStep
@@ -83,6 +85,7 @@ CORE_STEPS: tuple[type[Step], ...] = (
     PdfEmbedsStep,
     EmbedsStep,
     ObsidianCommentsStep,
+    RawHtmlStep,
     BlockIdsStep,
     FootnotesStep,
     CalloutsStep,
