@@ -2,7 +2,7 @@
   <a href="https://spenhouet.com/obsidian-pdf-exporter/"><img src="https://raw.githubusercontent.com/Spenhouet/obsidian-pdf-exporter/9cd947d57a49e7d5eb6d4ee519bc4fa9a764a95e/logo.png" alt="obsidian-pdf-exporter"></a>
 </p>
 <p align="center">
-  <em>Export Obsidian vaults to PDF with plugin support, and make redline PDFs of the changes between two git commits. Runs locally or in CI.</em>
+  <em>Turn a folder of Obsidian notes into one polished PDF, with wiki links, embeds, callouts, Mermaid and community plugins. Make redline PDFs of the changes between two versions. Runs locally or in CI.</em>
 </p>
 <p align="center">
   <a href="https://github.com/Spenhouet/obsidian-pdf-exporter/actions/workflows/ci.yml"><img src="https://github.com/Spenhouet/obsidian-pdf-exporter/actions/workflows/ci.yml/badge.svg" alt="Test, Lint and Build"></a>
@@ -17,23 +17,18 @@
 
 **Documentation: https://spenhouet.com/obsidian-pdf-exporter/**
 
-`ope` turns a folder of an Obsidian vault into one PDF. Every folder becomes a numbered section, and the Obsidian syntax in the notes is rendered: wiki links, embeds of notes, headings, blocks and images, callouts, highlights, tasks, footnotes, math, Mermaid and Bases. Community plugin syntax from Dataview, Meta Bind, Folder Notes, Block Link Plus, Excalidraw, draw.io and pandoc citations is rendered too. It also makes redline PDFs between two git commits, and templates control the look with CSS. It runs on the command line, without Obsidian, so it works in CI.
-
-Each feature page of the docs shows the Markdown next to the rendered PDF.
-
-## Redline: see every change in the PDF
-
-`ope redline` turns two git commits of a folder into a tracked-changes PDF: inserted text underlined in blue, removed text struck through in red, moved text in purple and a change bar in the margin, in the layout of the real document. A change summary lists every changed section. The side-by-side style shows the old and the new document in two aligned columns, `-O redline.collapse=on` shows only the changes, and `--blame` adds the author, date and commit message of every changed block next to the page. It is made for reviews, approvals, audits and release notes of documents kept in git.
+`ope` turns a folder of an Obsidian vault into one PDF. Every folder becomes a numbered section with a table of contents, a running header and footer, and the Obsidian syntax in the notes is rendered: wiki links, embeds of notes, headings, blocks and images, callouts, highlights, tasks, footnotes, math, Mermaid and Bases. Community plugin syntax from Dataview, Meta Bind, Folder Notes, Block Link Plus, Excalidraw, draw.io and pandoc citations is rendered too. Templates control the look with CSS. It runs on the command line, without Obsidian, so it works in CI.
 
 ```bash
-ope redline ./Policy --from-commit v1.0.0 --to-commit v1.1.0
+ope export ./MyVault/Handbook --title "Team handbook" --version 1.2.0
 ```
 
 <p align="center">
-  <a href="https://spenhouet.com/obsidian-pdf-exporter/redline/"><img src="https://raw.githubusercontent.com/Spenhouet/obsidian-pdf-exporter/2a14c57cb85f500739f991f4b57fa430861ef832/docs/img/redline/redline-three-up.png" alt="The same policy before and after a change, and the redline PDF with inserted, removed and changed text and change bars"></a>
+  <a href="https://spenhouet.com/obsidian-pdf-exporter/"><img src="https://raw.githubusercontent.com/Spenhouet/obsidian-pdf-exporter/main/docs/img/home/handbook-1.webp" width="360" alt="Page 1 of an exported handbook: title, table of contents, a callout, a task list and a table"></a>
+  <a href="https://spenhouet.com/obsidian-pdf-exporter/"><img src="https://raw.githubusercontent.com/Spenhouet/obsidian-pdf-exporter/main/docs/img/home/handbook-2.webp" width="360" alt="Page 2 of the handbook: a numbered section with a Mermaid flowchart, a callout, a table and an embedded note"></a>
 </p>
 
-Tags, branches, commit hashes and `HEAD~n` work as versions, two folders or notes on disk can be compared without git (`--from-path`), and the docs have GitHub Actions workflows that attach a redline to every pull request or release. See [Redline](https://spenhouet.com/obsidian-pdf-exporter/redline/).
+Each feature page of the docs shows the Markdown next to the rendered PDF.
 
 ## Install
 
@@ -55,10 +50,24 @@ powershell -ExecutionPolicy ByPass -c "irm https://uvx.sh/obsidian-pdf-exporter/
 
 ```bash
 ope export ./MyVault/Handbook --title "Team handbook" --version 1.2.0
-ope redline ./MyVault/Handbook --from-commit v1.1.0 --to-commit HEAD
 ope export ./MyVault/Handbook --template ./my-template/
+ope redline ./MyVault/Handbook --from-commit v1.1.0 --to-commit HEAD
 ope --help
 ```
+
+## Redline: see every change in the PDF
+
+`ope redline` turns two git commits of a folder into a tracked-changes PDF: inserted text underlined in blue, removed text struck through in red, moved text in purple and a change bar in the margin, in the layout of the real document. A change summary lists every changed section. The side-by-side style shows the old and the new document in two aligned columns, `-O redline.collapse=on` shows only the changes, and `--blame` adds the author, date and commit message of every changed block next to the page. It is made for reviews, approvals, audits and release notes of documents kept in git.
+
+```bash
+ope redline ./Policy --from-commit v1.0.0 --to-commit v1.1.0
+```
+
+<p align="center">
+  <a href="https://spenhouet.com/obsidian-pdf-exporter/redline/"><img src="https://raw.githubusercontent.com/Spenhouet/obsidian-pdf-exporter/2a14c57cb85f500739f991f4b57fa430861ef832/docs/img/redline/redline-three-up.png" alt="The same policy before and after a change, and the redline PDF with inserted, removed and changed text and change bars"></a>
+</p>
+
+Tags, branches, commit hashes and `HEAD~n` work as versions, two folders or notes on disk can be compared without git (`--from-path`), and the docs have GitHub Actions workflows that attach a redline to every pull request or release. See [Redline](https://spenhouet.com/obsidian-pdf-exporter/redline/).
 
 ## Documentation
 
