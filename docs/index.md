@@ -23,7 +23,7 @@ hide:
 
 ## Redline: every change, in the PDF
 
-<p class="ope-feature-pitch">One command turns two git commits of your notes into a tracked-changes PDF: inserted text in green, removed text struck through in red, in the layout of the real document. Made for reviews, approvals, audits and release notes of controlled documents.</p>
+<p class="ope-feature-pitch">One command turns two git commits of your notes into a tracked-changes PDF: inserted text underlined in blue, removed text struck through in red, in the layout of the real document or as two columns side by side, with the author of each change on request. Made for reviews, approvals, audits and release notes of controlled documents.</p>
 
 <picture>
   <source media="(max-width: 44.9375em)" srcset="img/redline/overview.png">

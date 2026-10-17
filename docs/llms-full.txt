@@ -21,7 +21,7 @@ Source: https://spenhouet.com/obsidian-pdf-exporter/
 
 ## Redline: every change, in the PDF
 
-<p class="ope-feature-pitch">One command turns two git commits of your notes into a tracked-changes PDF: inserted text in green, removed text struck through in red, in the layout of the real document. Made for reviews, approvals, audits and release notes of controlled documents.</p>
+<p class="ope-feature-pitch">One command turns two git commits of your notes into a tracked-changes PDF: inserted text underlined in blue, removed text struck through in red, in the layout of the real document or as two columns side by side, with the author of each change on request. Made for reviews, approvals, audits and release notes of controlled documents.</p>
 
 <picture>
   <source media="(max-width: 44.9375em)" srcset="img/redline/overview.png">
@@ -391,6 +391,12 @@ listed.
 obsidian_pdf_exporter/
 ├── core/
 │   ├── exporter.py         # export and redline: tree → markdown → HTML → PDF
+│   ├── redline.py          # redline: the block and word diff of two assembled documents
+│   ├── redline_html.py     # redline: summary, TOC marks, moves, change groups, styles
+│   ├── redline_side_by_side.py, redline_collapse.py  # the side-by-side style, collapse
+│   ├── blame.py            # --blame: match blocks to git blame, the strip next to the page
+│   ├── htmltree.py         # parse and write the HTML as a tree (lxml)
+│   ├── assets/             # CSS of the redline marks, side by side and the blame strip
 │   ├── assemble.py         # runs the markdown hooks on every page
 │   ├── pipeline.py         # the loops over the steps, one per stage
 │   ├── dialect.py          # layer 1: pandoc reader extensions and arguments
@@ -849,7 +855,9 @@ Generated content:
   folder there holds a `before/` and an `after/` version of a small vault.
   `uv run python scripts/render_redline_examples.py [case ...]` commits both
   into a temporary git repository (fixed dates, so the hashes do not
-  change), runs `ope redline` and writes the images. Commit them.
+  change), runs `ope redline` in both styles and writes the images. The
+  case `styles` renders `examples/_redline/_styles` in every combination
+  of style, collapse and `--blame`, plus whole pages. Commit the images.
 - `docs/llms.txt` and `docs/llms-full.txt` come from the pages. Run
   `uv run python scripts/gen_llms_txt.py` after adding or renaming a page.
   CI fails when they are out of date.
@@ -1268,6 +1276,7 @@ Builds one PDF from a vault folder. Git is not required. When the folder is in a
 | `-O KEY=VALUE`, `--option KEY=VALUE` | Pass key=value options to plugins / template (repeatable) |  |
 | `--disable-plugin NAME` | Skip the named Obsidian plugin (repeatable; see `list-plugins`) |  |
 | `--toc/--no-toc` | Include a table of contents at the start of the document | `--toc` |
+| `--blame` | Add a strip next to every page with the last commit that changed each block (author, date, message; details on hover) | off |
 | `--debug` | Keep the intermediate build directory for inspection | off |
 
 ```bash
@@ -1301,9 +1310,10 @@ Builds a tracked-changes PDF between two git commits. Must run inside the git re
 | `-o PATH`, `--output PATH` | Output PDF path (default: ./.export/&lt;title&gt;_redline.pdf) |  |
 | `-t TEXT`, `--title TEXT` | Document title (default: folder name) |  |
 | `--subtitle TEXT` | Document subtitle |  |
-| `-O KEY=VALUE`, `--option KEY=VALUE` | Pass key=value options to plugins / template (repeatable) |  |
+| `-O KEY=VALUE`, `--option KEY=VALUE` | Pass key=value options to plugins / template (repeatable), e.g. redline.style=side-by-side or redline.collapse=on |  |
 | `--disable-plugin NAME` | Skip the named Obsidian plugin (repeatable; see `list-plugins`) |  |
 | `--toc/--no-toc` | Include a table of contents at the start of the document | `--toc` |
+| `--blame` | Add a strip next to every page with the last commit that changed each block (author, date, message; details on hover) | off |
 | `--debug` | Keep the intermediate build directory for inspection | off |
 
 ```bash
@@ -3203,10 +3213,13 @@ Source: https://spenhouet.com/obsidian-pdf-exporter/redline/
 
 # Redline
 
-`ope redline` builds a tracked-changes PDF of a folder between two git commits. Inserted text is green and underlined, removed text is red and struck through, and the rest of the document is exactly as it is in the newer commit. A reader sees every change in context, in the same layout as the released PDF.
+`ope redline` builds a tracked-changes PDF of a folder between two git commits. Inserted text is blue and underlined, removed text is vermilion and struck through, moved text is purple, and a bar in the margin marks every change. The rest of the document is exactly as it is in the newer commit, so a reader sees every change in context, in the same layout as the released PDF.
 
 ```bash
 ope redline ./Policy --from-commit v1.0.0 --to-commit v1.1.0
+ope redline ./Policy --from-commit v1.0.0 -O redline.style=side-by-side   # old | new in two columns
+ope redline ./Policy --from-commit v1.0.0 -O redline.collapse=on          # only the changes
+ope redline ./Policy --from-commit v1.0.0 --blame                         # who changed what, and why
 ```
 
 ![Before, after and redline of a short policy, next to each other](../img/redline/redline-three-up.png)
@@ -3225,30 +3238,32 @@ A redline answers "what changed since the version I approved?" without a diff to
 1. Both commits are taken from git with `git archive`. Uncommitted changes in the working tree are not part of either version.
 2. Each version of the folder is assembled into one Markdown document with the same steps and plugins as `ope export`. Embeds are expanded, Dataview queries run and Meta Bind values are filled in, so the two documents are compared as they appear in the PDF.
 3. The two documents are split into blocks at blank lines (paragraphs, list blocks, tables, headings, code blocks) and the blocks are compared.
-4. An unchanged block is kept as it is. A block that changed is compared word by word, and in lists line by line, and gets inline `<ins>` and `<del>` marks. A block that only exists in one version is shown as a whole inserted or removed block.
-5. The result goes through the rest of the export (callouts, links, numbering, table of contents) and is laid out with the [`redline` template](styling.md).
+4. Blocks that are alike are paired. A paired block is compared word by word (lists item by item, tables cell by cell, code line by line) and gets inline `<ins>` and `<del>` marks. A block that only exists in one version is shown as a whole inserted or removed block, and a block that was removed in one place and inserted in another is shown as moved.
+5. The result goes through the rest of the export (callouts, links, numbering, table of contents). Then the change summary is added and the document is laid out in the chosen [style](styles.md), with the [`redline` template](styling.md).
 
 ## What the reader sees
 
 ![Redline of the example policy](../img/redline/overview.png)
 
-- Inserted words: green, underlined, on a light green background.
-- Removed words: red, struck through, on a light red background.
-- Inserted blocks: a green box with a green bar on the left.
-- Removed blocks: a red box with a red bar, all text struck through. A removed heading is shown as bold text, so it does not get a number and does not show up in the table of contents.
-- Changed headings: the word changes are shown in the heading and in the table of contents.
-- The subtitle and the version label show the two short commit hashes, for example `Redline: f240681 -> d1d04f5`.
+- A change summary after the title: the two versions, the number of changes of each kind, the changed sections with their page numbers and the commits in between.
+- Inserted words: blue with a double underline. Removed words: vermilion and struck through. A replaced passage shows the old words, then the new ones.
+- Inserted and removed blocks (paragraphs, list items, table rows, callouts, figures, code lines) are marked the same way as a whole; a removed figure is faded and labelled.
+- Moved text: purple, with a link from each end to the other.
+- A black bar in the left margin next to every group of changed blocks.
+- Changed headings show their word changes, also in the table of contents, which counts the changes per section, marks new sections and lists removed headings struck through. A changed heading level gets a small label.
+- The [side-by-side style](styles.md#side-by-side) shows the old and the new document in two aligned columns instead.
 
-Some kinds of change are not shown well yet, for example inserted table rows and changes inside code blocks. [What changes look like](changes.md) shows every case with a screenshot and links the open issues.
-
+[What changes look like](changes.md) shows every kind of change in both styles.
 ## In this section
 
 | Page | Content |
 | ---- | ------- |
 | [Usage](usage.md) | The command and every flag, default names, one document or a folder, and CI workflows. |
 | [Comparing versions](compare.md) | Tags, branches, commits and `HEAD~n`, releases, pull requests, the history of one note, and versions outside git. |
-| [What changes look like](changes.md) | Words, paragraphs, headings, lists, tables, callouts, images, embeds, properties and Dataview, each with a screenshot. |
-| [Styling the redline](styling.md) | The `redline` template, the elements and classes a redline emits, and how to restyle them. |
+| [Styles and options](styles.md) | Blackline and side by side, collapsing unchanged content and the blame strip, with every combination. |
+| [What changes look like](changes.md) | Words, paragraphs, headings, lists, tables, callouts, images, embeds, properties and Dataview, each in both styles. |
+| [Blame](blame.md) | The author, date and commit message of each block next to the page, for exports and redlines. |
+| [Styling the redline](styling.md) | The `redline` template, the classes and variables a redline uses, and how to restyle them. |
 | [Limitations and tips](limitations.md) | What a redline does not show, and how to get a clean one. |
 
 ---
@@ -3276,9 +3291,12 @@ ope redline ./Handbook --from-commit v1.0.0
 | `--to-commit REF` | `HEAD` | The newer version. |
 | `-o PATH`, `--output PATH` | `./.export/<title>_redline.pdf` | Where the PDF goes. `.export/` is made in the current folder. |
 | `-t TEXT`, `--title TEXT` | the folder name | Title on the first page and in the header. |
-| `--subtitle TEXT` | `Redline: <from> -> <to>` | Replaces the subtitle. The version label in the footer keeps the hashes. |
+| `--subtitle TEXT` | `Changes from <from> to <to>` | Replaces the subtitle. The version label in the footer keeps the hashes. |
 | `-T NAME\|PATH`, `--template NAME\|PATH` | `redline` | Another template, see [Styling the redline](styling.md). |
-| `-O KEY=VALUE`, `--option KEY=VALUE` | | Options for steps, plugins and the template, as for `export`. |
+| `-O redline.style=STYLE` | `blackline` | `blackline` or `side-by-side`, see [Styles and options](styles.md). |
+| `-O redline.collapse=on` | off | Show only the changes and the headings of their sections. |
+| `-O KEY=VALUE`, `--option KEY=VALUE` | | Other options for steps, plugins and the template, as for `export`. |
+| `--blame` | off | A strip next to every page with the author, date and commit message of each changed block, see [Blame](blame.md). |
 | `--disable-plugin NAME` | | Skip a plugin in both versions. |
 | `--toc/--no-toc` | `--toc` | Table of contents at the start. |
 | `--debug` | off | Keep the build folder `_build_<name>/` next to the PDF, with `redline_assembled.md` (the diffed Markdown) and `redline_final.html`. |
@@ -3291,17 +3309,16 @@ ope redline ./Handbook --from-commit v1.0.0
 
 ## Output name and title block
 
-Without `-o`, the PDF is `./.export/<title>_redline.pdf`, for example `.export/Handbook_redline.pdf`. With `--title "Team handbook"` it is `.export/Team handbook_redline.pdf`. With `.` as `ROOT` the name is `export_redline.pdf` ([#91](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/91)), so pass a title or `-o` there.
+Without `-o`, the PDF is `./.export/<title>_redline.pdf`, for example `.export/Handbook_redline.pdf`. With `--title "Team handbook"` it is `.export/Team handbook_redline.pdf`. With `.` as `ROOT` the title is the name of the current folder.
 
-The two commits are shown as short hashes, so a reader can find them in the history:
+The title block names the two versions as they were given, and the footer has the short hashes and the date:
 
 ```text
 Handbook
-Redline: 1a2b3c4 -> 5d6e7f8
-Redline: 1a2b3c4 -> 5d6e7f8 | 2026-04-01
+Changes from v1.0.0 to HEAD
 ```
 
-The second line is the subtitle, the third the version label and the date. `--subtitle "Changes since release 1.0"` replaces the second line. With the default subtitle, the range is shown twice ([#88](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/88)).
+`--subtitle "Changes since release 1.0"` replaces the second line. The change summary below the title lists both commits with their hashes, dates and authors, and the commits in between.
 
 ## One document or a whole folder
 
@@ -3516,47 +3533,197 @@ Two PDFs cannot be compared: ope reads the Markdown, not the PDF.
 
 ---
 
+Source: https://spenhouet.com/obsidian-pdf-exporter/redline/styles/
+
+# Styles and options
+
+A redline has two looks and two options that work with both:
+
+| Option | Values | What it does |
+| ------ | ------ | ------------ |
+| `-O redline.style=` | `blackline` (default), `side-by-side` | Changes marked in the text of the new version, or the old and the new document in two aligned columns. |
+| `-O redline.collapse=` | `off` (default), `on` | Show only the changes and the headings of their sections; each run of unchanged text becomes one line. |
+| `--blame` | off | A strip next to every page with the author, date and commit message of the last change of each block. See [Blame](blame.md). |
+
+```bash
+ope redline ./Policy --from-commit v1.0.0                                  # blackline
+ope redline ./Policy --from-commit v1.0.0 -O redline.style=side-by-side    # two columns
+ope redline ./Policy --from-commit v1.0.0 -O redline.collapse=on           # only the changes
+ope redline ./Policy --from-commit v1.0.0 --blame                          # who changed what
+```
+
+Every redline starts with a change summary after the title: the two versions with their commits, dates and authors, the number of replaced, inserted, deleted and moved passages and of other changes (formatting, link targets, heading levels, tasks), the changed sections with their page numbers, and the commits between the two versions. The table of contents shows the number of changes next to each changed section, marks new sections with "new" and lists removed headings struck through.
+
+## Blackline
+
+The default. The document is the new version, with every change marked where it happened:
+
+- Inserted text is blue with a double underline, removed text vermilion and struck through. A replaced passage shows the old words followed by the new ones.
+- Moved text is purple: struck through where it was, underlined where it is now. A label at each end names the section of the other end and links to it.
+- A black bar in the left margin marks every group of changed blocks.
+- Formatting changes, link targets, task states and heading levels get a dotted underline or a small label.
+
+The colours are chosen so that inserted and removed text stay apart for readers with red-green colour blindness, and every change also has a form that survives greyscale printing (underline, strike-through, bar).
+
+![First page of a blackline redline with the change summary](../img/redline/page-blackline.png)
+
+## Side by side
+
+The old and the new document in two columns on landscape pages. Every block of the document sits on its own row, so the old and the new version of a paragraph, a list item or a table always start at the same height. A block that exists in only one version faces a hatched gap ("not in the old version", "deleted", "moved"). Every list item has a row of its own, so a long list stays aligned and can break between pages.
+
+A thin bar between the columns marks the rows that changed; a moved block has a dashed purple bar. Word changes are marked in both columns: removed words in the old column, inserted words in the new one.
+
+![First page of a side-by-side redline](../img/redline/page-side-by-side.png)
+
+## Collapse unchanged content
+
+With `-O redline.collapse=on` the redline shows only what changed. The heading of every section that contains a change stays, so the reader knows where a change is. Each run of unchanged blocks becomes one quiet line, for example "⋯ 2 paragraphs unchanged ⋯" or "⋯ unchanged: 4 Contact (1 paragraph) ⋯". Inside a changed list or table, a run of unchanged items or rows is collapsed the same way. Links from the table of contents and the summary to collapsed headings still work: they point to the collapsed line.
+
+In the side-by-side style every row shown is a change, so the bar between the columns is left out.
+
+## Every combination
+
+The example below is a short policy with changed list items, a table with a new row, a changed paragraph and two sections that did not change. The version before was written by one author, the change by another, so the blame strip has two names.
+
+Before:
+
+````markdown
+## Scope
+
+This policy applies to all laptops of the team. It covers how devices are handed out, used and returned.
+
+## Rules
+
+- Lock the screen when you leave the desk.
+- Install updates once a week.
+- Use the password manager for all accounts.
+- Store work files on the shared drive.
+- Report a lost device within one day.
+
+## Devices
+
+| Device | Owner      | Review |
+| ------ | ---------- | ------ |
+| Laptop | IT team    | yearly |
+| Phone  | Each user  | yearly |
+
+## Contact
+
+Questions go to the service desk. The service desk answers within one working day.
+
+## Exceptions
+
+Test devices are exempt from the update rule.
+````
+
+After:
+
+````markdown
+## Scope
+
+This policy applies to all laptops of the team. It covers how devices are handed out, used and returned.
+
+## Rules
+
+- Lock the screen when you leave the desk.
+- Install updates once a month.
+- Use the password manager for all accounts.
+- Store work files on the shared drive.
+- Report a lost or stolen device within one hour.
+- Ask the service desk when in doubt.
+
+## Devices
+
+| Device | Owner      | Review    |
+| ------ | ---------- | --------- |
+| Laptop | IT team    | quarterly |
+| Phone  | Each user  | yearly    |
+| Tablet | IT team    | yearly    |
+
+## Contact
+
+Questions go to the service desk. The service desk answers within one working day.
+
+## Exceptions
+
+Test devices in the lab are exempt from the update rule. They must not hold customer data.
+````
+
+Redline PDF:
+
+=== "Blackline"
+
+    ![Blackline redline of the example](../img/redline/styles-blackline-full-noblame.png)
+
+=== "Blackline, collapsed"
+
+    ![Blackline redline with the unchanged sections collapsed](../img/redline/styles-blackline-collapse-noblame.png)
+
+=== "Blackline, blame"
+
+    ![Blackline redline with the blame strip](../img/redline/styles-blackline-full-blame.png)
+
+=== "Blackline, collapsed, blame"
+
+    ![Collapsed blackline redline with the blame strip](../img/redline/styles-blackline-collapse-blame.png)
+
+=== "Side by side"
+
+    ![Side-by-side redline of the example](../img/redline/styles-side-by-side-full-noblame.png)
+
+=== "Side by side, collapsed"
+
+    ![Side-by-side redline with the unchanged sections collapsed](../img/redline/styles-side-by-side-collapse-noblame.png)
+
+=== "Side by side, blame"
+
+    ![Side-by-side redline with the blame strip](../img/redline/styles-side-by-side-full-blame.png)
+
+=== "Side by side, collapsed, blame"
+
+    ![Collapsed side-by-side redline with the blame strip](../img/redline/styles-side-by-side-collapse-blame.png)
+
+## Which one to use
+
+- Blackline for review and approval of a new release: the reader sees the final text with every change in place, in the layout of the released document.
+- Side by side when the old wording matters as much as the new one, for example for contracts, specifications or translated texts, and for tables and code that are easier to compare in two columns.
+- Collapse for long documents with few changes, and for change requests where only the changes need a decision.
+- Blame when a reviewer needs to know who changed a passage and why; the commit message says why.
+
+---
+
 Source: https://spenhouet.com/obsidian-pdf-exporter/redline/changes/
 
 # What changes look like
 
-Each case below shows the note in the older commit, the note in the newer commit and the redline PDF made from the two with the built-in `redline` template. The examples live in [`examples/_redline/`](https://github.com/Spenhouet/obsidian-pdf-exporter/tree/main/examples/_redline), and `scripts/render_redline_examples.py` makes the pictures from them in a temporary git repository.
-
-The pictures show the current design of the `redline` template, which is being reworked; the marks and boxes may look different after that.
-
-Some cases do not come out well yet. They are marked below with a warning and a link to the issue. The pictures show the current behaviour, not the intended one.
+Each case below shows the note in the older commit, the note in the newer commit and the redline PDF made from the two with the built-in `redline` template, in the blackline style and in the [side-by-side style](styles.md#side-by-side). The examples live in [`examples/_redline/`](https://github.com/Spenhouet/obsidian-pdf-exporter/tree/main/examples/_redline), and `scripts/render_redline_examples.py` makes the pictures from them in a temporary git repository. The change summary at the start of every redline is left out of these pictures; [Styles and options](styles.md) shows it.
 
 ## Summary
 
-| Change | Shown as | Status |
-| ------ | -------- | ------ |
-| Words inside a paragraph | Inline `<del>` and `<ins>` | Good |
-| Paragraph inserted or removed | Green or red block | Good |
-| Paragraph changed and a new one right after it | Whole block removed and inserted | [#89](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/89) |
-| Paragraph replaced by a different one | Word-level mix | [#82](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/82) |
-| Heading text | Inline marks, also in the table of contents | Good |
-| Heading inserted or removed | Green block, or red bold text outside the table of contents | Good |
-| Heading level | Not shown | [#86](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/86) |
-| List item changed, inserted or removed, also nested | Inline marks per item | Good, see [#89](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/89) for neighbouring changes |
-| Table cell | Inline marks in the cell | Good |
-| Table row inserted or removed, column width changed | The table breaks | [#80](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/80) |
-| Callout text | Inline marks in the callout | Good |
-| Callout inserted or removed | Title and body in separate boxes | [#83](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/83) |
-| Image replaced | Both images, unmarked | [#84](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/84) |
-| Embedded note changed | Inline marks in the embedded text | Good |
-| Moved paragraph | Removed at the old place, inserted at the new one | Good |
-| Code block, Mermaid diagram | `<del>` and `<ins>` as literal text | [#81](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/81) |
-| Meta Bind value | Inline marks | Good |
-| Property that is not shown in the text | Not shown | By design |
-| Dataview result | Inline marks in the cells; a new or removed row breaks the table | [#80](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/80) |
-| Task checked | Brackets as text | [#85](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/85) |
-| Footnote text | Marks in the footnote area, plus empty boxes | [#87](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/87) |
+| Change | Blackline | Side by side |
+| ------ | --------- | ------------ |
+| Words inside a paragraph | Removed words struck through, inserted words underlined | The same marks, old words left, new words right |
+| Paragraph inserted or removed | The whole paragraph marked | The paragraph faces a gap |
+| Paragraph replaced by a different one | Removed paragraph, then inserted paragraph | Old and new paragraph on one row |
+| Paragraph moved | Purple at both places, each linked to the other | Purple, each facing a "moved" gap |
+| Heading text | Word marks, also in the table of contents | Old and new heading on one row |
+| Heading inserted or removed | Marked heading; a removed heading stays out of the numbering and is listed struck through in the table of contents | Faces a gap |
+| Heading level | "level 2 → 3" label | The same label |
+| List item changed, inserted, removed, reordered | Marks per item; a reordered item is shown as moved | One row per item |
+| Task checked or unchecked | The new checkbox with a "now checked" label | Old and new checkbox |
+| Table cell, row, column | Marks per cell; inserted and removed rows and an added column marked as a whole | Old and new table on one row |
+| Callout text, callout inserted or removed | Marks inside the callout; a whole callout marked as one block | Old and new callout on one row |
+| Image or diagram replaced | Removed figure faded and labelled, inserted figure labelled | Old and new figure on one row |
+| Code block | Changed lines: the old line struck through, then the new line | Old code left, new code right |
+| Embedded note, Meta Bind value, Dataview result | Marked where they appear in the PDF | The same |
+| Property that is not shown in the text | Not shown | Not shown |
+| Footnote text | Marks in the footnote | The old footnote inline in the old column |
 
 ## Text
 
 ### Words inside a paragraph
 
-Inserted words are green and underlined, removed words red and struck through. A replaced word is shown as the old word followed by the new one. Words are split at spaces, so a full stop or comma belongs to the word before it and is replaced together with it.
+Inserted words are blue with a double underline, removed words vermilion and struck through. A replaced word is shown as the old word followed by the new one. Neighbouring changes that are only split by a short word are joined into one, so a rewritten phrase reads as one replacement. Words are split at spaces, so a full stop or comma belongs to the word before it.
 
 Before:
 
@@ -3572,11 +3739,17 @@ Updates are installed once a month by the IT team. A lost or stolen device is re
 
 Redline PDF:
 
-![Word insertions, removals and replacements in one paragraph](../img/redline/words.png)
+=== "Blackline"
+
+    ![Word insertions, removals and replacements in one paragraph](../img/redline/words.png)
+
+=== "Side by side"
+
+    ![Word insertions, removals and replacements in one paragraph, side by side](../img/redline/words-side-by-side.png)
 
 ### Inserted and removed paragraphs
 
-A paragraph that is only in one version is a block of its own: green with a bar for inserted, red and struck through for removed.
+A paragraph that is only in one version is marked as a whole: underlined when it is inserted, struck through when it is removed. The bar in the margin marks the group of changed blocks.
 
 Before:
 
@@ -3600,11 +3773,17 @@ The contacts meet once per quarter to review this policy.
 
 Redline PDF:
 
-![A removed paragraph in red and an inserted paragraph in green](../img/redline/blocks.png)
+=== "Blackline"
+
+    ![A removed and an inserted paragraph](../img/redline/blocks.png)
+
+=== "Side by side"
+
+    ![A removed and an inserted paragraph, side by side](../img/redline/blocks-side-by-side.png)
 
 ### Moved text
 
-There is no separate mark for moved text. A paragraph that moved is removed at its old place and inserted at its new place, so the reader sees both.
+A paragraph that was removed in one place and inserted in another with the same or nearly the same text is shown as moved: purple and struck through where it was, purple and underlined where it is now. A label at each end names the section of the other end, with its page, and links to it. When the moved text was also edited, the new place shows the word changes too.
 
 Before:
 
@@ -3632,14 +3811,17 @@ Paragraph one sets the scope of the policy.
 
 Redline PDF:
 
-![A moved paragraph, removed at the top and inserted at the bottom](../img/redline/moved.png)
+=== "Blackline"
+
+    ![A moved paragraph, marked at its old and its new place](../img/redline/moved.png)
+
+=== "Side by side"
+
+    ![A moved paragraph, marked at its old and its new place, side by side](../img/redline/moved-side-by-side.png)
 
 ### Replaced paragraphs
 
-!!! warning "Known issue #82"
-    A paragraph that is replaced by a different one at the same place is word-diffed even when the two have little in common. The result is a mix of removed and inserted words that is hard to read. The same happens when two neighbouring paragraphs swap places. See [#82](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/82).
-
-    When a changed paragraph is directly followed or preceded by an inserted or removed one, the changed paragraph is shown as a whole removed and inserted block instead of word by word. See [#89](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/89).
+Blocks are only compared word by word when they are alike: at least half of their words match. A paragraph replaced by one with a different content is shown as a removed paragraph followed by an inserted one, not as a mix of single words. A changed paragraph next to an inserted or removed one is still compared word by word.
 
 Before:
 
@@ -3667,13 +3849,19 @@ The policy is reviewed every year.
 
 Redline PDF:
 
-![A rewritten sentence shown as a word-level mix](../img/redline/replaced.png)
+=== "Blackline"
+
+    ![A replaced paragraph shown as removed and inserted](../img/redline/replaced.png)
+
+=== "Side by side"
+
+    ![A replaced paragraph shown as removed and inserted, side by side](../img/redline/replaced-side-by-side.png)
 
 ## Headings
 
 ### Changed, inserted and removed headings
 
-A changed heading keeps its place and number and shows the word changes, also in the table of contents. An inserted heading is a green block and gets a number. A removed heading is turned into bold text inside the red block, so it gets no number, does not shift the numbering of the following sections and does not show up in the table of contents.
+A changed heading keeps its place and number and shows the word changes, also in the table of contents. An inserted heading is marked and gets a number; the table of contents marks it "new". A removed heading is shown struck through but is not a heading any more, so it gets no number, does not shift the numbering of the following sections, and is listed struck through, as "removed", in the table of contents.
 
 Before:
 
@@ -3709,12 +3897,17 @@ The policy is reviewed every year.
 
 Redline PDF:
 
-![Table of contents and headings with a changed, a removed and an inserted heading](../img/redline/headings.png)
+=== "Blackline"
+
+    ![Table of contents and headings with a changed, a removed and an inserted heading](../img/redline/headings.png)
+
+=== "Side by side"
+
+    ![Table of contents and headings with a changed, a removed and an inserted heading, side by side](../img/redline/headings-side-by-side.png)
 
 ### Heading level
 
-!!! warning "Known issue #86"
-    A heading that changes its level and keeps its text is not marked. The numbers of the heading and of the headings below it change without a mark. Here "Duties" moved from level 2 to level 3, which makes it 1.1 instead of 2. See [#86](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/86).
+A heading that changes its level keeps its text and gets a small label with the old and the new level. The numbers of the heading and of the headings below it change with it.
 
 Before:
 
@@ -3750,15 +3943,19 @@ Updates are installed once a month.
 
 Redline PDF:
 
-![Headings renumbered without any mark](../img/redline/heading-level.png)
+=== "Blackline"
+
+    ![A heading with a level change label](../img/redline/heading-level.png)
+
+=== "Side by side"
+
+    ![A heading with a level change label, side by side](../img/redline/heading-level-side-by-side.png)
 
 ## Lists and tasks
 
 ### List items
 
-Lists are compared line by line, so each item keeps its marker and its place. A changed item shows the word changes, an inserted item is green and a removed item stays in place, struck through. Nested items work the same way.
-
-The numbers of an ordered list come from the newer version, so a removed item shifts the numbers below it. When several neighbouring lines change at once, they are shown as whole removed and inserted items, as with "Sign the form." here ([#89](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/89)).
+Lists are compared item by item, so each item keeps its marker and its place. Items are paired by similarity, so a changed item next to an inserted or removed one is still compared word by word. An item that only changed its place in the list is shown as moved. Nested items work the same way. The numbers of an ordered list come from the newer version.
 
 Before:
 
@@ -3791,12 +3988,17 @@ After:
 
 Redline PDF:
 
-![Changed, inserted and removed items in a bullet list, a nested list and a numbered list](../img/redline/lists.png)
+=== "Blackline"
+
+    ![Changed, inserted, removed and moved items in a bullet list, a nested list and a numbered list](../img/redline/lists.png)
+
+=== "Side by side"
+
+    ![Changed, inserted, removed and moved items in a bullet list, a nested list and a numbered list, side by side](../img/redline/lists-side-by-side.png)
 
 ### Tasks
 
-!!! warning "Known issue #85"
-    Checking or unchecking a task shows the brackets as text instead of a checkbox. See [#85](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/85).
+A task that was checked or unchecked keeps its checkbox, which shows the new state, and gets a "now checked" or "now unchecked" label.
 
 Before:
 
@@ -3814,13 +4016,19 @@ After:
 
 Redline PDF:
 
-![A checked task shown as struck-through and inserted brackets](../img/redline/tasks.png)
+=== "Blackline"
+
+    ![A checked task with a now checked label](../img/redline/tasks.png)
+
+=== "Side by side"
+
+    ![A checked task with a now checked label, side by side](../img/redline/tasks-side-by-side.png)
 
 ## Tables
 
 ### Table cells
 
-When the rows and the column widths stay the same, a changed cell shows the word changes inside the table.
+A changed cell shows the word changes inside the table. Padding and column widths in the Markdown source do not matter.
 
 Before:
 
@@ -3842,12 +4050,17 @@ After:
 
 Redline PDF:
 
-![A table with two changed cells](../img/redline/table-cells.png)
+=== "Blackline"
+
+    ![A table with two changed cells](../img/redline/table-cells.png)
+
+=== "Side by side"
+
+    ![A table with two changed cells, side by side](../img/redline/table-cells-side-by-side.png)
 
 ### Table rows
 
-!!! warning "Known issue #80"
-    An inserted or removed row, or a column that gets wider in the Markdown source, breaks the table: the marks cross the cell borders and the rows come out as text with pipes. Until this is fixed, keep the column widths of the source unchanged (pad the cells) when a table changes, or review table changes in the normal export. See [#80](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/80).
+Tables are compared row by row and cell by cell. An inserted row is underlined as a whole, a removed row stays in place struck through, and a column that was added is marked in every cell. The table stays a table, also when the source columns get wider.
 
 Before:
 
@@ -3870,7 +4083,13 @@ After:
 
 Redline PDF:
 
-![A table that broke into text after a row was added](../img/redline/table-rows.png)
+=== "Blackline"
+
+    ![A table with a changed cell and an inserted row](../img/redline/table-rows.png)
+
+=== "Side by side"
+
+    ![A table with a changed cell and an inserted row, side by side](../img/redline/table-rows-side-by-side.png)
 
 ## Callouts
 
@@ -3894,12 +4113,17 @@ After:
 
 Redline PDF:
 
-![A callout with a changed word](../img/redline/callout-text.png)
+=== "Blackline"
+
+    ![A callout with a changed word](../img/redline/callout-text.png)
+
+=== "Side by side"
+
+    ![A callout with a changed word, side by side](../img/redline/callout-text-side-by-side.png)
 
 ### Inserted and removed callouts
 
-!!! warning "Known issue #83"
-    An inserted or removed callout, or one whose title and body both change, is split: the title and the body end up in separate boxes. See [#83](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/83).
+A callout that is only in one version is marked as a whole, title and body together.
 
 Before:
 
@@ -3921,14 +4145,19 @@ Text between the callouts.
 
 Redline PDF:
 
-![A removed and an inserted callout with the title and the body in separate boxes](../img/redline/callout-blocks.png)
+=== "Blackline"
+
+    ![A removed and an inserted callout](../img/redline/callout-blocks.png)
+
+=== "Side by side"
+
+    ![A removed and an inserted callout, side by side](../img/redline/callout-blocks-side-by-side.png)
 
 ## Images and embeds
 
 ### Images
 
-!!! warning "Known issue #84"
-    A replaced image is not marked. Both the old and the new image are shown, one after the other, without a red or green mark, and with a size such as `|300` the attributes of the images show up as text. Name the change in the text next to the image so the reader notices it. See [#84](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/84).
+A replaced image is shown twice: the old one faded under a "Removed figure" label with its file name, the new one under an "Inserted figure" label. Size attributes such as `|300` are kept. A changed Mermaid diagram is shown the same way, with both drawings.
 
 Before:
 
@@ -3948,7 +4177,13 @@ The drawing shows the three shapes.
 
 Redline PDF:
 
-![The old and the new image, both unmarked, with attribute text below](../img/redline/images.png)
+=== "Blackline"
+
+    ![A removed figure, faded, and an inserted figure](../img/redline/images.png)
+
+=== "Side by side"
+
+    ![A removed figure, faded, and an inserted figure, side by side](../img/redline/images-side-by-side.png)
 
 ### Embedded notes
 
@@ -3970,28 +4205,21 @@ Every account follows the shared rule:
 ![[Password rule]]
 ````
 
-Shared/Password rule.md before:
-
-````markdown
-Passwords have at least 12 characters and are never reused.
-````
-
-Shared/Password rule.md after:
-
-````markdown
-Passwords have at least 16 characters and are never reused.
-````
-
 Redline PDF:
 
-![A changed number in the embedded text](../img/redline/embeds.png)
+=== "Blackline"
+
+    ![A changed number in the embedded text](../img/redline/embeds.png)
+
+=== "Side by side"
+
+    ![A changed number in the embedded text, side by side](../img/redline/embeds-side-by-side.png)
 
 ## Code
 
 ### Code blocks
 
-!!! warning "Known issue #81"
-    A change inside a fenced code block shows the `<del>` and `<ins>` tags as literal text, because code is not parsed as HTML. See [#81](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/81).
+A changed code block is compared line by line. A changed line is shown twice, the old line with the removed characters struck through and the new line with the inserted ones underlined. Inserted and removed lines are marked as a whole.
 
 Before:
 
@@ -4015,7 +4243,13 @@ lock_after_minutes: 5
 
 Redline PDF:
 
-![A code block with literal del and ins tags](../img/redline/code.png)
+=== "Blackline"
+
+    ![A code block with an old and a new line](../img/redline/code.png)
+
+=== "Side by side"
+
+    ![A code block with an old and a new line, side by side](../img/redline/code-side-by-side.png)
 
 ## Properties and plugins
 
@@ -4047,14 +4281,17 @@ This is version `VIEW[{version}][text]` of the policy, owned by `VIEW[{owner}][t
 
 Redline PDF:
 
-![Changed version and owner values from Meta Bind fields](../img/redline/properties.png)
+=== "Blackline"
+
+    ![Changed version and owner values from Meta Bind fields](../img/redline/properties.png)
+
+=== "Side by side"
+
+    ![Changed version and owner values from Meta Bind fields, side by side](../img/redline/properties-side-by-side.png)
 
 ### Dataview
 
-Dataview queries run on each version of the vault before the comparison, so the result table is compared like a normal table: changed values are marked in their cells.
-
-!!! warning "Known issue #80"
-    In this example `Alpha` changed to `done` and `Gamma` was added. The changed value and the result count are marked, but the new row breaks the table, as for [table rows](#table-rows) ([#80](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/80)).
+Dataview queries run on each version of the vault before the comparison, so the result table is compared like any table: changed values are marked in their cells, and a note that now matches the query is an inserted row.
 
 Before:
 
@@ -4076,46 +4313,21 @@ SORT file.name ASC
 ```
 ````
 
-Projects/Alpha.md before:
-
-````markdown
----
-owner: Anna
-status: active
----
-The Alpha project.
-````
-
-Projects/Alpha.md after:
-
-````markdown
----
-owner: Anna
-status: done
----
-The Alpha project.
-````
-
-Projects/Gamma.md after (new):
-
-````markdown
----
-owner: Chris
-status: active
----
-The Gamma project.
-````
-
 Redline PDF:
 
-![A Dataview table with the changed status and count marked and the new row](../img/redline/dataview.png)
+=== "Blackline"
+
+    ![A Dataview table with a changed status and an inserted row](../img/redline/dataview.png)
+
+=== "Side by side"
+
+    ![A Dataview table with a changed status and an inserted row, side by side](../img/redline/dataview-side-by-side.png)
 
 ## Footnotes
 
 ### Footnote text
 
-!!! warning "Known issue #87"
-    A changed footnote is shown in the footnote area at the bottom of the page: the old note struck through, the new one inserted, each with its own number. In the text, two empty colored boxes are left where the definitions were. See [#87](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/87).
+A changed footnote shows the word changes in the footnote at the bottom of the page.
 
 Before:
 
@@ -4135,7 +4347,76 @@ Passwords have at least 16 characters.[^1]
 
 Redline PDF:
 
-![A changed footnote with two empty boxes in the text](../img/redline/footnotes.png)
+=== "Blackline"
+
+    ![A footnote with changed words](../img/redline/footnotes.png)
+
+=== "Side by side"
+
+    ![A footnote with changed words, side by side](../img/redline/footnotes-side-by-side.png)
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/redline/blame/
+
+# Blame
+
+`--blame` adds a strip to the right of every page that says, for each block of the page, who changed it last, when and why:
+
+```text
+Sam Sample · 2026-03-30 · Revise the review procedure and move the training text
+```
+
+```bash
+ope export ./Policy --blame                              # every block of the current version
+ope redline ./Policy --from-commit v1.0.0 --blame        # the blocks changed since v1.0.0
+```
+
+The page itself is exactly the page of the same command without `--blame`: same size, margins, layout and page breaks, with links and bookmarks. The strip is added outside of it, so the PDF page gets wider and the edge of the document page stays visible. It works with every template, also with your own.
+
+![An export with the blame strip](../img/redline/page-blame-export.png)
+
+## What the strip shows
+
+- One line of text per block (paragraph, list item, table row, heading, code block, figure), at the height of the first line of the block: the author's name, the date of the commit (`YYYY-MM-DD`) and the first line of the commit message. A line that is too long for the strip is cut with "…".
+- In an export, every block gets a line. A block that comes from the same commit as the block above it shows a faint ″ (ditto) instead of repeating the line.
+- In a redline, only the blocks that changed between the two versions get a line, in a darker grey. That is the blame of the newer version, limited to the commits between `--from-commit` and `--to-commit`. Removed blocks have no line: they are not in the newer version.
+- A short key at the top of the first strip says what the lines mean.
+
+![A redline with the blame strip](../img/redline/page-blame-redline.png)
+
+## Details on hover
+
+Each line carries the full details of its commit: the author's name and email, the date and time with the time zone, the full commit hash and the full commit message. They show as a tooltip when the pointer rests on the line, in viewers that show tooltips of PDF form fields:
+
+| Viewer | Tooltip |
+| ------ | ------- |
+| Firefox and other viewers built on pdf.js | Yes (tested) |
+| Adobe Acrobat and Acrobat Reader | Yes (field tooltips per the PDF specification, not tested here) |
+| Okular | Likely (shows field tooltips, not tested here) |
+| Chrome and Edge built-in viewer | No tooltip seen |
+| macOS Preview, Evince | No |
+
+The tooltip is the alternate name (`/TU`) of an invisible, read-only push button over each line. It draws nothing and prints nothing. The PDF therefore contains form fields, and some viewers mention that when they open it. Viewers without tooltips still show the line itself.
+
+## How blocks are matched to commits
+
+The HTML of the PDF does not know which line of a note it came from, because steps and plugins rewrite the Markdown (links, embeds, callouts, Meta Bind fields). `--blame` therefore matches by text:
+
+1. Every Markdown file in the exported folder is read with `git blame` (the working tree for an export, the `--to-commit` for a redline). Each source line is reduced to its words, without markup.
+2. Each block of the rendered document is matched to the source lines that share most of its word triplets. A paragraph that spans several source lines is matched to all of them.
+3. The block gets the newest commit of its matched lines.
+4. A block that matches nothing gets no line. A block without a match between two blocks of the same commit belongs to that commit.
+
+The log of the command shows how many blocks matched, for example `Blame: 97% of the blocks matched a source line`.
+
+## Limits
+
+- Values that come from elsewhere do not show their commit. A Meta Bind value shows the commit of the line that holds the field, not the commit that changed the property; a Dataview table shows the commit of the query, not of the notes it reads.
+- Embedded notes from outside the exported folder are not blamed, so their blocks have no line.
+- Text that occurs in several notes is matched to the note that explains most of it.
+- Lines that are not committed yet are shown as "Not committed yet" in an export.
+- The strip makes the PDF larger, because every page gets a second content stream and its lines.
 
 ---
 
@@ -4143,59 +4424,74 @@ Source: https://spenhouet.com/obsidian-pdf-exporter/redline/styling/
 
 # Styling the redline
 
-`ope redline` uses the built-in `redline` template unless `-T` names another one. It has the layout of `default` (A4, header and footer, title block, table of contents) and adds the styles for the marks.
+`ope redline` uses the built-in `redline` template unless `-T` names another one. The template sets the page, the type and the header and footer, like `default`. The change marks, the change summary, the table-of-contents marks, the side-by-side layout and the collapsed lines come from ope itself: their CSS is added before the CSS of the template, so they work with every template and any template can restyle them.
 
-!!! note "Current design"
-    The pictures in this section show the current look of the `redline` template. A new design is being worked on, so the colours and boxes may change. The elements and classes below are what a template styles.
+## Colours
+
+The colours are CSS variables on `:root`. Override them in your template:
+
+| Variable | Default | Used for |
+| -------- | ------- | -------- |
+| `--rl-ins` | `#0b57b0` | Inserted text and blocks |
+| `--rl-del` | `#b23a12` | Removed text and blocks |
+| `--rl-move` | `#6b3d9a` | Moved text, move labels and the bar of moved rows |
+| `--rl-fmt` | `#8a5a00` | Formatting and link changes, level and task labels |
+| `--rl-bar` | `#26292d` | Change bars |
+| `--rl-ins-bg`, `--rl-del-bg` | light blue, light red | "new" and "removed" marks in the table of contents |
+| `--rl-grey`, `--rl-quiet`, `--rl-dark`, `--rl-light`, `--rl-mid` | greys | Labels, collapsed lines, summary |
 
 ## What a redline emits
 
-On top of the HTML of a normal export, a redline has:
-
 | Element or selector | What it is |
 | ------------------- | ---------- |
-| `ins` | Inserted words inside a changed block, also in a heading and in the table of contents (`nav#TOC ins`). |
-| `del` | Removed words inside a changed block. `~~strikethrough~~` in the notes is also a `del`. |
-| `div.redline-ins` | A block that is only in the newer version: a paragraph, a list, a heading, a table. |
-| `div.redline-del` | A block that is only in the older version. A heading inside it is turned into `strong`, so it gets no number and stays out of the table of contents. |
-| `header#title-block-header .subtitle` | The subtitle, by default `Redline: <from> -> <to>`. |
+| `ins`, `del` | Inserted and removed words, also in headings and in the table of contents. `~~strikethrough~~` in the notes is also a `del`. |
+| `ins.rl-moved`, `del.rl-moved` | A list item that moved within its list. |
+| `span.rl-fmt` | Text whose formatting changed (`data-rl-fmt`, for example `bold added`). |
+| `span.rl-link` | A link whose target changed (`data-old-href`, `data-new-href`). |
+| `span.rl-level` | Label of a heading whose level changed (`data-old-level`, `data-new-level`). |
+| `li.rl-li-task`, `span.rl-task` | A task that was checked or unchecked (`data-rl-task`). |
+| `div.rl-block` | A changed block, with `rl-ins`, `rl-del`, `rl-mod` (changed in place), `rl-move-from` or `rl-move-to`, and `data-rl-kind` (`para`, `list`, `table`, `code`, `image`, `callout`, `heading`, `quote`). |
+| `div.rl-heading` | A removed heading (a `div`, so it is not numbered), with `data-level`. |
+| `h1.rl-ins` … `h6.rl-ins`, `h1.rl-mod` … | An inserted or changed heading. |
+| `tr.rl-tr-ins`, `tr.rl-tr-del`, `tr.rl-tr-mod`, `td.rl-col-ins`, `th.rl-col-ins` | Changed table rows and an added column. |
+| `li.rl-li-ins`, `li.rl-li-del`, `li.rl-li-mod`, `li.rl-li-move-from`, `li.rl-li-move-to` | Changed list items. |
+| `pre.rl-code`, `span.rl-line`, `.rl-line-ins`, `.rl-line-del` | A changed code block, one span per line. |
+| `div.rl-hunk` | A group of neighbouring changed blocks; it carries the change bar in the blackline style. |
+| `.rl-move-label`, `.rl-img-label` | Labels of moved blocks and of removed or inserted figures. |
+| `section.rl-summary` | The change summary (`.rl-tiles`, `table.rl-sections`, `table.rl-commits`). |
+| `.rl-toc-mark`, `.rl-toc-mark-new`, `.rl-toc-mark-del`, `li.rl-toc-removed` | Marks in the table of contents. |
+| `.rl-ctx`, `li.rl-ctx-item`, `tr.rl-ctx-row` | Collapsed lines (`-O redline.collapse=on`). |
+| `body.rl-blackline`, `body.rl-side-by-side`, `body.rl-collapse` | The style and the collapse option, on `body`. |
 
-Figures and tables are not moved to landscape pages in a redline. WeasyPrint supports `:has()`, so a paragraph or list item that holds a change can be styled too, for example `p:has(ins, del)`.
+The side-by-side style puts the text in `table.rl-sbs`, one `tr.rl-sbs-row` per block with `td.rl-sbs-old`, `td.rl-sbs-gutter` and `td.rl-sbs-new`. The row has the kind of change as `rl-sbs-equal`, `rl-sbs-mod`, `rl-sbs-ins`, `rl-sbs-del`, `rl-sbs-move-from`, `rl-sbs-move-to` or `rl-sbs-ctx`; an empty side is `td.rl-empty` with a `div.rl-gap`. Side-by-side pages are landscape (`@page { size: landscape }`, added after the template).
 
-The colours of the `redline` template are custom properties on `:root`: `--color-ins-bg`, `--color-ins-text`, `--color-del-bg` and `--color-del-text`. The full CSS is [`redline.css`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/obsidian_pdf_exporter/templates/builtin/redline/redline.css).
+The full CSS is in [`core/assets/`](https://github.com/Spenhouet/obsidian-pdf-exporter/tree/main/obsidian_pdf_exporter/core/assets). To check what was emitted, run with `--debug` and open `redline_final.html` in the build folder next to the PDF.
 
 ## Restyle the redline
 
-Start from a copy of `redline.css`, change or add rules at the end, and pass the file with `-T`:
+Add rules to a template. A single CSS file is enough:
+
+```css title="my-redline.css"
+:root { --rl-ins: #006d3c; --rl-del: #a4161a; --rl-bar: #6b46c1; }
+ins { text-decoration: underline; }                 /* single instead of double underline */
+.rl-blackline .rl-hunk { border-left-width: 3pt; }   /* a thicker change bar */
+```
 
 ```bash
-curl -sL -o my-redline.css https://raw.githubusercontent.com/Spenhouet/obsidian-pdf-exporter/main/obsidian_pdf_exporter/templates/builtin/redline/redline.css
-cat >> my-redline.css <<'CSS'
-:root { --color-ins-text: #0b4f9c; --color-ins-bg: #e3eefb; }
-p:has(ins, del) { border-left: 2pt solid #6b46c1; margin-left: -5mm; padding-left: 4mm; }
-CSS
 ope redline ./Policy --from-commit v1.0.0 -T ./my-redline.css
 ```
 
 A single CSS file or a [template folder](../templating/folders.md) does not get the header and footer of `redline`, which come from Python. Write them in `page.css` as described in [Header and footer](../templating/header-footer.md), or keep them by subclassing `RedlineTemplate` in a [Python template](../templating/python.md#extend-a-built-in-template) and adding CSS in `get_css()`.
 
-## Redline styles in your own template
-
-Any template can be used for a redline, for example a letterhead made for `ope export`. Such a template has no styles for the marks, so `ins` and `del` only get the browser defaults (underline and strike-through) and the blocks have no colour. Add rules like these:
-
-```css
-ins { background: #e6ffed; color: #08611a; text-decoration: underline; }
-del { background: #ffeef0; color: #b31d28; text-decoration: line-through; }
-.redline-ins, .redline-del { border-left: 4px solid; padding: 0.6em 1em; margin: 0.8em 0; }
-.redline-ins { background: #e6ffed; border-color: #2ea44f; }
-.redline-del { background: #ffeef0; border-color: #cb2431; text-decoration: line-through; }
-```
+Any template made for `ope export`, for example a letterhead, can be used for a redline as it is: the change marks come with ope.
 
 ```bash
 ope redline ./Handbook --from-commit v1.0.0 -T ./letterhead/
 ```
 
-To check what was emitted, run with `--debug` and open `redline_final.html` in the build folder next to the PDF.
+## The blame strip
+
+The [blame strip](blame.md) is drawn next to the page after the document is rendered, so templates do not change it. Its look is fixed: one line of grey text per block, darker for blocks changed in the compared range.
 
 ---
 
@@ -4207,32 +4503,23 @@ Source: https://spenhouet.com/obsidian-pdf-exporter/redline/limitations/
 
 - Uncommitted changes. Both versions come from git. Commit first, or the working tree is ignored.
 - Properties that the text does not show. The properties block is not part of the PDF, so a change of `status: draft` to `status: approved` is invisible unless a Meta Bind field or a Dataview table shows it. See [Properties and Meta Bind](changes.md#properties-and-meta-bind).
-- Moves as moves. A moved paragraph is shown as removed at the old place and inserted at the new one. See [Moved text](changes.md#moved-text).
+- Moves of short or rewritten text. A paragraph counts as moved when it has at least six words and is nearly the same in both places; a list item when it is unchanged and stays in the same list. Other text is shown as removed at the old place and inserted at the new one. See [Moved text](changes.md#moved-text).
 - Notes outside `ROOT`, unless they are embedded or queried. A change in an embedded note or in a note a Dataview query reads does show up, since the embed and the query run before the comparison.
-- Layout. Template changes, page breaks and landscape pages are not compared. Wide tables and figures stay on portrait pages in a redline.
-- Changed diagrams. A changed Mermaid block is not drawn and shows its source with the marks as text, like a code block ([#81](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/81)).
+- Layout. Template changes, page breaks and landscape pages are not compared. Wide tables and figures stay on portrait pages in a blackline redline.
+- A changed image file that keeps its name. The comparison reads the Markdown, so an image that was replaced by a new file with the same name is shown unmarked, in its new version. Give a new image a new file name, or mention the change in the text.
+- Changes inside a diagram. A changed Mermaid diagram is shown as the old and the new drawing, not with marks inside the drawing.
 
 ## Known issues
 
 | Case | Issue |
 | ---- | ----- |
-| An inserted or removed table row, or a wider column, breaks the table | [#80](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/80) |
-| Changes inside a code block or a Mermaid diagram show `<del>` and `<ins>` as text | [#81](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/81) |
-| A replaced paragraph is word-diffed even when it has little in common with the old one | [#82](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/82) |
-| An inserted or removed callout loses its body to a separate box | [#83](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/83) |
-| A replaced image is not marked | [#84](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/84) |
-| Checking a task shows the checkbox brackets as text | [#85](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/85) |
-| A changed heading level is not shown | [#86](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/86) |
-| A changed footnote leaves two empty boxes | [#87](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/87) |
-| The title block shows the commit range twice | [#88](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/88) |
-| A changed paragraph or list item next to an inserted or removed one loses its word-level diff | [#89](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/89) |
-| With `.` as `ROOT` the default file name is `export_redline.pdf` | [#91](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/91) |
+| Two folders or two notes cannot be compared without git | [#92](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/92) |
 
 ## Tips for a clean redline
 
 - Keep one sentence per paragraph change. The comparison works per block, so a small edit in a long paragraph is shown word by word, while a rewrite of the whole paragraph is shown as removed and inserted.
-- Separate unrelated edits by an unchanged paragraph or list item where you can. Neighbouring changes are grouped and then shown as whole blocks ([#89](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/89)).
-- Do not reflow text. A moved line break makes the words around it show up as removed and inserted, and with hard line breaks (the default) it also moves the break in the PDF. A reformatted table (new padding) breaks the table, see [#80](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/80).
+- Separate unrelated edits by an unchanged paragraph or list item where you can. Each group of neighbouring changes gets one bar in the margin and one line in the summary.
+- Reflowing text and re-padding tables is fine: line breaks and spaces inside a paragraph and the padding of table cells are not changes. With hard line breaks (the default) a moved line break still moves the break in the PDF.
 - Avoid `~~strikethrough~~` in controlled documents. It renders as `del`, the same element as removed text, and looks like a removal in the redline.
 - Use tags for releases (`v1.0.0`, `v1.1.0`). Then a redline of any two releases is one command, and the CI recipes in [Usage](usage.md#in-ci) work without changes.
 - For a pull request, compare against the merge base, not against the tip of `main`. See [Comparing versions](compare.md#a-branch-or-pull-request-against-main).
@@ -4687,10 +4974,13 @@ A note takes its style from where it is referenced, so a note referenced in a ca
 
 | Selector | What it is |
 | -------- | ---------- |
-| `ins`, `del` | Inserted and removed words inside a changed block. |
-| `.redline-ins`, `.redline-del` | Inserted and removed blocks. |
+| `ins`, `del` | Inserted and removed words. |
+| `div.rl-block.rl-ins`, `div.rl-block.rl-del`, `.rl-mod`, `.rl-move-from`, `.rl-move-to` | Inserted, removed, changed and moved blocks. |
+| `div.rl-hunk` | A group of changed blocks, with the change bar. |
+| `section.rl-summary` | The change summary after the title. |
+| `table.rl-sbs` | The two columns of the side-by-side style. |
 
-All elements, the colour variables and how to restyle them: [Styling the redline](../redline/styling.md).
+The colours are the variables `--rl-ins`, `--rl-del`, `--rl-move`, `--rl-fmt` and `--rl-bar`. All elements and how to restyle them: [Styling the redline](../redline/styling.md).
 
 ## The base CSS
 

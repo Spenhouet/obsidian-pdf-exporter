@@ -24,9 +24,12 @@ ope redline ./Handbook --from-commit v1.0.0
 | `--to-commit REF` | `HEAD` | The newer version. |
 | `-o PATH`, `--output PATH` | `./.export/<title>_redline.pdf` | Where the PDF goes. `.export/` is made in the current folder. |
 | `-t TEXT`, `--title TEXT` | the folder name | Title on the first page and in the header. |
-| `--subtitle TEXT` | `Redline: <from> -> <to>` | Replaces the subtitle. The version label in the footer keeps the hashes. |
+| `--subtitle TEXT` | `Changes from <from> to <to>` | Replaces the subtitle. The version label in the footer keeps the hashes. |
 | `-T NAME\|PATH`, `--template NAME\|PATH` | `redline` | Another template, see [Styling the redline](styling.md). |
-| `-O KEY=VALUE`, `--option KEY=VALUE` | | Options for steps, plugins and the template, as for `export`. |
+| `-O redline.style=STYLE` | `blackline` | `blackline` or `side-by-side`, see [Styles and options](styles.md). |
+| `-O redline.collapse=on` | off | Show only the changes and the headings of their sections. |
+| `-O KEY=VALUE`, `--option KEY=VALUE` | | Other options for steps, plugins and the template, as for `export`. |
+| `--blame` | off | A strip next to every page with the author, date and commit message of each changed block, see [Blame](blame.md). |
 | `--disable-plugin NAME` | | Skip a plugin in both versions. |
 | `--toc/--no-toc` | `--toc` | Table of contents at the start. |
 | `--debug` | off | Keep the build folder `_build_<name>/` next to the PDF, with `redline_assembled.md` (the diffed Markdown) and `redline_final.html`. |
@@ -39,17 +42,16 @@ ope redline ./Handbook --from-commit v1.0.0
 
 ## Output name and title block
 
-Without `-o`, the PDF is `./.export/<title>_redline.pdf`, for example `.export/Handbook_redline.pdf`. With `--title "Team handbook"` it is `.export/Team handbook_redline.pdf`. With `.` as `ROOT` the name is `export_redline.pdf` ([#91](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/91)), so pass a title or `-o` there.
+Without `-o`, the PDF is `./.export/<title>_redline.pdf`, for example `.export/Handbook_redline.pdf`. With `--title "Team handbook"` it is `.export/Team handbook_redline.pdf`. With `.` as `ROOT` the title is the name of the current folder.
 
-The two commits are shown as short hashes, so a reader can find them in the history:
+The title block names the two versions as they were given, and the footer has the short hashes and the date:
 
 ```text
 Handbook
-Redline: 1a2b3c4 -> 5d6e7f8
-Redline: 1a2b3c4 -> 5d6e7f8 | 2026-04-01
+Changes from v1.0.0 to HEAD
 ```
 
-The second line is the subtitle, the third the version label and the date. `--subtitle "Changes since release 1.0"` replaces the second line. With the default subtitle, the range is shown twice ([#88](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/88)).
+`--subtitle "Changes since release 1.0"` replaces the second line. The change summary below the title lists both commits with their hashes, dates and authors, and the commits in between.
 
 ## One document or a whole folder
 

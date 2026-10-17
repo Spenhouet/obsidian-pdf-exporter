@@ -138,6 +138,12 @@ listed.
 obsidian_pdf_exporter/
 ├── core/
 │   ├── exporter.py         # export and redline: tree → markdown → HTML → PDF
+│   ├── redline.py          # redline: the block and word diff of two assembled documents
+│   ├── redline_html.py     # redline: summary, TOC marks, moves, change groups, styles
+│   ├── redline_side_by_side.py, redline_collapse.py  # the side-by-side style, collapse
+│   ├── blame.py            # --blame: match blocks to git blame, the strip next to the page
+│   ├── htmltree.py         # parse and write the HTML as a tree (lxml)
+│   ├── assets/             # CSS of the redline marks, side by side and the blame strip
 │   ├── assemble.py         # runs the markdown hooks on every page
 │   ├── pipeline.py         # the loops over the steps, one per stage
 │   ├── dialect.py          # layer 1: pandoc reader extensions and arguments
@@ -600,7 +606,9 @@ Generated content:
   folder there holds a `before/` and an `after/` version of a small vault.
   `uv run python scripts/render_redline_examples.py [case ...]` commits both
   into a temporary git repository (fixed dates, so the hashes do not
-  change), runs `ope redline` and writes the images. Commit them.
+  change), runs `ope redline` in both styles and writes the images. The
+  case `styles` renders `examples/_redline/_styles` in every combination
+  of style, collapse and `--blame`, plus whole pages. Commit the images.
 - `docs/llms.txt` and `docs/llms-full.txt` come from the pages. Run
   `uv run python scripts/gen_llms_txt.py` after adding or renaming a page.
   CI fails when they are out of date.

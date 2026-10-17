@@ -1,47 +1,38 @@
 ---
 title: What changes look like
-description: Markup reference for redlines. Words, paragraphs, headings, lists, tables, callouts, images, embeds, moved text, code, properties, Meta Bind, Dataview, tasks and footnotes, each with the before and after Markdown and the PDF.
+description: Markup reference for redlines. Words, paragraphs, headings, lists, tables, callouts, images, embeds, moved text, code, properties, Meta Bind, Dataview, tasks and footnotes, each with the before and after Markdown and the PDF in both styles.
 ---
 
 # What changes look like
 
-Each case below shows the note in the older commit, the note in the newer commit and the redline PDF made from the two with the built-in `redline` template. The examples live in [`examples/_redline/`](https://github.com/Spenhouet/obsidian-pdf-exporter/tree/main/examples/_redline), and `scripts/render_redline_examples.py` makes the pictures from them in a temporary git repository.
-
-The pictures show the current design of the `redline` template, which is being reworked; the marks and boxes may look different after that.
-
-Some cases do not come out well yet. They are marked below with a warning and a link to the issue. The pictures show the current behaviour, not the intended one.
+Each case below shows the note in the older commit, the note in the newer commit and the redline PDF made from the two with the built-in `redline` template, in the blackline style and in the [side-by-side style](styles.md#side-by-side). The examples live in [`examples/_redline/`](https://github.com/Spenhouet/obsidian-pdf-exporter/tree/main/examples/_redline), and `scripts/render_redline_examples.py` makes the pictures from them in a temporary git repository. The change summary at the start of every redline is left out of these pictures; [Styles and options](styles.md) shows it.
 
 ## Summary
 
-| Change | Shown as | Status |
-| ------ | -------- | ------ |
-| Words inside a paragraph | Inline `<del>` and `<ins>` | Good |
-| Paragraph inserted or removed | Green or red block | Good |
-| Paragraph changed and a new one right after it | Whole block removed and inserted | [#89](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/89) |
-| Paragraph replaced by a different one | Word-level mix | [#82](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/82) |
-| Heading text | Inline marks, also in the table of contents | Good |
-| Heading inserted or removed | Green block, or red bold text outside the table of contents | Good |
-| Heading level | Not shown | [#86](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/86) |
-| List item changed, inserted or removed, also nested | Inline marks per item | Good, see [#89](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/89) for neighbouring changes |
-| Table cell | Inline marks in the cell | Good |
-| Table row inserted or removed, column width changed | The table breaks | [#80](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/80) |
-| Callout text | Inline marks in the callout | Good |
-| Callout inserted or removed | Title and body in separate boxes | [#83](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/83) |
-| Image replaced | Both images, unmarked | [#84](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/84) |
-| Embedded note changed | Inline marks in the embedded text | Good |
-| Moved paragraph | Removed at the old place, inserted at the new one | Good |
-| Code block, Mermaid diagram | `<del>` and `<ins>` as literal text | [#81](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/81) |
-| Meta Bind value | Inline marks | Good |
-| Property that is not shown in the text | Not shown | By design |
-| Dataview result | Inline marks in the cells; a new or removed row breaks the table | [#80](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/80) |
-| Task checked | Brackets as text | [#85](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/85) |
-| Footnote text | Marks in the footnote area, plus empty boxes | [#87](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/87) |
+| Change | Blackline | Side by side |
+| ------ | --------- | ------------ |
+| Words inside a paragraph | Removed words struck through, inserted words underlined | The same marks, old words left, new words right |
+| Paragraph inserted or removed | The whole paragraph marked | The paragraph faces a gap |
+| Paragraph replaced by a different one | Removed paragraph, then inserted paragraph | Old and new paragraph on one row |
+| Paragraph moved | Purple at both places, each linked to the other | Purple, each facing a "moved" gap |
+| Heading text | Word marks, also in the table of contents | Old and new heading on one row |
+| Heading inserted or removed | Marked heading; a removed heading stays out of the numbering and is listed struck through in the table of contents | Faces a gap |
+| Heading level | "level 2 → 3" label | The same label |
+| List item changed, inserted, removed, reordered | Marks per item; a reordered item is shown as moved | One row per item |
+| Task checked or unchecked | The new checkbox with a "now checked" label | Old and new checkbox |
+| Table cell, row, column | Marks per cell; inserted and removed rows and an added column marked as a whole | Old and new table on one row |
+| Callout text, callout inserted or removed | Marks inside the callout; a whole callout marked as one block | Old and new callout on one row |
+| Image or diagram replaced | Removed figure faded and labelled, inserted figure labelled | Old and new figure on one row |
+| Code block | Changed lines: the old line struck through, then the new line | Old code left, new code right |
+| Embedded note, Meta Bind value, Dataview result | Marked where they appear in the PDF | The same |
+| Property that is not shown in the text | Not shown | Not shown |
+| Footnote text | Marks in the footnote | The old footnote inline in the old column |
 
 ## Text
 
 ### Words inside a paragraph
 
-Inserted words are green and underlined, removed words red and struck through. A replaced word is shown as the old word followed by the new one. Words are split at spaces, so a full stop or comma belongs to the word before it and is replaced together with it.
+Inserted words are blue with a double underline, removed words vermilion and struck through. A replaced word is shown as the old word followed by the new one. Neighbouring changes that are only split by a short word are joined into one, so a rewritten phrase reads as one replacement. Words are split at spaces, so a full stop or comma belongs to the word before it.
 
 <div class="ope-example ope-redline" markdown>
 <div markdown>
@@ -63,14 +54,20 @@ Inserted words are green and underlined, removed words red and struck through. A
 <div markdown class="ope-redline-pdf">
 <p class="ope-label">Redline PDF</p>
 
-![Word insertions, removals and replacements in one paragraph](../img/redline/words.png)
+=== "Blackline"
+
+    ![Word insertions, removals and replacements in one paragraph](../img/redline/words.png)
+
+=== "Side by side"
+
+    ![Word insertions, removals and replacements in one paragraph, side by side](../img/redline/words-side-by-side.png)
 
 </div>
 </div>
 
 ### Inserted and removed paragraphs
 
-A paragraph that is only in one version is a block of its own: green with a bar for inserted, red and struck through for removed.
+A paragraph that is only in one version is marked as a whole: underlined when it is inserted, struck through when it is removed. The bar in the margin marks the group of changed blocks.
 
 <div class="ope-example ope-redline" markdown>
 <div markdown>
@@ -92,14 +89,20 @@ A paragraph that is only in one version is a block of its own: green with a bar 
 <div markdown class="ope-redline-pdf">
 <p class="ope-label">Redline PDF</p>
 
-![A removed paragraph in red and an inserted paragraph in green](../img/redline/blocks.png)
+=== "Blackline"
+
+    ![A removed and an inserted paragraph](../img/redline/blocks.png)
+
+=== "Side by side"
+
+    ![A removed and an inserted paragraph, side by side](../img/redline/blocks-side-by-side.png)
 
 </div>
 </div>
 
 ### Moved text
 
-There is no separate mark for moved text. A paragraph that moved is removed at its old place and inserted at its new place, so the reader sees both.
+A paragraph that was removed in one place and inserted in another with the same or nearly the same text is shown as moved: purple and struck through where it was, purple and underlined where it is now. A label at each end names the section of the other end, with its page, and links to it. When the moved text was also edited, the new place shows the word changes too.
 
 <div class="ope-example ope-redline" markdown>
 <div markdown>
@@ -121,17 +124,20 @@ There is no separate mark for moved text. A paragraph that moved is removed at i
 <div markdown class="ope-redline-pdf">
 <p class="ope-label">Redline PDF</p>
 
-![A moved paragraph, removed at the top and inserted at the bottom](../img/redline/moved.png)
+=== "Blackline"
+
+    ![A moved paragraph, marked at its old and its new place](../img/redline/moved.png)
+
+=== "Side by side"
+
+    ![A moved paragraph, marked at its old and its new place, side by side](../img/redline/moved-side-by-side.png)
 
 </div>
 </div>
 
 ### Replaced paragraphs
 
-!!! warning "Known issue #82"
-    A paragraph that is replaced by a different one at the same place is word-diffed even when the two have little in common. The result is a mix of removed and inserted words that is hard to read. The same happens when two neighbouring paragraphs swap places. See [#82](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/82).
-
-    When a changed paragraph is directly followed or preceded by an inserted or removed one, the changed paragraph is shown as a whole removed and inserted block instead of word by word. See [#89](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/89).
+Blocks are only compared word by word when they are alike: at least half of their words match. A paragraph replaced by one with a different content is shown as a removed paragraph followed by an inserted one, not as a mix of single words. A changed paragraph next to an inserted or removed one is still compared word by word.
 
 <div class="ope-example ope-redline" markdown>
 <div markdown>
@@ -153,7 +159,13 @@ There is no separate mark for moved text. A paragraph that moved is removed at i
 <div markdown class="ope-redline-pdf">
 <p class="ope-label">Redline PDF</p>
 
-![A rewritten sentence shown as a word-level mix](../img/redline/replaced.png)
+=== "Blackline"
+
+    ![A replaced paragraph shown as removed and inserted](../img/redline/replaced.png)
+
+=== "Side by side"
+
+    ![A replaced paragraph shown as removed and inserted, side by side](../img/redline/replaced-side-by-side.png)
 
 </div>
 </div>
@@ -162,7 +174,7 @@ There is no separate mark for moved text. A paragraph that moved is removed at i
 
 ### Changed, inserted and removed headings
 
-A changed heading keeps its place and number and shows the word changes, also in the table of contents. An inserted heading is a green block and gets a number. A removed heading is turned into bold text inside the red block, so it gets no number, does not shift the numbering of the following sections and does not show up in the table of contents.
+A changed heading keeps its place and number and shows the word changes, also in the table of contents. An inserted heading is marked and gets a number; the table of contents marks it "new". A removed heading is shown struck through but is not a heading any more, so it gets no number, does not shift the numbering of the following sections, and is listed struck through, as "removed", in the table of contents.
 
 <div class="ope-example ope-redline" markdown>
 <div markdown>
@@ -184,15 +196,20 @@ A changed heading keeps its place and number and shows the word changes, also in
 <div markdown class="ope-redline-pdf">
 <p class="ope-label">Redline PDF</p>
 
-![Table of contents and headings with a changed, a removed and an inserted heading](../img/redline/headings.png)
+=== "Blackline"
+
+    ![Table of contents and headings with a changed, a removed and an inserted heading](../img/redline/headings.png)
+
+=== "Side by side"
+
+    ![Table of contents and headings with a changed, a removed and an inserted heading, side by side](../img/redline/headings-side-by-side.png)
 
 </div>
 </div>
 
 ### Heading level
 
-!!! warning "Known issue #86"
-    A heading that changes its level and keeps its text is not marked. The numbers of the heading and of the headings below it change without a mark. Here "Duties" moved from level 2 to level 3, which makes it 1.1 instead of 2. See [#86](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/86).
+A heading that changes its level keeps its text and gets a small label with the old and the new level. The numbers of the heading and of the headings below it change with it.
 
 <div class="ope-example ope-redline" markdown>
 <div markdown>
@@ -214,7 +231,13 @@ A changed heading keeps its place and number and shows the word changes, also in
 <div markdown class="ope-redline-pdf">
 <p class="ope-label">Redline PDF</p>
 
-![Headings renumbered without any mark](../img/redline/heading-level.png)
+=== "Blackline"
+
+    ![A heading with a level change label](../img/redline/heading-level.png)
+
+=== "Side by side"
+
+    ![A heading with a level change label, side by side](../img/redline/heading-level-side-by-side.png)
 
 </div>
 </div>
@@ -223,9 +246,7 @@ A changed heading keeps its place and number and shows the word changes, also in
 
 ### List items
 
-Lists are compared line by line, so each item keeps its marker and its place. A changed item shows the word changes, an inserted item is green and a removed item stays in place, struck through. Nested items work the same way.
-
-The numbers of an ordered list come from the newer version, so a removed item shifts the numbers below it. When several neighbouring lines change at once, they are shown as whole removed and inserted items, as with "Sign the form." here ([#89](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/89)).
+Lists are compared item by item, so each item keeps its marker and its place. Items are paired by similarity, so a changed item next to an inserted or removed one is still compared word by word. An item that only changed its place in the list is shown as moved. Nested items work the same way. The numbers of an ordered list come from the newer version.
 
 <div class="ope-example ope-redline" markdown>
 <div markdown>
@@ -247,15 +268,20 @@ The numbers of an ordered list come from the newer version, so a removed item sh
 <div markdown class="ope-redline-pdf">
 <p class="ope-label">Redline PDF</p>
 
-![Changed, inserted and removed items in a bullet list, a nested list and a numbered list](../img/redline/lists.png)
+=== "Blackline"
+
+    ![Changed, inserted, removed and moved items in a bullet list, a nested list and a numbered list](../img/redline/lists.png)
+
+=== "Side by side"
+
+    ![Changed, inserted, removed and moved items in a bullet list, a nested list and a numbered list, side by side](../img/redline/lists-side-by-side.png)
 
 </div>
 </div>
 
 ### Tasks
 
-!!! warning "Known issue #85"
-    Checking or unchecking a task shows the brackets as text instead of a checkbox. See [#85](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/85).
+A task that was checked or unchecked keeps its checkbox, which shows the new state, and gets a "now checked" or "now unchecked" label.
 
 <div class="ope-example ope-redline" markdown>
 <div markdown>
@@ -277,7 +303,13 @@ The numbers of an ordered list come from the newer version, so a removed item sh
 <div markdown class="ope-redline-pdf">
 <p class="ope-label">Redline PDF</p>
 
-![A checked task shown as struck-through and inserted brackets](../img/redline/tasks.png)
+=== "Blackline"
+
+    ![A checked task with a now checked label](../img/redline/tasks.png)
+
+=== "Side by side"
+
+    ![A checked task with a now checked label, side by side](../img/redline/tasks-side-by-side.png)
 
 </div>
 </div>
@@ -286,7 +318,7 @@ The numbers of an ordered list come from the newer version, so a removed item sh
 
 ### Table cells
 
-When the rows and the column widths stay the same, a changed cell shows the word changes inside the table.
+A changed cell shows the word changes inside the table. Padding and column widths in the Markdown source do not matter.
 
 <div class="ope-example ope-redline" markdown>
 <div markdown>
@@ -308,15 +340,20 @@ When the rows and the column widths stay the same, a changed cell shows the word
 <div markdown class="ope-redline-pdf">
 <p class="ope-label">Redline PDF</p>
 
-![A table with two changed cells](../img/redline/table-cells.png)
+=== "Blackline"
+
+    ![A table with two changed cells](../img/redline/table-cells.png)
+
+=== "Side by side"
+
+    ![A table with two changed cells, side by side](../img/redline/table-cells-side-by-side.png)
 
 </div>
 </div>
 
 ### Table rows
 
-!!! warning "Known issue #80"
-    An inserted or removed row, or a column that gets wider in the Markdown source, breaks the table: the marks cross the cell borders and the rows come out as text with pipes. Until this is fixed, keep the column widths of the source unchanged (pad the cells) when a table changes, or review table changes in the normal export. See [#80](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/80).
+Tables are compared row by row and cell by cell. An inserted row is underlined as a whole, a removed row stays in place struck through, and a column that was added is marked in every cell. The table stays a table, also when the source columns get wider.
 
 <div class="ope-example ope-redline" markdown>
 <div markdown>
@@ -338,7 +375,13 @@ When the rows and the column widths stay the same, a changed cell shows the word
 <div markdown class="ope-redline-pdf">
 <p class="ope-label">Redline PDF</p>
 
-![A table that broke into text after a row was added](../img/redline/table-rows.png)
+=== "Blackline"
+
+    ![A table with a changed cell and an inserted row](../img/redline/table-rows.png)
+
+=== "Side by side"
+
+    ![A table with a changed cell and an inserted row, side by side](../img/redline/table-rows-side-by-side.png)
 
 </div>
 </div>
@@ -369,15 +412,20 @@ A change inside a callout that stays in place shows the word changes inside the 
 <div markdown class="ope-redline-pdf">
 <p class="ope-label">Redline PDF</p>
 
-![A callout with a changed word](../img/redline/callout-text.png)
+=== "Blackline"
+
+    ![A callout with a changed word](../img/redline/callout-text.png)
+
+=== "Side by side"
+
+    ![A callout with a changed word, side by side](../img/redline/callout-text-side-by-side.png)
 
 </div>
 </div>
 
 ### Inserted and removed callouts
 
-!!! warning "Known issue #83"
-    An inserted or removed callout, or one whose title and body both change, is split: the title and the body end up in separate boxes. See [#83](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/83).
+A callout that is only in one version is marked as a whole, title and body together.
 
 <div class="ope-example ope-redline" markdown>
 <div markdown>
@@ -399,7 +447,13 @@ A change inside a callout that stays in place shows the word changes inside the 
 <div markdown class="ope-redline-pdf">
 <p class="ope-label">Redline PDF</p>
 
-![A removed and an inserted callout with the title and the body in separate boxes](../img/redline/callout-blocks.png)
+=== "Blackline"
+
+    ![A removed and an inserted callout](../img/redline/callout-blocks.png)
+
+=== "Side by side"
+
+    ![A removed and an inserted callout, side by side](../img/redline/callout-blocks-side-by-side.png)
 
 </div>
 </div>
@@ -408,8 +462,7 @@ A change inside a callout that stays in place shows the word changes inside the 
 
 ### Images
 
-!!! warning "Known issue #84"
-    A replaced image is not marked. Both the old and the new image are shown, one after the other, without a red or green mark, and with a size such as `|300` the attributes of the images show up as text. Name the change in the text next to the image so the reader notices it. See [#84](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/84).
+A replaced image is shown twice: the old one faded under a "Removed figure" label with its file name, the new one under an "Inserted figure" label. Size attributes such as `|300` are kept. A changed Mermaid diagram is shown the same way, with both drawings.
 
 <div class="ope-example ope-redline" markdown>
 <div markdown>
@@ -431,7 +484,13 @@ A change inside a callout that stays in place shows the word changes inside the 
 <div markdown class="ope-redline-pdf">
 <p class="ope-label">Redline PDF</p>
 
-![The old and the new image, both unmarked, with attribute text below](../img/redline/images.png)
+=== "Blackline"
+
+    ![A removed figure, faded, and an inserted figure](../img/redline/images.png)
+
+=== "Side by side"
+
+    ![A removed figure, faded, and an inserted figure, side by side](../img/redline/images-side-by-side.png)
 
 </div>
 </div>
@@ -457,26 +516,16 @@ Embeds are expanded before the comparison, so a change in an embedded note shows
 ````
 
 </div>
-<div markdown>
-<p class="ope-label">Shared/Password rule.md before</p>
-
-````markdown
---8<-- "examples/_redline/embeds/before/Shared/Password rule.md"
-````
-
-</div>
-<div markdown>
-<p class="ope-label">Shared/Password rule.md after</p>
-
-````markdown
---8<-- "examples/_redline/embeds/after/Shared/Password rule.md"
-````
-
-</div>
 <div markdown class="ope-redline-pdf">
 <p class="ope-label">Redline PDF</p>
 
-![A changed number in the embedded text](../img/redline/embeds.png)
+=== "Blackline"
+
+    ![A changed number in the embedded text](../img/redline/embeds.png)
+
+=== "Side by side"
+
+    ![A changed number in the embedded text, side by side](../img/redline/embeds-side-by-side.png)
 
 </div>
 </div>
@@ -485,8 +534,7 @@ Embeds are expanded before the comparison, so a change in an embedded note shows
 
 ### Code blocks
 
-!!! warning "Known issue #81"
-    A change inside a fenced code block shows the `<del>` and `<ins>` tags as literal text, because code is not parsed as HTML. See [#81](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/81).
+A changed code block is compared line by line. A changed line is shown twice, the old line with the removed characters struck through and the new line with the inserted ones underlined. Inserted and removed lines are marked as a whole.
 
 <div class="ope-example ope-redline" markdown>
 <div markdown>
@@ -508,7 +556,13 @@ Embeds are expanded before the comparison, so a change in an embedded note shows
 <div markdown class="ope-redline-pdf">
 <p class="ope-label">Redline PDF</p>
 
-![A code block with literal del and ins tags](../img/redline/code.png)
+=== "Blackline"
+
+    ![A code block with an old and a new line](../img/redline/code.png)
+
+=== "Side by side"
+
+    ![A code block with an old and a new line, side by side](../img/redline/code-side-by-side.png)
 
 </div>
 </div>
@@ -539,17 +593,20 @@ The properties block is not part of the PDF, so a property change is only visibl
 <div markdown class="ope-redline-pdf">
 <p class="ope-label">Redline PDF</p>
 
-![Changed version and owner values from Meta Bind fields](../img/redline/properties.png)
+=== "Blackline"
+
+    ![Changed version and owner values from Meta Bind fields](../img/redline/properties.png)
+
+=== "Side by side"
+
+    ![Changed version and owner values from Meta Bind fields, side by side](../img/redline/properties-side-by-side.png)
 
 </div>
 </div>
 
 ### Dataview
 
-Dataview queries run on each version of the vault before the comparison, so the result table is compared like a normal table: changed values are marked in their cells.
-
-!!! warning "Known issue #80"
-    In this example `Alpha` changed to `done` and `Gamma` was added. The changed value and the result count are marked, but the new row breaks the table, as for [table rows](#table-rows) ([#80](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/80)).
+Dataview queries run on each version of the vault before the comparison, so the result table is compared like any table: changed values are marked in their cells, and a note that now matches the query is an inserted row.
 
 <div class="ope-example ope-redline" markdown>
 <div markdown>
@@ -568,35 +625,16 @@ Dataview queries run on each version of the vault before the comparison, so the 
 ````
 
 </div>
-<div markdown>
-<p class="ope-label">Projects/Alpha.md before</p>
-
-````markdown
---8<-- "examples/_redline/dataview/before/Projects/Alpha.md"
-````
-
-</div>
-<div markdown>
-<p class="ope-label">Projects/Alpha.md after</p>
-
-````markdown
---8<-- "examples/_redline/dataview/after/Projects/Alpha.md"
-````
-
-</div>
-<div></div>
-<div markdown>
-<p class="ope-label">Projects/Gamma.md after (new)</p>
-
-````markdown
---8<-- "examples/_redline/dataview/after/Projects/Gamma.md"
-````
-
-</div>
 <div markdown class="ope-redline-pdf">
 <p class="ope-label">Redline PDF</p>
 
-![A Dataview table with the changed status and count marked and the new row](../img/redline/dataview.png)
+=== "Blackline"
+
+    ![A Dataview table with a changed status and an inserted row](../img/redline/dataview.png)
+
+=== "Side by side"
+
+    ![A Dataview table with a changed status and an inserted row, side by side](../img/redline/dataview-side-by-side.png)
 
 </div>
 </div>
@@ -605,8 +643,7 @@ Dataview queries run on each version of the vault before the comparison, so the 
 
 ### Footnote text
 
-!!! warning "Known issue #87"
-    A changed footnote is shown in the footnote area at the bottom of the page: the old note struck through, the new one inserted, each with its own number. In the text, two empty colored boxes are left where the definitions were. See [#87](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/87).
+A changed footnote shows the word changes in the footnote at the bottom of the page.
 
 <div class="ope-example ope-redline" markdown>
 <div markdown>
@@ -628,7 +665,13 @@ Dataview queries run on each version of the vault before the comparison, so the 
 <div markdown class="ope-redline-pdf">
 <p class="ope-label">Redline PDF</p>
 
-![A changed footnote with two empty boxes in the text](../img/redline/footnotes.png)
+=== "Blackline"
+
+    ![A footnote with changed words](../img/redline/footnotes.png)
+
+=== "Side by side"
+
+    ![A footnote with changed words, side by side](../img/redline/footnotes-side-by-side.png)
 
 </div>
 </div>

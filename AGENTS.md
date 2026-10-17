@@ -23,6 +23,8 @@ An export reads a folder of notes and writes one PDF in three layers:
 
 Templates (`obsidian_pdf_exporter/templates/`) only change the look: CSS, header and footer, page rules.
 
+`ope redline` diffs the assembled Markdown of two commits (`core/redline.py`), then lays the HTML out in the chosen style with the change summary (`core/redline_html.py`, `redline_side_by_side.py`, `redline_collapse.py`). `--blame` (`core/blame.py`) renders the PDF unchanged and adds a strip next to every page. The CSS of the change marks is in `core/assets/` and comes before the template CSS.
+
 Where new code goes:
 
 - Syntax Obsidian supports without plugins: a new step, see CONTRIBUTING.md "Adding a core syntax step".
