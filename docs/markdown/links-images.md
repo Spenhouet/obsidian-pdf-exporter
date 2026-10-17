@@ -48,6 +48,7 @@ description: Markdown links, bare URLs and images with captions.
 </div>
 
 - An image is at most as wide as the text and never split across pages.
+- A Markdown link to a note, such as `[text](Page.md)`, works like a [wiki link](../obsidian/wiki-links.md).
 - A single italic line right below an image becomes its caption.
 - Image sizes and the full embed syntax are on the [Embeds](../obsidian/embeds.md) page.
 
