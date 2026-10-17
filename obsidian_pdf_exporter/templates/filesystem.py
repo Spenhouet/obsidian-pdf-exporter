@@ -19,7 +19,7 @@ Manifest schema (all keys optional)::
     running_html: header.html     # appended after <body> at render time
     page_css: page.css            # ``@page`` rules etc.
     mermaid:                      # Mermaid config for diagrams
-      theme: neutral
+      themeVariables: {fontSize: 14px}
 
 Markdown / HTML hooks are deliberately not exposed here — they require
 Python code, so users who need them keep using the entry-point path.

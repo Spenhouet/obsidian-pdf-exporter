@@ -393,7 +393,7 @@ def _theme_font_size(config: Mapping[str, Any]) -> float | None:
 
 
 def pele_config(config: dict[str, object]) -> dict[str, object]:
-    """Return the Mermaid config without the keys that only style mermaid-cli output."""
+    """Return the Mermaid config without the theme keys, which Pele does not use."""
     out = copy.deepcopy(config)
     for key in ("theme", "themeVariables", "themeCSS", "htmlLabels"):
         out.pop(key, None)

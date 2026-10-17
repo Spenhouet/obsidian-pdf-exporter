@@ -9,8 +9,8 @@ its page, changes it in the document tree and lays the document out again.
   scaled to the height of the page is scaled down. Its aspect ratio stays.
 * Otherwise the diagram is cut into parts, each as tall as the page, at the
   width it already has. A cut goes through the row with the least ink near the
-  bottom of the page, so it rarely goes through a box or a line of text. PNG
-  diagrams cannot be cut and are always scaled.
+  bottom of the page, so it rarely goes through a box or a line of text. A
+  diagram that is not an inline SVG cannot be cut and is always scaled.
 
 The page size and margins come from the layout, so every template, portrait
 and landscape page is handled the same way. A document without a diagram that
@@ -49,9 +49,7 @@ _INK_LEVEL = 245
 _SLACK = 2.0
 
 _SVG = "{http://www.w3.org/2000/svg}svg"
-_STYLE = "{http://www.w3.org/2000/svg}style"
 _XMLNS = "{http://www.w3.org/2000/xmlns/}"
-_RE_FONT_SIZE = re.compile(r"font-size:\s*([\d.]+)px")
 _RE_CAPTION = re.compile(r"^[^\W\d_]+\.?\s*\d+(?:[.-]\d+)*\s*[:.]")
 
 
@@ -186,17 +184,13 @@ def _fit(
 def font_pt(element: ET.Element, width: float) -> float:
     """Return the base font size of an inline Mermaid SVG drawn ``width`` px wide, in pt.
 
-    mermaid-cli writes the size into the style sheet of the SVG, Pele into the
-    ``font-size`` attribute of the root element.
+    Pele writes the size into the ``font-size`` attribute of the root element.
     """
     view = _view_box(element)
     if view is None or view[2] <= 0:
         return 0.0
-    css = "".join(style.text or "" for style in element.iter(_STYLE))
-    match = _RE_FONT_SIZE.search(css)
     try:
-        # Pele sets the base size on the root element instead of a style sheet.
-        font_px = float(match.group(1) if match else element.get("font-size", ""))
+        font_px = float(element.get("font-size", ""))
     except ValueError:
         font_px = _DEFAULT_FONT_PX
     return font_px * 0.75 * width / view[2]
