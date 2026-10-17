@@ -64,6 +64,7 @@ RE_TOKEN = re.compile(
 RE_LINK = re.compile(r"^(!?)\[([^\]]*)\]\(([^)]*)\)(\{[^}]*\})?$")
 RE_FORMAT_MARKS = re.compile(r"\*\*|__|\*|_|==|~~")
 RE_IMG_SRC = re.compile(r"!\[[^\]]*\]\(([^)\s]*)")
+RE_DATA_SOURCE = re.compile(r'\bdata-source="([^"]*)"')
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -459,13 +460,19 @@ def _wrap(block: Block, change: str, body: str, *, move: int = 0, edited: bool =
     attrs += ' data-rl-edited="1"' if edited else ""
     srcs = RE_IMG_SRC.findall(block.text) if block.kind == "image" else []
     if srcs:
-        attrs += f' data-rl-src="{html.escape(srcs[0].rsplit("/", 1)[-1])}"'
+        attrs += f' data-rl-src="{html.escape(_image_label(block.text, srcs[0]))}"'
     if _is_diagram(block):
         attrs = attrs.replace('data-rl-kind="code"', 'data-rl-kind="image"')
         attrs += ' data-rl-src="Mermaid diagram"'
     elif block.kind == "code" and change in {"ins", "del", "move-from"}:
         body = _code_html(block.text, change)
     return f"::: {{{attrs}}}\n{body}\n:::"
+
+
+def _image_label(text: str, src: str) -> str:
+    """The name a figure is labelled with: its ``data-source`` (a drawing), else its file."""
+    m = RE_DATA_SOURCE.search(text)
+    return m.group(1) if m else src.rsplit("/", 1)[-1]
 
 
 def _wrap_heading(block: Block, change: str, body: str) -> str:

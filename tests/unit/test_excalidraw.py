@@ -260,7 +260,7 @@ def test_embed_becomes_rendered_svg(tmp_path: Path, embed: str) -> None:
     vault = _vault(tmp_path)
     out, messages, build = _export(vault, f"Before.\n\n{embed}\n\nAfter.\n")
     assert messages == []
-    assert '{.doc-image style="width:300px" .excalidraw}' in out
+    assert '{.doc-image style="width:300px" .excalidraw' in out
     svgs = list(build.glob("excalidraw-*.svg"))
     assert len(svgs) == 1
     assert svgs[0].name in out
@@ -305,7 +305,7 @@ def test_plain_excalidraw_file_embed(tmp_path: Path) -> None:
 def test_fragment_embed_warns_and_shows_whole_drawing(tmp_path: Path) -> None:
     vault = _vault(tmp_path)
     out, messages, _ = _export(vault, "![[Drawing.excalidraw#^group=box1]]\n")
-    assert ".excalidraw}" in out
+    assert ".excalidraw data-source=" in out
     assert len(messages) == 1
     assert "cannot show only #^group=box1" in messages[0]
     assert messages[0].startswith("  Warning:")
