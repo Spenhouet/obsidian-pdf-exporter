@@ -20,7 +20,7 @@ css: main.css              # default: template.css or the only *.css
 running_html: header.html  # put right after <body>
 page_css: page.css         # put into <head>
 assets: [logo.svg]         # default: all non-css/yaml/html/md files, plus ../assets/
-mermaid: { theme: neutral }
+mermaid: { themeVariables: { fontSize: 14px } }
 ```
 
 `src="logo.svg"` in header.html and `url(logo.svg)` in page.css become data URIs, so logos work in margin boxes. A sibling `assets/` folder is shared as `../assets/<name>`.

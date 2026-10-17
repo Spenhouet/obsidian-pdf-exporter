@@ -61,7 +61,7 @@ ope export ./Vault/Handbook \\
   --version 3.1.0 --date 2026-05-07 \\
   --include "Chapter A" --include "Chapter B" \\
   --disable-plugin meta_bind \\
-  -O mermaid.theme=neutral -O tables.landscape=off""",
+  -O mermaid.landscape=off -O tables.landscape=off""",
     "redline": "ope redline ./Vault/Handbook --from-commit v3.0.0 --to-commit HEAD",
     "setup": "ope setup --check   # report only\nope setup --yes     # install without asking",
     "list-templates": "ope list-templates",
@@ -82,14 +82,7 @@ the template. These keys are read by ope itself:
 | `tables.landscape` | `auto`, `on`, `off` | `auto` | [Tables](../markdown/tables.md#wide-tables) |
 | `tables.landscape_min_cols` | number | `6` | [Tables](../markdown/tables.md#wide-tables) |
 | `mermaid` | `off` | on | [Mermaid](../obsidian/mermaid.md) |
-| `mermaid.renderer` | `mermaid-cli`, `pele` | `mermaid-cli` | [Mermaid](../obsidian/mermaid.md#renderers) |
-| `mermaid.format` | `svg`, `png` | `svg` | [Mermaid](../obsidian/mermaid.md#options) |
-| `mermaid.scale` | number | `3` | [Mermaid](../obsidian/mermaid.md#options) |
 | `mermaid.config` | path to JSON | none | [Mermaid](../obsidian/mermaid.md#options) |
-| `mermaid.theme` | Mermaid theme | none | [Mermaid](../obsidian/mermaid.md#options) |
-| `mermaid.cli` | command | auto | [Mermaid](../obsidian/mermaid.md#options) |
-| `mermaid.puppeteer_config` | path | none | [Mermaid](../obsidian/mermaid.md#options) |
-| `mermaid.trim` | `on`, `off` | `on` | [Mermaid](../obsidian/mermaid.md#options) |
 | `mermaid.max_height` | CSS length | none | [Mermaid](../obsidian/mermaid.md#options) |
 | `mermaid.landscape` | `on`, `off` | `on` | [Mermaid](../obsidian/mermaid.md#wide-diagrams) |
 | `mermaid.landscape_ratio` | number | `1.4` | [Mermaid](../obsidian/mermaid.md#wide-diagrams) |

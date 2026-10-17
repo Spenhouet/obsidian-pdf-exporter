@@ -44,7 +44,7 @@ curl -LsSf uvx.sh/obsidian-pdf-exporter/install.sh | sh && ope setup --yes
 powershell -ExecutionPolicy ByPass -c "irm https://uvx.sh/obsidian-pdf-exporter/install.ps1 | iex; ope setup --yes"
 ```
 
-`ope setup` installs the native libraries WeasyPrint needs and pandoc. See [Installation](https://spenhouet.com/obsidian-pdf-exporter/getting-started/installation/) for every OS, uv, pip and CI.
+`ope setup` installs the native libraries WeasyPrint needs and pandoc. Mermaid diagrams are drawn inside ope, so Node.js and a browser are not needed. See [Installation](https://spenhouet.com/obsidian-pdf-exporter/getting-started/installation/) for every OS, uv, pip and CI.
 
 ## Quick start
 

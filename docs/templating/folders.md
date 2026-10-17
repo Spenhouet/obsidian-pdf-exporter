@@ -48,9 +48,8 @@ running_html: header.html        # HTML put right after <body>
 page_css: page.css               # CSS put into <head> after the template CSS
 assets: [logo.svg, fonts/Inter.woff2]  # default: every other file in the folder
 mermaid:                         # base Mermaid config for diagrams
-  theme: base
   themeVariables:
-    primaryColor: "#e8eef5"
+    fontSize: 14px
 ```
 
 | Key | Default | Meaning |
@@ -61,7 +60,7 @@ mermaid:                         # base Mermaid config for diagrams
 | `running_html` | none | HTML for the running header and footer. It is put right after `<body>`, so its elements can be moved into margin boxes. |
 | `page_css` | none | CSS for the page: `@page` rules and running elements. |
 | `assets` | every file in the folder that is not CSS, YAML, HTML or Markdown, plus a sibling `assets/` folder | Files copied into the build folder next to the CSS. |
-| `mermaid` | none | Base [Mermaid config](../obsidian/mermaid.md#options). `-O mermaid.config` and `-O mermaid.theme` are merged over it. |
+| `mermaid` | none | Base [Mermaid config](../obsidian/mermaid.md#options). `-O mermaid.config` is merged over it. Colors of diagrams come from `--pele-*` variables in the CSS. |
 
 Without `running_html` and `page_css` the template has no header or footer. The `default` header and footer come from Python and are not part of a folder template. A folder template that should have them writes them in `page.css`, as in the [recipes](recipes.md).
 

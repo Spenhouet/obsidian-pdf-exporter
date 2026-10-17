@@ -47,7 +47,7 @@ A template is a CSS file or a folder with CSS, header and footer. See [Templates
 `-O key=value` passes settings to the steps, plugins and the template:
 
 ```bash
-ope export ./MyVault/Handbook -O mermaid.theme=neutral -O tables.landscape=off
+ope export ./MyVault/Handbook -O mermaid.landscape=off -O tables.landscape=off
 ope export ./MyVault/Handbook --disable-plugin dataview
 ```
 
