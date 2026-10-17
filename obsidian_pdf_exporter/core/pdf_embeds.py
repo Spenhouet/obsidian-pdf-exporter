@@ -19,8 +19,8 @@ Options (``-O key=value``):
 - ``pdf_embeds.dpi``: resolution of the page images, default 150.
 
 A PDF that can not be found, or not be opened (encrypted or broken), becomes
-the same link the wiki link step writes for embeds it does not render, and a
-warning.
+the same link the wiki link step writes for embeds it does not render (plain
+text when no page of that name is in the export), and a warning.
 """
 
 from __future__ import annotations
@@ -33,6 +33,7 @@ from typing import TYPE_CHECKING
 
 from obsidian_pdf_exporter.core.build_files import content_digest
 from obsidian_pdf_exporter.core.code import outside_code
+from obsidian_pdf_exporter.core.outside_links import outside_text
 from obsidian_pdf_exporter.core.tree import lookup_page
 from obsidian_pdf_exporter.core.wiki_links import RE_EMBED_PIPE
 from obsidian_pdf_exporter.core.wiki_links import RE_IMAGE_SIZE
@@ -245,14 +246,17 @@ def render_pdf_embeds(
     vault_index: VaultIndex | None = None,
     vault_root: Path | None = None,
     warn: Callable[[str], None] | None = None,
+    outside: Callable[[str, str], str] | None = None,
 ) -> str:
     """Replace every PDF embed in ``content`` with a figure of its pages.
 
     With ``settings.enabled`` false, the embeds stay for the wiki link step,
     which turns them into links. Embeds inside code stay as written.
+    ``outside`` writes the text of a fallback link whose target is not part
+    of the export (see :func:`~obsidian_pdf_exporter.core.wiki_links.convert_wiki_links`).
     """
     renderer = _Renderer(
-        page_folder, page_index, build_dir, settings, vault_index, vault_root, warn
+        page_folder, page_index, build_dir, settings, vault_index, vault_root, warn, outside
     )
     return outside_code(content, renderer.convert)
 
@@ -266,6 +270,7 @@ class _Renderer:
     vault_index: VaultIndex | None
     vault_root: Path | None
     warn: Callable[[str], None] | None
+    outside: Callable[[str, str], str] | None = None
 
     def report(self, message: str) -> None:
         if self.warn is not None:
@@ -293,15 +298,13 @@ class _Renderer:
             return f"![[{embed.name}]]"
         pdf_file = find_pdf(embed.name, self.page_folder, self.vault_index, self.vault_root)
         if pdf_file is None:
-            self.report(f"could not find PDF ![[{target}]], kept as a link")
-            return self.link(embed.name)
+            return self.fallback(f"could not find PDF ![[{target}]]", embed.name)
         if embed.bad_fragment:
             self.report(f"ignored '#{embed.bad_fragment}' in PDF embed ![[{target}]]")
         try:
             return self.figure(target, embed, pdf_file)
         except PdfRenderError as exc:
-            self.report(f"could not render PDF embed ![[{target}]] ({exc}), kept as a link")
-            return self.link(embed.name)
+            return self.fallback(f"could not render PDF embed ![[{target}]] ({exc})", embed.name)
 
     def figure(self, target: str, embed: PdfEmbed, pdf_file: Path) -> str:
         first = embed.first_page or 1
@@ -323,13 +326,24 @@ class _Renderer:
         caption = _caption(pdf_file.name, embed, count)
         return pdf_figure(images, caption, embed.width, embed.height, more)
 
+    def fallback(self, message: str, name: str) -> str:
+        """Report ``message`` and write the link for an embed that is not drawn."""
+        stem = Path(name.replace("\\", "/")).stem
+        if lookup_page(self.page_index, stem, self.page_folder):
+            self.report(f"{message}, kept as a link")
+        else:
+            self.report(message)
+        return self.link(name)
+
     def link(self, name: str) -> str:
         """The same link the wiki link step writes for embeds it does not render."""
         stem = Path(name.replace("\\", "/")).stem
         page_info = lookup_page(self.page_index, stem, self.page_folder)
         if page_info:
             return f"[{stem}](#{page_info['anchor']})"
-        return f"*{stem}*"
+        if self.outside is not None:
+            return self.outside(stem, name)
+        return outside_text(stem)
 
 
 def _as_block(line: str, new: str) -> list[str]:

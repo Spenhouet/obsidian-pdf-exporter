@@ -5,7 +5,7 @@ description: Dataview queries (TABLE, LIST, TASK, CALENDAR), inline queries, inl
 
 # Dataview
 
-The `dataview` plugin runs [Dataview](https://github.com/blacksmithgu/obsidian-dataview) at export time: ` ```dataview ` blocks, inline queries, inline fields and DataviewJS. The query language, the function library, the page model and the views are a port of the Dataview sources (version 0.5.68), so a query gives the same rows, columns and order as in Obsidian's reading view. The result is written into the page as Markdown, so links to notes that are part of the export become links inside the PDF (other notes are shown in italics, like any unresolved link).
+The `dataview` plugin runs [Dataview](https://github.com/blacksmithgu/obsidian-dataview) at export time: ` ```dataview ` blocks, inline queries, inline fields and DataviewJS. The query language, the function library, the page model and the views are a port of the Dataview sources (version 0.5.68), so a query gives the same rows, columns and order as in Obsidian's reading view. The result is written into the page as Markdown, so links to notes that are part of the export become links inside the PDF (other notes are shown as plain text, see [links to pages outside the PDF](../obsidian/wiki-links.md#links-to-pages-outside-the-pdf)).
 
 The examples query these notes:
 

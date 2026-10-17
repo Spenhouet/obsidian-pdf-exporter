@@ -18,6 +18,8 @@ from obsidian_pdf_exporter.core.blame import write_blame_pdf
 from obsidian_pdf_exporter.core.diagram_fit import FitSettings
 from obsidian_pdf_exporter.core.html_postprocess import unlink_missing_targets
 from obsidian_pdf_exporter.core.mermaid import mermaid_settings
+from obsidian_pdf_exporter.core.outside_links import OutsideLinkCounter
+from obsidian_pdf_exporter.core.outside_links import outside_mode
 from obsidian_pdf_exporter.core.pandoc import render_html
 from obsidian_pdf_exporter.core.pdf import apply_decorations
 from obsidian_pdf_exporter.core.pdf import html_to_pdf
@@ -114,8 +116,10 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
     log=print,  # noqa: ANN001 - log is any callable(str)
 ) -> Path:
     """Build a single PDF from an Obsidian tree according to ``request``."""
+    outside_mode(request.options)
     register_native_dependencies()
     ensure_pandoc()
+    log = OutsideLinkCounter(log)
 
     root_folder = _resolve_root(request.root)
     output_path = request.output.resolve()
@@ -216,6 +220,7 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
         html = unlink_missing_targets(html, lambda m: log(f"  Warning: {m}"))
 
         (build_dir / "final.html").write_text(html, encoding="utf-8")
+        log.summary()
 
         log("  Generating PDF...")
         fit = _fit_settings(request.options)
@@ -238,8 +243,10 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
     log=print,  # noqa: ANN001 - log is any callable(str)
 ) -> Path:
     """Build a redline (tracked-changes) PDF between two versions of a folder or note."""
+    outside_mode(request.options)
     register_native_dependencies()
     ensure_pandoc()
+    log = OutsideLinkCounter(log)
 
     root_folder = _resolve_root(request.root)
     parse_style(request.options)
@@ -337,6 +344,7 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
             html = unlink_missing_targets(html, lambda m: log(f"  Warning: {m}"))
 
             (build_dir / "redline_final.html").write_text(html, encoding="utf-8")
+            log.summary()
 
             log("  Generating PDF...")
             fit = _fit_settings(request.options)
