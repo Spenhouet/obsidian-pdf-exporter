@@ -9,6 +9,7 @@ Any contribution is welcome! This document provides guidelines for contributing 
 - [Architecture](#architecture)
 - [Adding support for an Obsidian plugin](#adding-support-for-an-obsidian-plugin)
 - [Adding a PDF template](#adding-a-pdf-template)
+- [Patches for WeasyPrint](#patches-for-weasyprint)
 - [Testing](#testing)
 - [Code Quality](#code-quality)
 - [Documentation](#documentation)
@@ -160,6 +161,7 @@ obsidian_pdf_exporter/
 │   ├── bases/              # Bases: expression parser, evaluator and views
 │   ├── code.py             # outside_code: keeps fenced and inline code as written
 │   └── embeds.py, callouts.py, wiki_links.py, mermaid.py, ...  # the work behind the steps
+├── compat/                 # patches for WeasyPrint, until a release has the fix
 ├── plugins/                # layer 3
 │   ├── base.py             # ObsidianPlugin, PluginContext, DocumentContext
 │   ├── registry.py         # entry-point + runtime discovery
@@ -504,6 +506,22 @@ each one ships a ``Template`` subclass plus its CSS file. To add one:
 
 Branded or company-specific templates should usually be published as a
 separate distribution rather than added here.
+
+## Patches for WeasyPrint
+
+[`compat/weasyprint_patches.py`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/obsidian_pdf_exporter/compat/weasyprint_patches.py)
+holds small monkey patches for fixes that are merged or proposed upstream
+but not in a WeasyPrint release yet. Each patch checks the WeasyPrint
+version and the signature of the function it wraps, and is skipped (with a
+debug message) when either does not match. Every export applies them once
+before rendering; `-O weasyprint.patches=off` turns them off.
+
+- Elements with the same `style` attribute share one computed style
+  ([Kozea/WeasyPrint#2981](https://github.com/Kozea/WeasyPrint/pull/2981),
+  issue [#2980](https://github.com/Kozea/WeasyPrint/issues/2980)). Applied
+  to WeasyPrint 70.0. Remove the patch when WeasyPrint >= the first release
+  that includes #2981 is the oldest supported version. When a new
+  WeasyPrint release still lacks the fix, raise `LAST_VERSION`.
 
 ## Testing
 

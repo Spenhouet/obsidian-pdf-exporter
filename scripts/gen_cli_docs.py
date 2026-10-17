@@ -97,6 +97,7 @@ the template. These keys are read by ope itself:
 | `citations.csl` | path to a CSL style | Chicago author-date | [Citations](../plugins/citations.md#options) |
 | `citations.title` | text | `References` | [Citations](../plugins/citations.md#options) |
 | `excalidraw.auto_export` | `on`, `off` | `on` | [Excalidraw](../plugins/excalidraw.md#auto-export-files-first) |
+| `weasyprint.patches` | `on`, `off` | `on` | [Tables](../markdown/tables.md#large-tables) |
 
 Third-party plugins and templates can read any other key. By convention a
 plugin uses `<plugin>.<key>` and a template `<template>.<key>`.
