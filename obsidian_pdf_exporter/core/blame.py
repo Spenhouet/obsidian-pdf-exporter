@@ -44,6 +44,8 @@ if TYPE_CHECKING:
     import pydyf
     from lxml.html import HtmlElement
 
+    from obsidian_pdf_exporter.core.diagram_fit import FitSettings
+
 UNCOMMITTED = "0" * 40
 TRIGRAM = 3
 MIN_COVERAGE = 0.34
@@ -446,13 +448,16 @@ def write_blame_pdf(
     *,
     highlight: set[str] | None = None,
     range_label: str = "",
+    fit: FitSettings | None = None,
 ) -> float:
     """Write the PDF of ``html_text`` with a blame strip next to every page.
 
+    ``fit`` fits tall diagrams to their pages, as in :func:`.pdf.html_to_pdf`.
     Returns the share of blocks that matched a source line.
     """
     import weasyprint
 
+    from obsidian_pdf_exporter.core.diagram_fit import render_fitted
     from obsidian_pdf_exporter.core.pdf import svg_current_color
 
     highlight = highlight or set()
@@ -461,7 +466,8 @@ def write_blame_pdf(
     for k, (el, _sha) in enumerate(found):
         el.set("data-bl", str(k))
     with svg_current_color():
-        document = weasyprint.HTML(string=tree.serialize(), base_url=base_url or None).render()
+        html = weasyprint.HTML(string=tree.serialize(), base_url=base_url or None)
+        document = render_fitted(html, fit)
     lines: dict[tuple[int, int], float] = {}
     sizes = []
     for p, page in enumerate(document.pages):
