@@ -396,6 +396,7 @@ obsidian_pdf_exporter/
 │   ├── redline_side_by_side.py, redline_collapse.py  # the side-by-side style, collapse
 │   ├── blame.py            # --blame: match blocks to git blame, the strip next to the page
 │   ├── htmltree.py         # parse and write the HTML as a tree (lxml)
+│   ├── build_files.py      # copy images into the build folder, named by their content
 │   ├── assets/             # CSS of the redline marks, side by side and the blame strip
 │   ├── assemble.py         # runs the markdown hooks on every page
 │   ├── pipeline.py         # the loops over the steps, one per stage
@@ -1185,7 +1186,7 @@ ope [--version] COMMAND [ARGS]...
 | [`list-templates`](#list-templates) | List all known PDF templates (built-in, packaged, user-config, runtime). |
 | [`list-plugins`](#list-plugins) | List all installed Obsidian-plugin support modules (built-in + third-party). |
 | [`export`](#export) | Export an Obsidian-format folder tree to a single PDF file. |
-| [`redline`](#redline) | Generate a redline (tracked-changes) PDF between two git commits. |
+| [`redline`](#redline) | Generate a redline (tracked-changes) PDF between two versions. |
 
 ## `version`
 
@@ -1290,25 +1291,26 @@ ope export ./Vault/Handbook \
 
 ## `redline`
 
-Generate a redline (tracked-changes) PDF between two git commits.
+Generate a redline (tracked-changes) PDF between two versions.
 
 ```text
 ope redline ROOT [OPTIONS]
 ```
 
-Builds a tracked-changes PDF between two git commits. Must run inside the git repository that holds `ROOT`. See [Redline](../redline/index.md).
+Builds a tracked-changes PDF between two git commits of `ROOT` (`--from-commit`, run inside the git repository that holds `ROOT`), or between two folders or notes on disk without git (`--from-path`). See [Redline](../redline/index.md) and [Comparing versions](../redline/compare.md).
 
 | Argument | Description |
 | -------- | ----------- |
-| `ROOT` | Path to the vault folder to export (required) |
+| `ROOT` | Folder or note to compare (with --from-path: the newer version on disk) (required) |
 
 | Option | Description | Default |
 | ------ | ----------- | ------- |
-| `--from-commit REF` | Older git commit ref (baseline) | required |
-| `--to-commit REF` | Newer git commit ref (default: HEAD) | `HEAD` |
+| `--from-commit REF` | Older git commit ref (baseline) |  |
+| `--to-commit REF` | Newer git commit ref (default: HEAD) |  |
+| `--from-path PATH` | Older version as a folder or note on disk (baseline), compared with ROOT on disk without git; not with --from-commit, --to-commit or --blame |  |
 | `-T NAME\|PATH`, `--template NAME\|PATH` | Template name (default: redline) or path to a custom template (.css file or directory with template.yaml) | `redline` |
 | `-o PATH`, `--output PATH` | Output PDF path (default: ./.export/&lt;title&gt;_redline.pdf) |  |
-| `-t TEXT`, `--title TEXT` | Document title (default: folder name) |  |
+| `-t TEXT`, `--title TEXT` | Document title (default: folder or note name) |  |
 | `--subtitle TEXT` | Document subtitle |  |
 | `-O KEY=VALUE`, `--option KEY=VALUE` | Pass key=value options to plugins / template (repeatable), e.g. redline.style=side-by-side or redline.collapse=on |  |
 | `--disable-plugin NAME` | Skip the named Obsidian plugin (repeatable; see `list-plugins`) |  |
@@ -3210,13 +3212,14 @@ Source: https://spenhouet.com/obsidian-pdf-exporter/redline/
 
 # Redline
 
-`ope redline` builds a tracked-changes PDF of a folder between two git commits. Inserted text is blue and underlined, removed text is vermilion and struck through, moved text is purple, and a bar in the margin marks every change. The rest of the document is exactly as it is in the newer commit, so a reader sees every change in context, in the same layout as the released PDF.
+`ope redline` builds a tracked-changes PDF of a folder between two git commits, or between two folders or notes on disk. Inserted text is blue and underlined, removed text is vermilion and struck through, moved text is purple, and a bar in the margin marks every change. The rest of the document is exactly as it is in the newer commit, so a reader sees every change in context, in the same layout as the released PDF.
 
 ```bash
 ope redline ./Policy --from-commit v1.0.0 --to-commit v1.1.0
 ope redline ./Policy --from-commit v1.0.0 -O redline.style=side-by-side   # old | new in two columns
 ope redline ./Policy --from-commit v1.0.0 -O redline.collapse=on          # only the changes
 ope redline ./Policy --from-commit v1.0.0 --blame                         # who changed what, and why
+ope redline ./Policy --from-path ./old/Policy                             # two folders, no git
 ```
 
 ![Before, after and redline of a short policy, next to each other](../img/redline/redline-three-up.png)
@@ -3232,7 +3235,7 @@ A redline answers "what changed since the version I approved?" without a diff to
 
 ## How it works
 
-1. Both commits are taken from git with `git archive`. Uncommitted changes in the working tree are not part of either version.
+1. Both commits are taken from git with `git archive`. Uncommitted changes in the working tree are not part of either version. With `--from-path`, both versions are read from disk instead.
 2. Each version of the folder is assembled into one Markdown document with the same steps and plugins as `ope export`. Embeds are expanded, Dataview queries run and Meta Bind values are filled in, so the two documents are compared as they appear in the PDF.
 3. The two documents are split into blocks at blank lines (paragraphs, list blocks, tables, headings, code blocks) and the blocks are compared.
 4. Blocks that are alike are paired. A paired block is compared word by word (lists item by item, tables cell by cell, code line by line) and gets inline `<ins>` and `<del>` marks. A block that only exists in one version is shown as a whole inserted or removed block, and a block that was removed in one place and inserted in another is shown as moved.
@@ -3256,7 +3259,7 @@ A redline answers "what changed since the version I approved?" without a diff to
 | Page | Content |
 | ---- | ------- |
 | [Usage](usage.md) | The command and every flag, default names, one document or a folder, and CI workflows. |
-| [Comparing versions](compare.md) | Tags, branches, commits and `HEAD~n`, releases, pull requests, the history of one note, and versions outside git. |
+| [Comparing versions](compare.md) | Tags, branches, commits and `HEAD~n`, releases, pull requests, the history of one note, and two folders or notes without git. |
 | [Styles and options](styles.md) | Blackline and side by side, collapsing unchanged content and the blame strip, with every combination. |
 | [What changes look like](changes.md) | Words, paragraphs, headings, lists, tables, callouts, images, embeds, properties and Dataview, each in both styles. |
 | [Blame](blame.md) | The author, date and commit message of each block next to the page, for exports and redlines. |
@@ -3271,9 +3274,10 @@ Source: https://spenhouet.com/obsidian-pdf-exporter/redline/usage/
 
 ```text
 ope redline ROOT --from-commit REF [--to-commit REF] [OPTIONS]
+ope redline ROOT --from-path PATH [OPTIONS]
 ```
 
-`ROOT` is the folder to compare, the same folder `ope export` takes. The command must run inside the git repository that holds `ROOT`, and both commits must be in its history.
+`ROOT` is the folder to compare, the same folder `ope export` takes, or a single note. With `--from-commit`, the command must run inside the git repository that holds `ROOT`, and both commits must be in its history. With `--from-path`, `ROOT` is the newer version on disk and `PATH` the older one, and no git is needed (see [Without git](compare.md#without-git)).
 
 ```bash
 cd MyVault                      # anywhere inside the repository
@@ -3284,16 +3288,17 @@ ope redline ./Handbook --from-commit v1.0.0
 
 | Flag | Default | Meaning |
 | ---- | ------- | ------- |
-| `--from-commit REF` | required | The older version, the baseline. |
-| `--to-commit REF` | `HEAD` | The newer version. |
+| `--from-commit REF` | | The older version, the baseline, as a git commit. |
+| `--to-commit REF` | `HEAD` | The newer version, as a git commit. |
+| `--from-path PATH` | | The older version as a folder or note on disk; `ROOT` on disk is the newer one. Not together with `--from-commit`, `--to-commit` or `--blame`. |
 | `-o PATH`, `--output PATH` | `./.export/<title>_redline.pdf` | Where the PDF goes. `.export/` is made in the current folder. |
-| `-t TEXT`, `--title TEXT` | the folder name | Title on the first page and in the header. |
-| `--subtitle TEXT` | `Changes from <from> to <to>` | Replaces the subtitle. The version label in the footer keeps the hashes. |
+| `-t TEXT`, `--title TEXT` | the folder name, or the note name | Title on the first page and in the header. |
+| `--subtitle TEXT` | `Changes from <from> to <to>` | Replaces the subtitle. The version label in the footer keeps the hashes (or the names of the two folders or notes). |
 | `-T NAME\|PATH`, `--template NAME\|PATH` | `redline` | Another template, see [Styling the redline](styling.md). |
 | `-O redline.style=STYLE` | `blackline` | `blackline` or `side-by-side`, see [Styles and options](styles.md). |
 | `-O redline.collapse=on` | off | Show only the changes and the headings of their sections. |
 | `-O KEY=VALUE`, `--option KEY=VALUE` | | Other options for steps, plugins and the template, as for `export`. |
-| `--blame` | off | A strip next to every page with the author, date and commit message of each changed block, see [Blame](blame.md). |
+| `--blame` | off | A strip next to every page with the author, date and commit message of each changed block, see [Blame](blame.md). Needs `--from-commit`. |
 | `--disable-plugin NAME` | | Skip a plugin in both versions. |
 | `--toc/--no-toc` | `--toc` | Table of contents at the start. |
 | `--debug` | off | Keep the build folder `_build_<name>/` next to the PDF, with `redline_assembled.md` (the diffed Markdown) and `redline_final.html`. |
@@ -3302,7 +3307,13 @@ ope redline ./Handbook --from-commit v1.0.0
 
 ## Which versions
 
-`--from-commit` and `--to-commit` take tags, branches, commit hashes and relative refs such as `HEAD~3`. Both sides are read from git, so uncommitted changes are not included. When `ROOT` does not exist in one of the two commits, that side counts as empty: a folder that is new since `--from-commit` comes out as one big insertion. [Comparing versions](compare.md) has the details: releases, pull requests, the history of one note, and what to do without git.
+`--from-commit` and `--to-commit` take tags, branches, commit hashes and relative refs such as `HEAD~3`. Both sides are read from git, so uncommitted changes are not included. When `ROOT` does not exist in one of the two commits, that side counts as empty: a folder that is new since `--from-commit` comes out as one big insertion. [Comparing versions](compare.md) has the details: releases, pull requests and the history of one note.
+
+`--from-path` compares two folders or two notes on disk instead, without git:
+
+```bash
+ope redline ./Handbook --from-path ./archive/Handbook
+```
 
 ## Output name and title block
 
@@ -3437,7 +3448,12 @@ Source: https://spenhouet.com/obsidian-pdf-exporter/redline/compare/
 
 # Comparing versions
 
-A redline compares two versions of a folder. Today both versions come from git: `--from-commit` names the older one and `--to-commit` the newer one (default `HEAD`). The command runs inside the repository, and both commits must be in its history.
+A redline compares two versions of a folder or a note. They come from one of two places:
+
+- Git: `--from-commit` names the older commit and `--to-commit` the newer one (default `HEAD`). The command runs inside the repository, and both commits must be in its history.
+- Disk: `--from-path` names an older copy of the folder or note, and `ROOT` is the newer one, both read as they are on disk. No git is needed. See [Without git](#without-git).
+
+The two ways cannot be mixed: `--from-path` is refused together with `--from-commit` or `--to-commit`.
 
 ## Git refs
 
@@ -3491,7 +3507,13 @@ git log --format='%h %ad %s' --date=short -- Handbook/Security
 ope redline ./Handbook/Security --from-commit 3f2c9a1 --to-commit 8b41d07
 ```
 
-`ROOT` is always a folder. To redline one note, give it its own folder named like the note (`Security/Security.md`), as for [`ope export`](../plugins/folder-notes.md). A redline of the parent folder still shows the changes of the whole document, with every section.
+`ROOT` can also be a single note. Then only that note is compared, as a document of one page:
+
+```bash
+ope redline ./Handbook/Security/Security.md --from-commit 3f2c9a1
+```
+
+A redline of the parent folder still shows the changes of the whole document, with every section.
 
 The last commit that changed a folder against the one before it:
 
@@ -3506,25 +3528,24 @@ The checkout must hold the history of both commits: `fetch-depth: 0` in `actions
 
 ## Without git
 
-ope can only compare git commits today. Comparing two folders, two notes or two exported versions directly, without git, is planned: [#92](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/92).
-
-Until then, two copies of a folder can be put into a throwaway repository, one commit each:
+`--from-path` compares two folders, or two notes, as they are on disk. `ROOT` is the newer version and `--from-path` the older one:
 
 ```bash
-old=./handbook-1.0/Handbook   # the older copy of the folder
-new=./Handbook                # the newer copy
-work=$(mktemp -d)
-git -C "$work" init -q
-cp -r "$old" "$work/Handbook"
-git -C "$work" add -A && git -C "$work" -c user.name=redline -c user.email=redline@localhost commit -qm old
-rm -rf "$work/Handbook" && cp -r "$new" "$work/Handbook"
-git -C "$work" add -A && git -C "$work" -c user.name=redline -c user.email=redline@localhost commit -qm new
-out="$PWD/Handbook_redline.pdf"
-(cd "$work" && ope redline ./Handbook --from-commit HEAD~1 -o "$out")
-rm -rf "$work"
+ope redline ./Handbook --from-path ./archive/handbook-1.0/Handbook          # folder against folder
+ope redline ./Handbook/Security.md --from-path ./old/Security.md            # note against note
 ```
 
-Notes, images and attachments outside the folder are not copied, so embeds of them stay unresolved. Copy them into the throwaway repository too when the folder embeds them. The docs screenshots of this section are made the same way, see `scripts/render_redline_examples.py`.
+Both must be folders, or both must be notes. Neither side has to be in git, and uncommitted changes are included because the files are read from disk. This also compares the working tree with an older copy, or two exports of a vault from different places.
+
+Each side is read in its own vault: links, embeds and images are looked up from the closest folder above it that holds `.obsidian` (or `.git`). Without such a folder, the folder of the side itself is the vault, so notes and images outside of it are not found. Copy the whole vault, or at least its `.obsidian` folder and the attachments, when the folder embeds files from elsewhere. A copy of an old version made with `git archive` keeps the vault together:
+
+```bash
+mkdir -p /tmp/handbook-1.0
+git archive v1.0.0 | tar -x -C /tmp/handbook-1.0
+ope redline ./Handbook --from-path /tmp/handbook-1.0/Handbook
+```
+
+The change summary names both paths as they were given, each with the date of the newest file in it (`(folder, modified 2026-03-30)`), and lists no commits. The subtitle is `Changes from <old path> to <new path>` unless `--subtitle` replaces it. `--blame` needs the git history of both versions and is refused with `--from-path`.
 
 Two PDFs cannot be compared: ope reads the Markdown, not the PDF.
 
@@ -3710,7 +3731,7 @@ Each case below shows the note in the older commit, the note in the newer commit
 | Task checked or unchecked | The new checkbox with a "now checked" label | Old and new checkbox |
 | Table cell, row, column | Marks per cell; inserted and removed rows and an added column marked as a whole | Old and new table on one row |
 | Callout text, callout inserted or removed | Marks inside the callout; a whole callout marked as one block | Old and new callout on one row |
-| Image or diagram replaced | Removed figure faded and labelled, inserted figure labelled | Old and new figure on one row |
+| Image or diagram replaced, also by a new file of the same name | Removed figure faded and labelled, inserted figure labelled | Old and new figure on one row |
 | Code block | Changed lines: the old line struck through, then the new line | Old code left, new code right |
 | Embedded note, Meta Bind value, Dataview result | Marked where they appear in the PDF | The same |
 | Property that is not shown in the text | Not shown | Not shown |
@@ -4182,6 +4203,36 @@ Redline PDF:
 
     ![A removed figure, faded, and an inserted figure, side by side](../img/redline/images-side-by-side.png)
 
+### Image files with the same name
+
+Images are compared by their file content, not only by the name in the note. An image file that keeps its name and path but has a new picture is shown as replaced, in the same way as an image that was renamed. The same holds for SVG files, embedded PDF pages, draw.io and Excalidraw drawings, and images inside embedded notes. Files with the same bytes in both versions are not marked, even when they moved to another folder.
+
+Before:
+
+````markdown
+The chart shows the visits per month.
+
+![[visits.png|300]]
+````
+
+After (same text, new `visits.png`):
+
+````markdown
+The chart shows the visits per month.
+
+![[visits.png|300]]
+````
+
+Redline PDF:
+
+=== "Blackline"
+
+    ![The old and the new version of an image file with the same name](../img/redline/image-file.png)
+
+=== "Side by side"
+
+    ![The old and the new version of an image file with the same name, side by side](../img/redline/image-file-side-by-side.png)
+
 ### Embedded notes
 
 Embeds are expanded before the comparison, so a change in an embedded note shows up where it is embedded, even when the embedding note did not change.
@@ -4413,7 +4464,8 @@ The log of the command shows how many blocks matched, for example `Blame: 97% of
 - Embedded notes from outside the exported folder are not blamed, so their blocks have no line.
 - Text that occurs in several notes is matched to the note that explains most of it.
 - Lines that are not committed yet are shown as "Not committed yet" in an export.
-- The strip makes the PDF larger, because every page gets a second content stream and its lines.
+- `--blame` needs the git history of both versions, so it is not available with [`--from-path`](compare.md#without-git).
+- The strip adds its lines, the hover buttons and, for the key line, an italic font to the PDF. The rest is written exactly as without `--blame`, with the same fonts and the same compression. A 50-page document of text grows by about 4 %.
 
 ---
 
@@ -4498,19 +4550,12 @@ Source: https://spenhouet.com/obsidian-pdf-exporter/redline/limitations/
 
 ## What a redline does not show
 
-- Uncommitted changes. Both versions come from git. Commit first, or the working tree is ignored.
+- Uncommitted changes, when both versions come from git. Commit first, or the working tree is ignored. To compare the working tree with another copy on disk, use [`--from-path`](compare.md#without-git).
 - Properties that the text does not show. The properties block is not part of the PDF, so a change of `status: draft` to `status: approved` is invisible unless a Meta Bind field or a Dataview table shows it. See [Properties and Meta Bind](changes.md#properties-and-meta-bind).
 - Moves of short or rewritten text. A paragraph counts as moved when it has at least six words and is nearly the same in both places; a list item when it is unchanged and stays in the same list. Other text is shown as removed at the old place and inserted at the new one. See [Moved text](changes.md#moved-text).
 - Notes outside `ROOT`, unless they are embedded or queried. A change in an embedded note or in a note a Dataview query reads does show up, since the embed and the query run before the comparison.
 - Layout. Template changes, page breaks and landscape pages are not compared. Wide tables and figures stay on portrait pages in a blackline redline.
-- A changed image file that keeps its name. The comparison reads the Markdown, so an image that was replaced by a new file with the same name is shown unmarked, in its new version. Give a new image a new file name, or mention the change in the text.
 - Changes inside a diagram. A changed Mermaid diagram is shown as the old and the new drawing, not with marks inside the drawing.
-
-## Known issues
-
-| Case | Issue |
-| ---- | ----- |
-| Two folders or two notes cannot be compared without git | [#92](https://github.com/Spenhouet/obsidian-pdf-exporter/issues/92) |
 
 ## Tips for a clean redline
 

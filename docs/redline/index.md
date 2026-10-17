@@ -1,17 +1,18 @@
 ---
 title: Redline
-description: Tracked-changes PDFs between two git commits of a vault. What a redline is, who it is for, how ope builds it and what the reader sees.
+description: Tracked-changes PDFs between two git commits of a vault, or between two folders or notes on disk. What a redline is, who it is for, how ope builds it and what the reader sees.
 ---
 
 # Redline
 
-`ope redline` builds a tracked-changes PDF of a folder between two git commits. Inserted text is blue and underlined, removed text is vermilion and struck through, moved text is purple, and a bar in the margin marks every change. The rest of the document is exactly as it is in the newer commit, so a reader sees every change in context, in the same layout as the released PDF.
+`ope redline` builds a tracked-changes PDF of a folder between two git commits, or between two folders or notes on disk. Inserted text is blue and underlined, removed text is vermilion and struck through, moved text is purple, and a bar in the margin marks every change. The rest of the document is exactly as it is in the newer commit, so a reader sees every change in context, in the same layout as the released PDF.
 
 ```bash
 ope redline ./Policy --from-commit v1.0.0 --to-commit v1.1.0
 ope redline ./Policy --from-commit v1.0.0 -O redline.style=side-by-side   # old | new in two columns
 ope redline ./Policy --from-commit v1.0.0 -O redline.collapse=on          # only the changes
 ope redline ./Policy --from-commit v1.0.0 --blame                         # who changed what, and why
+ope redline ./Policy --from-path ./old/Policy                             # two folders, no git
 ```
 
 ![Before, after and redline of a short policy, next to each other](../img/redline/redline-three-up.png)
@@ -27,7 +28,7 @@ A redline answers "what changed since the version I approved?" without a diff to
 
 ## How it works
 
-1. Both commits are taken from git with `git archive`. Uncommitted changes in the working tree are not part of either version.
+1. Both commits are taken from git with `git archive`. Uncommitted changes in the working tree are not part of either version. With `--from-path`, both versions are read from disk instead.
 2. Each version of the folder is assembled into one Markdown document with the same steps and plugins as `ope export`. Embeds are expanded, Dataview queries run and Meta Bind values are filled in, so the two documents are compared as they appear in the PDF.
 3. The two documents are split into blocks at blank lines (paragraphs, list blocks, tables, headings, code blocks) and the blocks are compared.
 4. Blocks that are alike are paired. A paired block is compared word by word (lists item by item, tables cell by cell, code line by line) and gets inline `<ins>` and `<del>` marks. A block that only exists in one version is shown as a whole inserted or removed block, and a block that was removed in one place and inserted in another is shown as moved.
@@ -51,7 +52,7 @@ A redline answers "what changed since the version I approved?" without a diff to
 | Page | Content |
 | ---- | ------- |
 | [Usage](usage.md) | The command and every flag, default names, one document or a folder, and CI workflows. |
-| [Comparing versions](compare.md) | Tags, branches, commits and `HEAD~n`, releases, pull requests, the history of one note, and versions outside git. |
+| [Comparing versions](compare.md) | Tags, branches, commits and `HEAD~n`, releases, pull requests, the history of one note, and two folders or notes without git. |
 | [Styles and options](styles.md) | Blackline and side by side, collapsing unchanged content and the blame strip, with every combination. |
 | [What changes look like](changes.md) | Words, paragraphs, headings, lists, tables, callouts, images, embeds, properties and Dataview, each in both styles. |
 | [Blame](blame.md) | The author, date and commit message of each block next to the page, for exports and redlines. |
