@@ -64,10 +64,15 @@ def test_canvas_embed_warns_and_becomes_text(tmp_path: Path) -> None:
     vault.mkdir()
     (vault / "Board.canvas").write_text('{"nodes": [], "edges": []}', encoding="utf-8")
     out, messages = _export_page(vault, "See:\n\n![[Board.canvas]]\n")
-    assert "*Board*" in out
-    assert len(messages) == 1
+    assert "Board" in out
+    assert "*Board*" not in out
+    assert len(messages) == 2
     assert messages[0].startswith("  Warning: cannot render embed ![[Board.canvas]] (.canvas")
     assert "in Page.md" in messages[0]
+    assert "kept as a link" not in messages[0]
+    assert messages[1] == (
+        '  Warning: link to "Board.canvas" in Page.md points outside the PDF, kept as text'
+    )
 
 
 def test_missing_image_warns(tmp_path: Path) -> None:

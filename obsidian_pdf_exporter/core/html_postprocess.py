@@ -11,6 +11,7 @@ from urllib.parse import unquote
 
 from obsidian_pdf_exporter.core.htmltree import HtmlTree
 from obsidian_pdf_exporter.core.htmltree import unwrap
+from obsidian_pdf_exporter.core.outside_links import outside_message
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -354,7 +355,8 @@ def unlink_missing_targets(html: str, warn: Callable[[str], None] | None = None)
 
     Such a link points to a heading that does not exist (for example ``[[#Typo]]``) or to
     content that a redline left out. Without a target, the link would do nothing in the
-    PDF, and WeasyPrint reports it. ``warn`` gets one message per missing target.
+    PDF, and WeasyPrint reports it. ``warn`` gets one message per missing target, the same
+    as for a link to a note outside the PDF (see :mod:`obsidian_pdf_exporter.core.outside_links`).
     """
     ids = set(_RE_ID.findall(html))
     missing = {t for t in _RE_LOCAL_HREF.findall(html) if t not in ids and unquote(t) not in ids}
@@ -366,5 +368,5 @@ def unlink_missing_targets(html: str, warn: Callable[[str], None] | None = None)
             unwrap(a)
     for target in sorted(missing):
         if warn is not None:
-            warn(f"link to #{target} has no target in the PDF, kept as text")
+            warn(outside_message(f"#{unquote(target)}"))
     return tree.serialize()

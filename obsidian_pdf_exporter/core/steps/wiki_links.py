@@ -30,6 +30,7 @@ class WikiLinksStep(Step):
             context.build_dir,
             context.vault_index,
             warn=lambda message: context.warn(f"{message} in {context.where}"),
+            outside=context.outside_link,
         )
 
 

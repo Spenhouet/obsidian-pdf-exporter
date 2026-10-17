@@ -35,4 +35,5 @@ class PdfEmbedsStep(Step):
             context.vault_index,
             context.vault_root,
             warn=lambda message: context.warn(f"{message} in {context.where}"),
+            outside=context.outside_link,
         )

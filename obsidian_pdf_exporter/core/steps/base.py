@@ -8,6 +8,9 @@ from dataclasses import field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from obsidian_pdf_exporter.core.outside_links import outside_message
+from obsidian_pdf_exporter.core.outside_links import outside_mode
+from obsidian_pdf_exporter.core.outside_links import outside_text
 from obsidian_pdf_exporter.plugins.base import DocumentContext
 from obsidian_pdf_exporter.plugins.base import PluginContext
 
@@ -40,6 +43,8 @@ class PageContext(PluginContext):
         embed_stack: Notes and fragments that are being embedded right now,
             used to stop cycles.
         log: Callable that prints a progress or warning line.
+        reported: Targets of links outside the PDF that were reported for
+            this page. Embedded notes share the set of the page.
     """
 
     vault_root: Path | None = None
@@ -53,6 +58,7 @@ class PageContext(PluginContext):
     steps: Sequence[Step] | None = None
     embed_stack: tuple[tuple[Path, str], ...] = ()
     log: Callable[[str], None] | None = None
+    reported: set[str] = field(default_factory=set)
 
     @property
     def where(self) -> str:
@@ -72,6 +78,17 @@ class PageContext(PluginContext):
             self.log(f"  Warning: {message}")
         else:
             _log.warning(message)
+
+    def outside_link(self, label: str, target: str) -> str:
+        """The text for a link to ``target``, a note that is not part of the PDF.
+
+        Reports the link once per target and page (see
+        :mod:`obsidian_pdf_exporter.core.outside_links`).
+        """
+        if target not in self.reported:
+            self.reported.add(target)
+            self.warn(outside_message(target, self.where))
+        return outside_text(label, outside_mode(self.options))
 
 
 class Step:
