@@ -111,6 +111,7 @@ Builds one PDF from a vault folder. Git is not required. When the folder is in a
 | `-O KEY=VALUE`, `--option KEY=VALUE` | Pass key=value options to plugins / template (repeatable) |  |
 | `--disable-plugin NAME` | Skip the named Obsidian plugin (repeatable; see `list-plugins`) |  |
 | `--toc/--no-toc` | Include a table of contents at the start of the document | `--toc` |
+| `--blame` | Add a strip next to every page with the last commit that changed each block (author, date, message; details on hover) | off |
 | `--debug` | Keep the intermediate build directory for inspection | off |
 
 ```bash
@@ -144,9 +145,10 @@ Builds a tracked-changes PDF between two git commits. Must run inside the git re
 | `-o PATH`, `--output PATH` | Output PDF path (default: ./.export/&lt;title&gt;_redline.pdf) |  |
 | `-t TEXT`, `--title TEXT` | Document title (default: folder name) |  |
 | `--subtitle TEXT` | Document subtitle |  |
-| `-O KEY=VALUE`, `--option KEY=VALUE` | Pass key=value options to plugins / template (repeatable) |  |
+| `-O KEY=VALUE`, `--option KEY=VALUE` | Pass key=value options to plugins / template (repeatable), e.g. redline.style=side-by-side or redline.collapse=on |  |
 | `--disable-plugin NAME` | Skip the named Obsidian plugin (repeatable; see `list-plugins`) |  |
 | `--toc/--no-toc` | Include a table of contents at the start of the document | `--toc` |
+| `--blame` | Add a strip next to every page with the last commit that changed each block (author, date, message; details on hover) | off |
 | `--debug` | Keep the intermediate build directory for inspection | off |
 
 ```bash

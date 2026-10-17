@@ -7,12 +7,19 @@ is one case. It holds two versions of a small vault, ``before/`` and
 commits ``before/`` and then ``after/`` (with fixed author, committer and
 dates, so the commit hashes are the same on every run), runs
 ``ope redline Policy --from-commit HEAD~1`` in it and writes the cropped
-first page to ``docs/img/redline/<case>.png``.
+pages to ``docs/img/redline/<case>.png`` (blackline style) and
+``docs/img/redline/<case>-side-by-side.png`` (side-by-side style).
+
+``examples/_redline/_styles`` is rendered in every combination of style,
+``redline.collapse`` and ``--blame`` to ``styles-<style>-<full|collapse>-<noblame|blame>.png``,
+plus whole pages (``page-*.png``): the blackline and side-by-side first pages
+with the change summary, and the blame strip of a redline and of an export.
+Its two versions have different authors, so the blame strip has two names.
 
 ``examples/_attachments`` is copied into both commits, so a case can embed
 the shared example images.
 
-Besides the cases, the script writes ``redline-three-up.png``: the
+Besides that, the script writes ``redline-three-up.png``: the
 ``overview`` case as before, after and redline next to each other, for the
 home page and the README.
 
@@ -38,7 +45,9 @@ from pathlib import Path
 
 from PIL import Image
 from render_examples import DPI
+from render_examples import PADDING
 from render_examples import SHOT_CSS
+from render_examples import TEXT_MARGIN_MM
 from render_examples import builtin_css
 from render_examples import collapse
 from render_examples import ope
@@ -48,6 +57,7 @@ from render_examples import stack
 from render_examples import trim
 
 from obsidian_pdf_exporter.core import exporter
+from obsidian_pdf_exporter.core.blame import STRIP_MM
 
 REPO = Path(__file__).resolve().parent.parent
 CASES = REPO / "examples" / "_redline"
@@ -65,12 +75,17 @@ GIT_ENV = {
     "GIT_CONFIG_NOSYSTEM": "1",
 }
 COMMIT_DATES = {"before": "2026-03-02T09:00:00+00:00", "after": "2026-03-30T09:00:00+00:00"}
+PAGE_IMAGE_DPI = 100  # whole pages of the styles page
+STYLE_AUTHORS = {"before": "Alex Example", "after": "Sam Sample"}  # authors of the _styles case
+STYLES = ("blackline", "side-by-side")
+# The change summary is shown on the whole-page images, not in every crop.
+NO_SUMMARY_CSS = ".rl-summary { display: none; }\nh1 { break-before: auto; }\n"
 
 # Narrow pages for the three-up image, so the text stays readable when the
 # three pages sit next to each other on the home page.
 THREE_UP_CSS = """
 @page { size: 120mm 175mm; margin: 6mm 7mm; }
-html { font-size: 13pt; }
+html, body { font-size: 13pt; }
 body::before {
     content: "%s";
     display: block;
@@ -121,9 +136,13 @@ def main() -> None:
             render_case(folder, SETTINGS.get(folder.name, Case()), work)
         if not names or "overview" in names:
             render_three_up(CASES / "overview", work)
+        if not names or "styles" in names:
+            render_styles(CASES / "_styles", work)
 
 
-def make_repo(case: Path, work: Path, name: str = "") -> Path:
+def make_repo(
+    case: Path, work: Path, name: str = "", authors: dict[str, str] | None = None
+) -> Path:
     """Commit ``case/before`` and then ``case/after`` into a new git repository."""
     repo = work / f"repo-{name or case.name}"
     repo.mkdir()
@@ -137,28 +156,106 @@ def make_repo(case: Path, work: Path, name: str = "") -> Path:
         shutil.copytree(ATTACHMENTS, repo / "_attachments", copy_function=shutil.copyfile)
         git(repo, "add", "-A")
         date = COMMIT_DATES[version]
-        git(repo, "commit", "-q", "-m", version, date=date)
+        author = (authors or {}).get(version, "")
+        git(
+            repo,
+            "commit",
+            "-q",
+            "-m",
+            f"{version.capitalize()} version of the policy",
+            date=date,
+            author=author,
+        )
         git(repo, "tag", version)
     return repo
 
 
-def git(repo: Path, *args: str, date: str | None = None) -> None:
+def git(repo: Path, *args: str, date: str | None = None, author: str = "") -> None:
     env = {**os.environ, **GIT_ENV}
     if date:
         env["GIT_AUTHOR_DATE"] = env["GIT_COMMITTER_DATE"] = date
+    if author:
+        env["GIT_AUTHOR_NAME"] = author
+        env["GIT_AUTHOR_EMAIL"] = author.lower().replace(" ", ".") + "@example.com"
     subprocess.run(["git", "-C", str(repo), *args], check=True, env=env)
 
 
 def render_case(case: Path, settings: Case, work: Path) -> None:
     repo = make_repo(case, work)
-    pdf = work / f"{case.name}.pdf"
-    template = shot_template("redline", work, SHOT_CSS)
+    template = shot_template("redline", work, SHOT_CSS + NO_SUMMARY_CSS)
     toc = "--toc" if settings.toc else "--no-toc"
-    redline(repo, pdf, ["-T", str(template), toc, *settings.args])
-    images = [trim(p) for p in rasterize(pdf, DPI, None)]
-    if settings.collapse:
-        images = [collapse(i) for i in images]
-    save(stack(images), OUT / f"{case.name}.png")
+    for style in STYLES:
+        pdf = work / f"{case.name}-{style}.pdf"
+        redline(
+            repo, pdf, ["-T", str(template), toc, "-O", f"redline.style={style}", *settings.args]
+        )
+        images = [trim(p) for p in rasterize(pdf, DPI, None)]
+        if settings.collapse:
+            images = [collapse(i) for i in images]
+        suffix = "" if style == "blackline" else f"-{style}"
+        save(stack(images), OUT / f"{case.name}{suffix}.png")
+
+
+def render_styles(case: Path, work: Path) -> None:
+    """Every combination of style, collapse and blame, and whole pages of the main looks."""
+    repo = make_repo(case, work, "styles", authors=STYLE_AUTHORS)
+    crop = shot_template("redline", work, SHOT_CSS + NO_SUMMARY_CSS, name="shot-styles")
+    for style in STYLES:
+        for collapse_on in (False, True):
+            for blame in (False, True):
+                name = (
+                    f"styles-{style}-{'collapse' if collapse_on else 'full'}-"
+                    f"{'blame' if blame else 'noblame'}"
+                )
+                pdf = work / f"{name}.pdf"
+                args = ["-T", str(crop), "--no-toc", "-O", f"redline.style={style}"]
+                args += ["-O", "redline.collapse=on"] if collapse_on else []
+                args += ["--blame"] if blame else []
+                redline(repo, pdf, args)
+                images = [trim_page(p, blame=blame) for p in rasterize(pdf, DPI, None)]
+                save(stack(images), OUT / f"{name}.png")
+    # Whole pages keep the title block and the footer; chapters do not start new pages,
+    # so the short example fits on one page.
+    page = shot_template(
+        "redline",
+        work,
+        "h1, table.rl-sbs.rl-sbs-break { break-before: auto; }\n",
+        name="page-redline",
+    )
+    for name, args, pages in (
+        ("page-blackline", [], [1]),
+        ("page-side-by-side", ["-O", "redline.style=side-by-side"], [1, 2]),
+        ("page-blame-redline", ["--blame"], [1]),
+    ):
+        pdf = work / f"{name}.pdf"
+        redline(repo, pdf, ["-T", str(page), "--no-toc", *args])
+        save(stack([framed(p) for p in rasterize(pdf, PAGE_IMAGE_DPI, pages)]), OUT / f"{name}.png")
+    pdf = work / "page-blame-export.pdf"
+    ope(["export", DOC, "--blame", "--no-toc", "-o", str(pdf)], cwd=repo)
+    save(framed(rasterize(pdf, PAGE_IMAGE_DPI, [1])[0]), OUT / "page-blame-export.png")
+
+
+def trim_page(image: Image.Image, *, blame: bool) -> Image.Image:
+    """``trim``; with a blame strip the height comes from the page and the strip is kept whole."""
+    if not blame:
+        return trim(image)
+    strip = round(STRIP_MM / 25.4 * DPI)
+    page = image.crop((0, 0, image.width - strip, image.height))
+    gray = page.convert("L").point(lambda v: 255 if v < 240 else 0)  # noqa: PLR2004
+    box = gray.getbbox()
+    if box is None:
+        return image
+    left = max(min(box[0], round(TEXT_MARGIN_MM / 25.4 * DPI)) - PADDING, 0)
+    return image.crop(
+        (left, max(box[1] - PADDING, 0), image.width, min(box[3] + PADDING, image.height))
+    )
+
+
+def framed(page: Image.Image) -> Image.Image:
+    """A whole page with a thin border."""
+    out = Image.new("RGB", (page.width + 2, page.height + 2), "#c8cdd3")
+    out.paste(page, (1, 1))
+    return out
 
 
 def redline(repo: Path, pdf: Path, args: list[str]) -> None:
@@ -174,7 +271,7 @@ def render_three_up(case: Path, work: Path) -> None:
         ("After", "#606872", "default"),
         ("Redline", "#b31d28", "redline"),
     ):
-        css = SHOT_CSS + THREE_UP_CSS % (label, colour)
+        css = SHOT_CSS + NO_SUMMARY_CSS + THREE_UP_CSS % (label, colour)
         template = shot_template(base, work, css, name=f"three-up-{label.lower()}")
         pdf = work / f"three-up-{label.lower()}.pdf"
         options = ["-T", str(template), "--no-toc", "-o", str(pdf)]

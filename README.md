@@ -23,7 +23,7 @@ Each feature page of the docs shows the Markdown next to the rendered PDF.
 
 ## Redline: see every change in the PDF
 
-`ope redline` turns two git commits of a folder into a tracked-changes PDF: inserted text in green, removed text struck through in red, in the layout of the real document. It is made for reviews, approvals, audits and release notes of documents kept in git.
+`ope redline` turns two git commits of a folder into a tracked-changes PDF: inserted text underlined in blue, removed text struck through in red, moved text in purple and a change bar in the margin, in the layout of the real document. A change summary lists every changed section. The side-by-side style shows the old and the new document in two aligned columns, `-O redline.collapse=on` shows only the changes, and `--blame` adds the author, date and commit message of every changed block next to the page. It is made for reviews, approvals, audits and release notes of documents kept in git.
 
 ```bash
 ope redline ./Policy --from-commit v1.0.0 --to-commit v1.1.0
