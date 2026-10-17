@@ -11,6 +11,7 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from obsidian_pdf_exporter.compat.weasyprint_patches import apply_weasyprint_patches
 from obsidian_pdf_exporter.core.assemble import assemble_document
 from obsidian_pdf_exporter.core.blame import build_index
 from obsidian_pdf_exporter.core.blame import range_commits
@@ -118,6 +119,7 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
 ) -> Path:
     """Build a single PDF from an Obsidian tree according to ``request``."""
     outside_mode(request.options)
+    apply_weasyprint_patches(request.options)
     register_native_dependencies()
     ensure_pandoc()
     log = OutsideLinkCounter(log)
@@ -245,6 +247,7 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
 ) -> Path:
     """Build a redline (tracked-changes) PDF between two versions of a folder or note."""
     outside_mode(request.options)
+    apply_weasyprint_patches(request.options)
     register_native_dependencies()
     ensure_pandoc()
     log = OutsideLinkCounter(log)
