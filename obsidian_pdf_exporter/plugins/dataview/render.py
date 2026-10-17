@@ -106,7 +106,7 @@ def is_image_embed(link: Link) -> bool:
 
 
 def link_markdown(link: Link) -> str:
-    """A link as a wiki link that the later steps resolve (an anchor in the PDF or italic)."""
+    """A link as a wiki link that the later steps resolve (an anchor in the PDF or plain text)."""
     if is_image_embed(link):
         dims = re.match(r"^(\d+)(?:x(\d+))?$", link.display or "")
         size = f"\\|{dims.group(0)}" if dims else ""

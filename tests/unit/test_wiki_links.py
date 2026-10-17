@@ -113,14 +113,14 @@ def test_inline_svg_keeps_aspect_ratio_in_weasyprint(
 def test_convert_wiki_links_skips_code(page: tuple[Path, Path]) -> None:
     page_folder, build_dir = page
     source = "`[[Note]]` and `![[pic.png]]`\n```\n[[Note|alias]] ![[pic.png]]\n```\n[[Note|alias]]"
-    expected = "`[[Note]]` and `![[pic.png]]`\n```\n[[Note|alias]] ![[pic.png]]\n```\n*alias*"
+    expected = "`[[Note]]` and `![[pic.png]]`\n```\n[[Note|alias]] ![[pic.png]]\n```\nalias"
     assert convert_wiki_links(source, page_folder, {}, build_dir) == expected
 
 
 def test_escaped_pipe_separates_display_text(tmp_path: Path) -> None:
     r"""Inside tables Obsidian writes ``[[Note\|Alias]]``."""
     out = convert_wiki_links("| [[Note\\|Alias]] | [[Note#Part\\|Other]] |", tmp_path, {}, tmp_path)
-    assert out == "| *Alias* | *Other* |"
+    assert out == "| Alias | Other |"
 
 
 def _vault(tmp_path: Path) -> dict:
@@ -159,8 +159,22 @@ def _vault(tmp_path: Path) -> dict:
         ("[[Other/Page.md]]", "[Other/Page.md](#page-1)"),
         ("[[Page.md]]", "[Page.md](#page)"),
         ("[[Nowhere/Page|alias]]", "[alias](#page)"),
-        ("[[Missing]]", "*Missing*"),
-        ("[[Missing#Setup|alias]]", "*alias*"),
+        ("[[Missing]]", "Missing"),
+        ("[[Missing#Setup|alias]]", "alias"),
+        ("[[Missing#Setup]]", "Missing > Setup"),
+        ("[[Missing#Intro#Setup]]", "Missing > Intro > Setup"),
+        ("[[Missing#^block]]", "Missing > ^block"),
+        ("[Guide](Page.md)", "[Guide](#page)"),
+        ("[Guide](Other/Page.md)", "[Guide](#page-1)"),
+        ("[Guide](<Other/Page.md>)", "[Guide](#page-1)"),
+        (
+            "[Guide](Page.md#Setup)",
+            '[Guide](#setup){.heading-link data-scope="page" data-fallback="page"}',
+        ),
+        ("[Guide](My%20Missing.md)", "Guide"),
+        ("[Guide](<My Missing.md#Setup>)", "Guide"),
+        ("![Pic](Page.md)", "![Pic](Page.md)"),
+        ("[Site](https://example.com/Page.md)", "[Site](https://example.com/Page.md)"),
     ],
 )
 def test_convert_wiki_links_to_pages(tmp_path: Path, source: str, expected: str) -> None:
@@ -194,3 +208,21 @@ def test_collect_page_index_gives_pages_with_the_same_name_their_own_anchor(
     index = _vault(tmp_path)
     assert [e["anchor"] for e in index["Page"]] == ["page", "page-1"]
     assert [e["node"].anchor for e in index["Page"]] == ["page", "page-1"]
+
+
+def test_outside_links_go_to_the_callback(tmp_path: Path) -> None:
+    index = _vault(tmp_path)
+    seen: list[tuple[str, str]] = []
+
+    def outside(label: str, target: str) -> str:
+        seen.append((label, target))
+        return f"<{label}>"
+
+    source = "[[Missing#Setup]], [[Missing|alias]], [x](Gone.md#^id) and [[Page]]"
+    out = convert_wiki_links(source, tmp_path / "Docs", index, tmp_path, outside=outside)
+    assert out == "<Missing > Setup>, <alias>, <x> and [Page](#page)"
+    assert seen == [
+        ("Missing > Setup", "Missing#Setup"),
+        ("alias", "Missing"),
+        ("x", "Gone#^id"),
+    ]

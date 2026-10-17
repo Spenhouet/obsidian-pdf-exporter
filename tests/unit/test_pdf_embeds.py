@@ -138,7 +138,8 @@ def test_link_mode_keeps_the_old_link(tmp_path: Path) -> None:
     _make_pdf(vault / "Manual.pdf", 2)
     out, messages, _ = _export_page(vault, "![[Manual.pdf#page=2]]\n", {"pdf_embeds": "link"})
     assert "<figure" not in out
-    assert "*Manual*" in out
+    assert "Manual" in out
+    assert "*Manual*" not in out
     assert any("cannot render embed ![[Manual.pdf]]" in m for m in messages)
 
 
@@ -147,17 +148,19 @@ def test_broken_pdf_falls_back_to_a_link(tmp_path: Path) -> None:
     vault.mkdir()
     (vault / "Broken.pdf").write_bytes(b"not a pdf")
     out, messages, _ = _export_page(vault, "![[Broken.pdf]]\n")
-    assert "*Broken*" in out
-    assert len(messages) == 1
+    assert "Broken" in out
+    assert "*Broken*" not in out
     assert "could not render PDF embed ![[Broken.pdf]]" in messages[0]
+    assert messages[1] == (
+        '  Warning: link to "Broken.pdf" in Page/Page.md points outside the PDF, kept as text'
+    )
 
 
 def test_missing_pdf_and_missing_page_warn(tmp_path: Path) -> None:
     vault = tmp_path / "vault"
     _make_pdf(vault / "Manual.pdf", 2)
     out, messages, _ = _export_page(vault, "![[Gone.pdf]]\n\n![[Manual.pdf#page=9]]\n")
-    assert "*Gone*" in out
-    assert "*Manual*" in out
+    assert out.split() == ["Gone", "Manual"]
     assert any("could not find PDF ![[Gone.pdf]]" in m for m in messages)
     assert any("pages that Manual.pdf does not have" in m for m in messages)
 
