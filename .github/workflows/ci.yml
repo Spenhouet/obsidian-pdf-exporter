@@ -27,6 +27,9 @@ jobs:
       - name: Run tests with pytest
         run: uv run pytest
 
+      - name: Check the Pele build is the pinned version
+        run: uv run python scripts/update_pele.py --check
+
       - name: Test build (with sources for development)
         run: uv build
 

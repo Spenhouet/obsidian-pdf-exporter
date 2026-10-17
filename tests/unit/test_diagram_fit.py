@@ -28,8 +28,8 @@ def _tall_svg(font_px: int, rows: int = 20, height: int = 2000) -> str:
     )
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" class="doc-image mermaid" '
-        f'style="max-width:100%;" width="400" viewBox="0 0 400 {height}">'
-        f"<style>#d{{font-size:{font_px}px;}}</style>{boxes}</svg>"
+        f'style="max-width:100%;" width="400" viewBox="0 0 400 {height}" '
+        f'font-size="{font_px}">{boxes}</svg>'
     )
 
 
