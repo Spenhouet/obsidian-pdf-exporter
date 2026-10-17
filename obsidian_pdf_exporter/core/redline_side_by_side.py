@@ -22,6 +22,7 @@ from obsidian_pdf_exporter.core.htmltree import unwrap
 from obsidian_pdf_exporter.core.redline_collapse import collapsed_line
 from obsidian_pdf_exporter.core.redline_collapse import has_change
 from obsidian_pdf_exporter.core.redline_collapse import heading_level
+from obsidian_pdf_exporter.core.redline_collapse import keep_anchors
 from obsidian_pdf_exporter.core.redline_collapse import keep_flags
 from obsidian_pdf_exporter.core.redline_html import HEADINGS
 
@@ -266,7 +267,9 @@ def collapse_rows(rows: list[Row]) -> list[Row]:
             continue
         if run:
             dropped = [x.right if x.right is not None else x.left for x in run]
-            out.append(Row("ctx", None, collapsed_line([d for d in dropped if d is not None])))
+            line = collapsed_line([d for d in dropped if d is not None])
+            keep_anchors(line, [], tuple(x.anchor for x in run if x.anchor))
+            out.append(Row("ctx", None, line))
             run = []
         if r is not None:
             out.append(r)
@@ -321,12 +324,29 @@ def _row(r: Row) -> HtmlElement:
     return tr
 
 
+def _merge_unchanged_chapters(chapters: list[list[Row]]) -> list[list[Row]]:
+    """Move the line of a chapter without changes into the table of a changed neighbour.
+
+    The line names the chapter and keeps its anchors, so links to it still land.
+    """
+    out: list[list[Row]] = []
+    pending: list[Row] = []
+    for rows in chapters:
+        if any(r.kind != "ctx" for r in rows):
+            out.append(pending + rows)
+            pending = []
+        elif out:
+            out[-1].extend(rows)
+        else:
+            pending.extend(rows)
+    return out or [pending]
+
+
 def lay_out(body: HtmlElement, hunks: list[Hunk], *, collapse: bool) -> None:
     """Replace the text by one aligned two-column table per chapter."""
     chapters = [split_list_rows(rows) for rows in document_rows(body, hunks)]
     if collapse:
-        chapters = [collapse_rows(rows) for rows in chapters]
-        chapters = [rows for rows in chapters if any(r.kind != "ctx" for r in rows)] or chapters[:1]
+        chapters = _merge_unchanged_chapters([collapse_rows(rows) for rows in chapters])
     for n, rows in enumerate(chapters):
         table = element("table", "rl-sbs" + (" rl-sbs-break" if n else ""))
         cols = element("colgroup")

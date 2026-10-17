@@ -15,6 +15,7 @@ from obsidian_pdf_exporter.core.assemble import assemble_document
 from obsidian_pdf_exporter.core.blame import build_index
 from obsidian_pdf_exporter.core.blame import range_commits
 from obsidian_pdf_exporter.core.blame import write_blame_pdf
+from obsidian_pdf_exporter.core.html_postprocess import unlink_missing_targets
 from obsidian_pdf_exporter.core.pandoc import render_html
 from obsidian_pdf_exporter.core.pdf import apply_decorations
 from obsidian_pdf_exporter.core.pdf import html_to_pdf
@@ -210,6 +211,7 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
         html = run_html(html, doc_ctx, steps)
         html = request.template.process_html(html, ctx)
         html = apply_decorations(html, request.template.decorations(ctx))
+        html = unlink_missing_targets(html, lambda m: log(f"  Warning: {m}"))
 
         (build_dir / "final.html").write_text(html, encoding="utf-8")
 
@@ -329,6 +331,7 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
             html = render_redline(html, options)
             html = request.template.process_html(html, ctx)
             html = apply_decorations(html, request.template.decorations(ctx))
+            html = unlink_missing_targets(html, lambda m: log(f"  Warning: {m}"))
 
             (build_dir / "redline_final.html").write_text(html, encoding="utf-8")
 

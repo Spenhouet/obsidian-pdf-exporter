@@ -9,6 +9,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import unquote
 
+from obsidian_pdf_exporter.core.htmltree import HtmlTree
+from obsidian_pdf_exporter.core.htmltree import unwrap
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -340,3 +343,28 @@ def _drop_svg_size(svg_text: str) -> str:
         return svg_text
     tag = re.sub(r'\s(?:width|height)=["\'][^"\']*["\']', "", root.group(0))
     return svg_text.replace(root.group(0), tag, 1)
+
+
+_RE_ID = re.compile(r"""\bid=["']([^"']+)["']""")
+_RE_LOCAL_HREF = re.compile(r"""\bhref=["']#([^"']+)["']""")
+
+
+def unlink_missing_targets(html: str, warn: Callable[[str], None] | None = None) -> str:
+    """Keep the text of links to ``#id`` targets that are not in ``html``, without the link.
+
+    Such a link points to a heading that does not exist (for example ``[[#Typo]]``) or to
+    content that a redline left out. Without a target, the link would do nothing in the
+    PDF, and WeasyPrint reports it. ``warn`` gets one message per missing target.
+    """
+    ids = set(_RE_ID.findall(html))
+    missing = {t for t in _RE_LOCAL_HREF.findall(html) if t not in ids and unquote(t) not in ids}
+    if not missing:
+        return html
+    tree = HtmlTree(html)
+    for a in tree.root.xpath("//a[starts-with(@href, '#')]"):
+        if a.get("href", "")[1:] in missing:
+            unwrap(a)
+    for target in sorted(missing):
+        if warn is not None:
+            warn(f"link to #{target} has no target in the PDF, kept as text")
+    return tree.serialize()
