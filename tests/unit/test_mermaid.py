@@ -26,11 +26,12 @@ FAKE_SVG = (
 )
 
 
-def _png(path: Path, *, transparent: bool) -> None:
-    """Write a 900x300 PNG with content from 10% to 90% in both directions."""
+def _png(path: Path, *, transparent: bool, scale: int) -> None:
+    """Write the fake 300x100 diagram at ``scale``, content from 10% to 90% each way."""
     background = (0, 0, 0, 0) if transparent else (255, 255, 255, 255)
-    image = Image.new("RGBA", (900, 300), background)
-    ImageDraw.Draw(image).rectangle((90, 30, 809, 269), fill=(20, 40, 60, 255))
+    image = Image.new("RGBA", (300 * scale, 100 * scale), background)
+    box = (30 * scale, 10 * scale, 270 * scale - 1, 90 * scale - 1)
+    ImageDraw.Draw(image).rectangle(box, fill=(20, 40, 60, 255))
     image.save(path)
 
 
@@ -52,7 +53,8 @@ class FakeMermaidCli:
         targets = [out.with_name(f"{out.stem}-{i}.{ext}") for i in range(1, count + 1)]
         for target in targets or [out]:
             if ext == "png":
-                _png(target, transparent=argv[argv.index("-b") + 1] == "transparent")
+                transparent = argv[argv.index("-b") + 1] == "transparent"
+                _png(target, transparent=transparent, scale=int(argv[argv.index("-s") + 1]))
             else:
                 target.write_text(FAKE_SVG, encoding="utf-8")
         return subprocess.CompletedProcess(argv, 0, "", "")
@@ -185,6 +187,32 @@ def test_png_is_cropped_to_content(tmp_path: Path, fake_cli: FakeMermaidCli) -> 
         assert png.size == (768, 288)
     assert " width=256}" in out
     assert len(fake_cli.calls) == 1
+
+
+def test_measure_run_draws_diagrams_at_natural_size(
+    tmp_path: Path, fake_cli: FakeMermaidCli
+) -> None:
+    render_mermaid_blocks(_block("graph LR\n  A-->B"), tmp_path, MermaidSettings())
+    measure = fake_cli.calls[1]
+    assert measure[measure.index("-e") + 1] == "png"
+    assert measure[measure.index("-s") + 1] == "1"
+    # The window is wider than the diagram, and the page has no body margin.
+    assert int(measure[measure.index("-w") + 1]) >= 300
+    css = Path(measure[measure.index("-C") + 1]).read_text(encoding="utf-8")
+    assert "margin: 0" in css
+
+
+def test_trim_svg_maps_css_pixels_to_view_box_units() -> None:
+    # Drawn at 600 px wide, so one CSS pixel is half a viewBox unit.
+    svg = '<svg id="d" width="600" viewBox="0 0 300 100"></svg>'
+    out = mermaid._trim_svg(svg, (60, 20, 540, 180))
+    # Content 30..270 x 10..90 in units, plus 8 px (4 units) on each side.
+    assert out == '<svg id="d" width="496" viewBox="26 6 248 88"></svg>'
+
+
+def test_trim_svg_never_grows_the_view_box() -> None:
+    svg = '<svg id="d" width="300" viewBox="-8 -8 300 100"></svg>'
+    assert mermaid._trim_svg(svg, (0, 0, 300, 100)) == svg
 
 
 def test_strip_comments_keeps_directives() -> None:
@@ -376,6 +404,89 @@ def test_real_cli_trims_svg(tmp_path: Path) -> None:
         svg = (build / image.group(0)).read_text(encoding="utf-8")
         widths.append(float(re.search(r'<svg\b[^>]*\swidth="([\d.]+)"', svg).group(1)))
     assert 0 < widths[1] < widths[0]
+
+
+# One diagram of each common type, with its last element at the right edge.
+EDGE_DIAGRAMS = {
+    "flowchart-lr": "flowchart LR\n  A[Draft] --> B[Review] --> C[Approve] --> D[Export PDF]"
+    " --> E[Sign] --> F[Publish] --> G[Archive] --> H[Retire]",
+    "flowchart-td": "flowchart TD\n  A[Start] --> B{Check}\n  B -->|yes| C[Done]\n"
+    "  B -->|no| D[A much longer box at the bottom]",
+    "sequence": "sequenceDiagram\n  participant A as Client\n  participant B as Server\n"
+    "  A->>B: Request\n  B-->>A: Response\n  Note right of B: A note on the right",
+    "class": "classDiagram\n  class Animal {\n    +String name\n    +eat()\n  }\n"
+    "  class Duck {\n    +swim()\n  }\n  Animal <|-- Duck",
+    "state": "stateDiagram-v2\n  [*] --> Idle\n  Idle --> Busy: start\n"
+    "  Busy --> Idle: stop\n  Busy --> [*]",
+    "gantt": "gantt\n  dateFormat YYYY-MM-DD\n  section Work\n  Plan :a1, 2027-01-01, 10d\n"
+    "  Build :after a1, 20d",
+    "er": "erDiagram\n  CUSTOMER ||--o{ ORDER : places\n  ORDER ||--|{ LINE-ITEM : contains",
+    "mindmap": "mindmap\n  root((Project))\n    Goals\n      Faster\n    Risks\n      Budget",
+    "timeline": "timeline\n  title Rollout\n  2027 Q1 : Prototype\n  2027 Q2 : Beta\n"
+    "  2027 Q3 : Release",
+    "pie": DIAGRAMS["pie"][0],
+}
+
+
+def _drawn_box(svg_file: Path) -> tuple[float, float, float, float]:
+    """Render an SVG with WeasyPrint and return its drawn part in viewBox units."""
+    pdfium = pytest.importorskip("pypdfium2")
+    weasyprint = pytest.importorskip("weasyprint")
+    svg = svg_file.read_text(encoding="utf-8")
+    root = re.search(r"<svg\b[^>]*>", svg)
+    assert root
+    width = re.search(r'\swidth="([\d.]+)"', root.group(0))
+    view = re.search(r'\sviewBox="([^"]*)"', root.group(0))
+    assert width
+    assert view
+    natural = float(width.group(1))
+    x, y, w, h = (float(v) for v in view.group(1).split())
+    height = natural * h / w
+    html = (
+        f"<style>@page {{ size: {natural}px {height}px; margin: 0 }}"
+        f" body {{ margin: 0 }} img {{ display: block; width: {natural}px }}</style>"
+        f'<img src="{svg_file.name}">'
+    )
+    pdf = weasyprint.HTML(string=html, base_url=str(svg_file.parent)).write_pdf()
+    zoom = 4.0  # raster pixels per PDF point
+    page = pdfium.PdfDocument(pdf)[0]
+    image = page.render(scale=zoom).to_pil().convert("L")
+    bbox = image.point(lambda v: 255 if v < 250 else 0).getbbox()
+    assert bbox
+    unit = w / natural / (zoom * 0.75)  # viewBox units per raster pixel
+    left, top, right, bottom = bbox
+    return x + left * unit, y + top * unit, x + right * unit, y + bottom * unit
+
+
+def _view_box(svg_file: Path) -> tuple[float, float, float, float]:
+    svg = svg_file.read_text(encoding="utf-8")
+    view = re.search(r'<svg\b[^>]*\sviewBox="([^"]*)"', svg)
+    assert view
+    x, y, w, h = (float(v) for v in view.group(1).split())
+    return x, y, x + w, y + h
+
+
+@pytest.mark.skipif(not _REAL_CLI, reason="mermaid-cli not available")
+def test_real_cli_trimmed_view_box_keeps_every_edge(tmp_path: Path) -> None:
+    md = "\n\n".join(_block(code) for code in EDGE_DIAGRAMS.values())
+    files = {}
+    for trim in (False, True):
+        build = tmp_path / ("trimmed" if trim else "full")
+        build.mkdir()
+        out = render_mermaid_blocks(md, build, MermaidSettings(cli=_REAL_CLI, trim=trim))
+        names = re.findall(r"mermaid-[0-9a-f]+\.svg", out)
+        assert len(names) == len(EDGE_DIAGRAMS)
+        files[trim] = [build / name for name in names]
+
+    for name, full, trimmed in zip(EDGE_DIAGRAMS, files[False], files[True], strict=True):
+        # Everything drawn in the untrimmed diagram, strokes included, lies
+        # inside the trimmed viewBox.
+        drawn = _drawn_box(full)
+        view = _view_box(trimmed)
+        assert view[0] <= drawn[0] + 0.5, (name, "left", view, drawn)
+        assert view[1] <= drawn[1] + 0.5, (name, "top", view, drawn)
+        assert drawn[2] <= view[2] + 0.5, (name, "right", view, drawn)
+        assert drawn[3] <= view[3] + 0.5, (name, "bottom", view, drawn)
 
 
 @pytest.mark.skipif(not _REAL_CLI, reason="mermaid-cli not available")
