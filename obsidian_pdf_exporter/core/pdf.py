@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import base64
+import tempfile
 from contextlib import contextmanager
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from obsidian_pdf_exporter.core.diagram_fit import render_fitted
+from obsidian_pdf_exporter.core.html_postprocess import RE_EMBEDDED_IMAGE
 
 if TYPE_CHECKING:
+    import re
     from collections.abc import Iterator
-    from pathlib import Path
 
     from obsidian_pdf_exporter.core.diagram_fit import FitSettings
     from obsidian_pdf_exporter.templates.base import Decorations
@@ -45,9 +49,39 @@ def html_to_pdf(
     """
     from weasyprint import HTML
 
-    with svg_current_color():
-        document = render_fitted(HTML(string=html, base_url=base_url or None), fit)
-        document.write_pdf(str(output_path))
+    with tempfile.TemporaryDirectory(prefix="ope-images-") as folder:
+        html = images_to_files(html, Path(folder))
+        with svg_current_color():
+            document = render_fitted(HTML(string=html, base_url=base_url or None), fit)
+            document.write_pdf(str(output_path))
+
+
+def images_to_files(html: str, folder: Path) -> str:
+    """Move the raster images that pandoc embedded as ``data:`` URLs into files.
+
+    ``pandoc --embed-resources`` writes every image into the HTML as base64.
+    WeasyPrint's HTML parser is written in Python, so a document with many
+    screenshots takes long to parse and keeps the text in memory. Each image
+    is written once to ``folder`` and its ``src`` points at the file; the same
+    image data gets the same file. WeasyPrint reads the same bytes, so the PDF
+    looks the same.
+    """
+    files: dict[str, str] = {}
+
+    def replace(m: re.Match[str]) -> str:
+        data = m.group("data")
+        url = files.get(data)
+        if url is None:
+            try:
+                raw = base64.b64decode(data, validate=True)
+            except ValueError:
+                return m.group(0)
+            path = folder / f"image-{len(files)}.{m.group('type')}"
+            path.write_bytes(raw)
+            url = files[data] = path.as_uri()
+        return f'src="{url}"'
+
+    return RE_EMBEDDED_IMAGE.sub(replace, html)
 
 
 _SVG_TAG = "{http://www.w3.org/2000/svg}svg"
