@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import io
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -275,10 +276,12 @@ def test_auto_export_svg_is_preferred(tmp_path: Path) -> None:
     copied = next(build.glob("excalidraw-*.svg"))
     assert "<!-- exported -->" in copied.read_text()
 
-    _, _, build = _export(
+    out, _, build = _export(
         vault, "![[Drawing.excalidraw]]\n", options={"excalidraw.auto_export": "off"}
     )
-    assert "<!-- exported -->" not in next(build.glob("excalidraw-*.svg")).read_text()
+    drawn = re.search(r"\((excalidraw-[^)]+\.svg)\)", out)
+    assert drawn is not None
+    assert "<!-- exported -->" not in (build / drawn.group(1)).read_text()
 
 
 def test_auto_export_png(tmp_path: Path) -> None:
