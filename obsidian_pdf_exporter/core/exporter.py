@@ -15,7 +15,9 @@ from obsidian_pdf_exporter.core.assemble import assemble_document
 from obsidian_pdf_exporter.core.blame import build_index
 from obsidian_pdf_exporter.core.blame import range_commits
 from obsidian_pdf_exporter.core.blame import write_blame_pdf
+from obsidian_pdf_exporter.core.diagram_fit import FitSettings
 from obsidian_pdf_exporter.core.html_postprocess import unlink_missing_targets
+from obsidian_pdf_exporter.core.mermaid import mermaid_settings
 from obsidian_pdf_exporter.core.pandoc import render_html
 from obsidian_pdf_exporter.core.pdf import apply_decorations
 from obsidian_pdf_exporter.core.pdf import html_to_pdf
@@ -216,10 +218,11 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
         (build_dir / "final.html").write_text(html, encoding="utf-8")
 
         log("  Generating PDF...")
+        fit = _fit_settings(request.options)
         if request.blame:
-            _write_with_blame(html, output_path, build_dir, root_folder, "", log)
+            _write_with_blame(html, output_path, build_dir, root_folder, "", log, fit=fit)
         else:
-            html_to_pdf(html, output_path, base_url=build_dir.as_uri())
+            html_to_pdf(html, output_path, base_url=build_dir.as_uri(), fit=fit)
 
         size_kb = output_path.stat().st_size / 1024
         log(f"\n  PDF created: {output_path}")
@@ -336,6 +339,7 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
             (build_dir / "redline_final.html").write_text(html, encoding="utf-8")
 
             log("  Generating PDF...")
+            fit = _fit_settings(request.options)
             if request.blame and sides.blame_folder is not None:
                 repo = git_root(Path.cwd())
                 _write_with_blame(
@@ -347,9 +351,10 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
                     log,
                     highlight=range_commits(repo, request.from_commit, request.to_commit),
                     range_label=f"{request.from_commit} \u2192 {request.to_commit}",
+                    fit=fit,
                 )
             else:
-                html_to_pdf(html, output_path, base_url=build_dir.as_uri())
+                html_to_pdf(html, output_path, base_url=build_dir.as_uri(), fit=fit)
 
             size_kb = output_path.stat().st_size / 1024
             log(f"\n  Redline PDF created: {output_path}")
@@ -455,19 +460,34 @@ def _write_with_blame(
     *,
     highlight: set[str] | None = None,
     range_label: str = "",
+    fit: FitSettings | None = None,
 ) -> None:
     """Write the PDF with the blame strip next to every page."""
     start = folder if folder.exists() else Path.cwd()
     if not is_git_repo(start):
         log("  Warning: --blame needs a git repository; the PDF has no blame strip")
-        html_to_pdf(html, output_path, base_url=build_dir.as_uri())
+        html_to_pdf(html, output_path, base_url=build_dir.as_uri(), fit=fit)
         return
     log("  Reading the git history (blame)...")
     index = build_index(git_root(start), folder, commit)
     share = write_blame_pdf(
-        html, output_path, build_dir.as_uri(), index, highlight=highlight, range_label=range_label
+        html,
+        output_path,
+        build_dir.as_uri(),
+        index,
+        highlight=highlight,
+        range_label=range_label,
+        fit=fit,
     )
     log(f"  Blame: {share:.0%} of the blocks matched a source line")
+
+
+def _fit_settings(options: dict[str, str]) -> FitSettings | None:
+    """Return how tall Mermaid diagrams are fitted to the page, or None when turned off."""
+    settings = mermaid_settings(dict(options))
+    if not settings.fit:
+        return None
+    return FitSettings(min_font_pt=settings.landscape_min_font)
 
 
 def _resolve_root(root: Path) -> Path:
