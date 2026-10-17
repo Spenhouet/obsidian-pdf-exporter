@@ -1912,7 +1912,7 @@ PDF:
 | ------ | ------ |
 | `[[Page]]` | Link to the section of `Page`. |
 | `[[Page\|alias]]` | Same link, showing the alias. |
-| `[[#Heading]]`, `[[#Heading\|alias]]` | Link to the heading on the same page. When several pages share a heading name, the one on the linking page wins. |
+| `[[#Heading]]`, `[[#Heading\|alias]]` | Link to the heading on the same page. When several pages share a heading name, the one on the linking page wins. When no heading of that name is in the PDF, the label stays as plain text and the export prints a warning. |
 | `[[Page#Heading]]`, `[[Page#Heading\|alias]]` | Link to that heading on `Page`. Without an alias the label is `Page > Heading`. When `Page` has no such heading, the link goes to the page. `[[Page#A#B]]` uses the last heading, `B`. |
 | `[[Page#^id]]` | Link to the section of `Page`. |
 | `[[Folder/Page]]`, `[[Page.md]]` | The last path part is the page name and a `.md` suffix is ignored. When several pages have that name, the one whose path ends with `Folder/Page` wins. |
@@ -3595,7 +3595,7 @@ A thin bar between the columns marks the rows that changed; a moved block has a 
 
 ## Collapse unchanged content
 
-With `-O redline.collapse=on` the redline shows only what changed. The heading of every section that contains a change stays, so the reader knows where a change is. Each run of unchanged blocks becomes one quiet line, for example "⋯ 2 paragraphs unchanged ⋯" or "⋯ unchanged: 4 Contact (1 paragraph) ⋯". Inside a changed list or table, a run of unchanged items or rows is collapsed the same way. Links from the table of contents and the summary to collapsed headings still work: they point to the collapsed line.
+With `-O redline.collapse=on` the redline shows only what changed. The heading of every section that contains a change stays, so the reader knows where a change is. Each run of unchanged blocks becomes one quiet line, for example "⋯ 2 paragraphs unchanged ⋯" or "⋯ unchanged: 4 Contact (1 paragraph) ⋯". Inside a changed list or table, a run of unchanged items or rows is collapsed the same way. Links from the table of contents, the summary and the text to collapsed headings and blocks still work: they point to the collapsed line. In the side-by-side style, a chapter without changes becomes one such line in the table of the chapter before it. A link to a heading that is not in the PDF at all, such as `[[#Typo]]`, stays as plain text, and the command prints a warning.
 
 In the side-by-side style every row shown is a change, so the bar between the columns is left out.
 
@@ -4205,7 +4205,7 @@ Redline PDF:
 
 ### Image files with the same name
 
-Images are compared by their file content, not only by the name in the note. An image file that keeps its name and path but has a new picture is shown as replaced, in the same way as an image that was renamed. The same holds for SVG files, embedded PDF pages, draw.io and Excalidraw drawings, and images inside embedded notes. Files with the same bytes in both versions are not marked, even when they moved to another folder.
+Images are compared by their file content, not only by the name in the note. An image file that keeps its name and path but has a new picture is shown as replaced, in the same way as an image that was renamed. The same holds for SVG files, embedded PDF pages, draw.io and Excalidraw drawings, and images inside embedded notes. Files with the same bytes in both versions are not marked, even when they moved to another folder. An Excalidraw drawing is compared by the picture that is drawn from it, so an edit of the drawing file that does not change the picture is not marked. The label of a drawing shows its name, such as `Drawing.excalidraw`.
 
 Before:
 

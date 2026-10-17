@@ -45,7 +45,7 @@ A thin bar between the columns marks the rows that changed; a moved block has a 
 
 ## Collapse unchanged content
 
-With `-O redline.collapse=on` the redline shows only what changed. The heading of every section that contains a change stays, so the reader knows where a change is. Each run of unchanged blocks becomes one quiet line, for example "⋯ 2 paragraphs unchanged ⋯" or "⋯ unchanged: 4 Contact (1 paragraph) ⋯". Inside a changed list or table, a run of unchanged items or rows is collapsed the same way. Links from the table of contents and the summary to collapsed headings still work: they point to the collapsed line.
+With `-O redline.collapse=on` the redline shows only what changed. The heading of every section that contains a change stays, so the reader knows where a change is. Each run of unchanged blocks becomes one quiet line, for example "⋯ 2 paragraphs unchanged ⋯" or "⋯ unchanged: 4 Contact (1 paragraph) ⋯". Inside a changed list or table, a run of unchanged items or rows is collapsed the same way. Links from the table of contents, the summary and the text to collapsed headings and blocks still work: they point to the collapsed line. In the side-by-side style, a chapter without changes becomes one such line in the table of the chapter before it. A link to a heading that is not in the PDF at all, such as `[[#Typo]]`, stays as plain text, and the command prints a warning.
 
 In the side-by-side style every row shown is a change, so the bar between the columns is left out.
 

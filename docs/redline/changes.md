@@ -497,7 +497,7 @@ A replaced image is shown twice: the old one faded under a "Removed figure" labe
 
 ### Image files with the same name
 
-Images are compared by their file content, not only by the name in the note. An image file that keeps its name and path but has a new picture is shown as replaced, in the same way as an image that was renamed. The same holds for SVG files, embedded PDF pages, draw.io and Excalidraw drawings, and images inside embedded notes. Files with the same bytes in both versions are not marked, even when they moved to another folder.
+Images are compared by their file content, not only by the name in the note. An image file that keeps its name and path but has a new picture is shown as replaced, in the same way as an image that was renamed. The same holds for SVG files, embedded PDF pages, draw.io and Excalidraw drawings, and images inside embedded notes. Files with the same bytes in both versions are not marked, even when they moved to another folder. An Excalidraw drawing is compared by the picture that is drawn from it, so an edit of the drawing file that does not change the picture is not marked. The label of a drawing shows its name, such as `Drawing.excalidraw`.
 
 <div class="ope-example ope-redline" markdown>
 <div markdown>
