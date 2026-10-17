@@ -581,6 +581,7 @@ obsidian_pdf_exporter/
 │   ├── bases/              # Bases: expression parser, evaluator and views
 │   ├── code.py             # outside_code: keeps fenced and inline code as written
 │   └── embeds.py, callouts.py, wiki_links.py, mermaid.py, ...  # the work behind the steps
+├── compat/                 # patches for WeasyPrint, until a release has the fix
 ├── plugins/                # layer 3
 │   ├── base.py             # ObsidianPlugin, PluginContext, DocumentContext
 │   ├── registry.py         # entry-point + runtime discovery
