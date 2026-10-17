@@ -610,9 +610,25 @@ Generated content:
   change), runs `ope redline` in both styles and writes the images. The
   case `styles` renders `examples/_redline/_styles` in every combination
   of style, collapse and `--blame`, plus whole pages. Commit the images.
+- `docs/img/home/*.webp` are the images of the home page.
+  `uv run python scripts/render_home.py` exports the small handbook in
+  `examples/_showcase/Handbook` (the note in the hero is included from
+  there) and makes WebP thumbnails of the feature and template
+  screenshots. Run it after `render_examples.py`. The images have fixed
+  sizes, so the `width` and `height` in `docs/index.md` stay right.
 - `docs/llms.txt` and `docs/llms-full.txt` come from the pages. Run
   `uv run python scripts/gen_llms_txt.py` after adding or renaming a page.
   CI fails when they are out of date.
+
+The home page (`docs/index.md` with `overrides/home.html`, styles under
+"Home page" in `docs/stylesheets/extra.css`) follows what works on the
+home pages of developer tools: the value in one line, the install and
+first command with copy buttons above the fold, visual proof (a note next
+to its PDF page), real output images instead of text-only cards, and a
+clear next step at the end. Keep the basic export first and Redline as the
+featured section after it. Images below the fold get `loading="lazy"`,
+every image gets `width` and `height`, and the page must work at 390px and
+in the dark theme.
 
 A feature page shows the example source next to its image with the
 `ope-example` block, see any page under `docs/obsidian/`. The source is
