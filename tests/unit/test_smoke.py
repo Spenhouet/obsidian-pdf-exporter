@@ -36,9 +36,7 @@ def test_export_version_option_still_sets_document_version() -> None:
     assert "Document version" in result.output
 
 
-def test_redline_outside_git_repo_fails_cleanly(
-    tmp_path: Path, monkeypatch: object
-) -> None:
+def test_redline_outside_git_repo_fails_cleanly(tmp_path: Path, monkeypatch: object) -> None:
     """`redline` exits 1 with a friendly message when cwd is not a git repo."""
     monkeypatch.chdir(tmp_path)  # type: ignore[attr-defined]
     space = tmp_path / "Space"

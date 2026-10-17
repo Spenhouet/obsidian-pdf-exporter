@@ -1,60 +1,75 @@
 ---
 title: Styling the redline
-description: The built-in redline template, the elements and classes a redline emits, and how to restyle them in any template.
+description: The built-in redline template, the classes and CSS variables of the change marks, the summary, the side-by-side layout and collapsed lines, and how to restyle them in any template.
 ---
 
 # Styling the redline
 
-`ope redline` uses the built-in `redline` template unless `-T` names another one. It has the layout of `default` (A4, header and footer, title block, table of contents) and adds the styles for the marks.
+`ope redline` uses the built-in `redline` template unless `-T` names another one. The template sets the page, the type and the header and footer, like `default`. The change marks, the change summary, the table-of-contents marks, the side-by-side layout and the collapsed lines come from ope itself: their CSS is added before the CSS of the template, so they work with every template and any template can restyle them.
 
-!!! note "Current design"
-    The pictures in this section show the current look of the `redline` template. A new design is being worked on, so the colours and boxes may change. The elements and classes below are what a template styles.
+## Colours
+
+The colours are CSS variables on `:root`. Override them in your template:
+
+| Variable | Default | Used for |
+| -------- | ------- | -------- |
+| `--rl-ins` | `#0b57b0` | Inserted text and blocks |
+| `--rl-del` | `#b23a12` | Removed text and blocks |
+| `--rl-move` | `#6b3d9a` | Moved text, move labels and the bar of moved rows |
+| `--rl-fmt` | `#8a5a00` | Formatting and link changes, level and task labels |
+| `--rl-bar` | `#26292d` | Change bars |
+| `--rl-ins-bg`, `--rl-del-bg` | light blue, light red | "new" and "removed" marks in the table of contents |
+| `--rl-grey`, `--rl-quiet`, `--rl-dark`, `--rl-light`, `--rl-mid` | greys | Labels, collapsed lines, summary |
 
 ## What a redline emits
 
-On top of the HTML of a normal export, a redline has:
-
 | Element or selector | What it is |
 | ------------------- | ---------- |
-| `ins` | Inserted words inside a changed block, also in a heading and in the table of contents (`nav#TOC ins`). |
-| `del` | Removed words inside a changed block. `~~strikethrough~~` in the notes is also a `del`. |
-| `div.redline-ins` | A block that is only in the newer version: a paragraph, a list, a heading, a table. |
-| `div.redline-del` | A block that is only in the older version. A heading inside it is turned into `strong`, so it gets no number and stays out of the table of contents. |
-| `header#title-block-header .subtitle` | The subtitle, by default `Redline: <from> -> <to>`. |
+| `ins`, `del` | Inserted and removed words, also in headings and in the table of contents. `~~strikethrough~~` in the notes is also a `del`. |
+| `ins.rl-moved`, `del.rl-moved` | A list item that moved within its list. |
+| `span.rl-fmt` | Text whose formatting changed (`data-rl-fmt`, for example `bold added`). |
+| `span.rl-link` | A link whose target changed (`data-old-href`, `data-new-href`). |
+| `span.rl-level` | Label of a heading whose level changed (`data-old-level`, `data-new-level`). |
+| `li.rl-li-task`, `span.rl-task` | A task that was checked or unchecked (`data-rl-task`). |
+| `div.rl-block` | A changed block, with `rl-ins`, `rl-del`, `rl-mod` (changed in place), `rl-move-from` or `rl-move-to`, and `data-rl-kind` (`para`, `list`, `table`, `code`, `image`, `callout`, `heading`, `quote`). |
+| `div.rl-heading` | A removed heading (a `div`, so it is not numbered), with `data-level`. |
+| `h1.rl-ins` … `h6.rl-ins`, `h1.rl-mod` … | An inserted or changed heading. |
+| `tr.rl-tr-ins`, `tr.rl-tr-del`, `tr.rl-tr-mod`, `td.rl-col-ins`, `th.rl-col-ins` | Changed table rows and an added column. |
+| `li.rl-li-ins`, `li.rl-li-del`, `li.rl-li-mod`, `li.rl-li-move-from`, `li.rl-li-move-to` | Changed list items. |
+| `pre.rl-code`, `span.rl-line`, `.rl-line-ins`, `.rl-line-del` | A changed code block, one span per line. |
+| `div.rl-hunk` | A group of neighbouring changed blocks; it carries the change bar in the blackline style. |
+| `.rl-move-label`, `.rl-img-label` | Labels of moved blocks and of removed or inserted figures. |
+| `section.rl-summary` | The change summary (`.rl-tiles`, `table.rl-sections`, `table.rl-commits`). |
+| `.rl-toc-mark`, `.rl-toc-mark-new`, `.rl-toc-mark-del`, `li.rl-toc-removed` | Marks in the table of contents. |
+| `.rl-ctx`, `li.rl-ctx-item`, `tr.rl-ctx-row` | Collapsed lines (`-O redline.collapse=on`). |
+| `body.rl-blackline`, `body.rl-side-by-side`, `body.rl-collapse` | The style and the collapse option, on `body`. |
 
-Figures and tables are not moved to landscape pages in a redline. WeasyPrint supports `:has()`, so a paragraph or list item that holds a change can be styled too, for example `p:has(ins, del)`.
+The side-by-side style puts the text in `table.rl-sbs`, one `tr.rl-sbs-row` per block with `td.rl-sbs-old`, `td.rl-sbs-gutter` and `td.rl-sbs-new`. The row has the kind of change as `rl-sbs-equal`, `rl-sbs-mod`, `rl-sbs-ins`, `rl-sbs-del`, `rl-sbs-move-from`, `rl-sbs-move-to` or `rl-sbs-ctx`; an empty side is `td.rl-empty` with a `div.rl-gap`. Side-by-side pages are landscape (`@page { size: landscape }`, added after the template).
 
-The colours of the `redline` template are custom properties on `:root`: `--color-ins-bg`, `--color-ins-text`, `--color-del-bg` and `--color-del-text`. The full CSS is [`redline.css`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/obsidian_pdf_exporter/templates/builtin/redline/redline.css).
+The full CSS is in [`core/assets/`](https://github.com/Spenhouet/obsidian-pdf-exporter/tree/main/obsidian_pdf_exporter/core/assets). To check what was emitted, run with `--debug` and open `redline_final.html` in the build folder next to the PDF.
 
 ## Restyle the redline
 
-Start from a copy of `redline.css`, change or add rules at the end, and pass the file with `-T`:
+Add rules to a template. A single CSS file is enough:
+
+```css title="my-redline.css"
+:root { --rl-ins: #006d3c; --rl-del: #a4161a; --rl-bar: #6b46c1; }
+ins { text-decoration: underline; }                 /* single instead of double underline */
+.rl-blackline .rl-hunk { border-left-width: 3pt; }   /* a thicker change bar */
+```
 
 ```bash
-curl -sL -o my-redline.css https://raw.githubusercontent.com/Spenhouet/obsidian-pdf-exporter/main/obsidian_pdf_exporter/templates/builtin/redline/redline.css
-cat >> my-redline.css <<'CSS'
-:root { --color-ins-text: #0b4f9c; --color-ins-bg: #e3eefb; }
-p:has(ins, del) { border-left: 2pt solid #6b46c1; margin-left: -5mm; padding-left: 4mm; }
-CSS
 ope redline ./Policy --from-commit v1.0.0 -T ./my-redline.css
 ```
 
 A single CSS file or a [template folder](../templating/folders.md) does not get the header and footer of `redline`, which come from Python. Write them in `page.css` as described in [Header and footer](../templating/header-footer.md), or keep them by subclassing `RedlineTemplate` in a [Python template](../templating/python.md#extend-a-built-in-template) and adding CSS in `get_css()`.
 
-## Redline styles in your own template
-
-Any template can be used for a redline, for example a letterhead made for `ope export`. Such a template has no styles for the marks, so `ins` and `del` only get the browser defaults (underline and strike-through) and the blocks have no colour. Add rules like these:
-
-```css
-ins { background: #e6ffed; color: #08611a; text-decoration: underline; }
-del { background: #ffeef0; color: #b31d28; text-decoration: line-through; }
-.redline-ins, .redline-del { border-left: 4px solid; padding: 0.6em 1em; margin: 0.8em 0; }
-.redline-ins { background: #e6ffed; border-color: #2ea44f; }
-.redline-del { background: #ffeef0; border-color: #cb2431; text-decoration: line-through; }
-```
+Any template made for `ope export`, for example a letterhead, can be used for a redline as it is: the change marks come with ope.
 
 ```bash
 ope redline ./Handbook --from-commit v1.0.0 -T ./letterhead/
 ```
 
-To check what was emitted, run with `--debug` and open `redline_final.html` in the build folder next to the PDF.
+## The blame strip
+
+The [blame strip](blame.md) is drawn next to the page after the document is rendered, so templates do not change it. Its look is fixed: one line of grey text per block, darker for blocks changed in the compared range.

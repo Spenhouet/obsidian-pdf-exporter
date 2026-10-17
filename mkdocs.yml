@@ -141,7 +141,9 @@ nav:
       - redline/index.md
       - Usage: redline/usage.md
       - Comparing versions: redline/compare.md
+      - Styles and options: redline/styles.md
       - What changes look like: redline/changes.md
+      - Blame: redline/blame.md
       - Styling the redline: redline/styling.md
       - Limitations and tips: redline/limitations.md
   - Templates and styling:

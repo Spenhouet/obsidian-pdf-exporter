@@ -54,7 +54,7 @@ Lines starting with `Warning:` name content that could not be rendered: an embed
 
 ## Redline (tracked changes)
 
-A headline feature: a PDF of the folder in its newer version, with inserted text green and underlined, removed text red and struck through, and whole inserted or removed blocks in green or red boxes. Docs: https://spenhouet.com/obsidian-pdf-exporter/redline/
+A headline feature: a PDF of the folder in its newer version with a change summary, inserted text blue and underlined, removed text red and struck through, moved text purple, and a change bar in the margin. `-O redline.style=side-by-side` shows the old and the new document in two aligned columns, `-O redline.collapse=on` shows only the changes, `--blame` (also on `ope export`) adds author, date and commit message of each block next to the page. Docs: https://spenhouet.com/obsidian-pdf-exporter/redline/
 
 ```bash
 cd Vault   # must run inside the git repository that holds ROOT
@@ -64,11 +64,11 @@ ope redline ./Handbook --from-commit HEAD~3 -o out/handbook_redline.pdf --subtit
 ```
 
 - Refs are anything git resolves: tags, branches, SHAs, `HEAD~n` (not `a..b` ranges). Redline needs git today; for two folders without git, commit both into a throwaway repo: https://spenhouet.com/obsidian-pdf-exporter/redline/compare/ `--to-commit` defaults to `HEAD`. Both sides come from git, so uncommitted changes are not included: commit first.
-- Default output `./.export/<title>_redline.pdf`; the subtitle and footer label show `Redline: <from> -> <to>` as short hashes. Same `-T`, `-O`, `--title`, `--toc/--no-toc`, `--disable-plugin`, `--debug` as `export` (no `--version`, `--date`, `--include`).
+- Default output `./.export/<title>_redline.pdf`; the subtitle is `Changes from <from> to <to>`, the footer label has the short hashes. Same `-T`, `-O`, `--title`, `--toc/--no-toc`, `--disable-plugin`, `--blame`, `--debug` as `export` (no `--version`, `--date`, `--include`).
 - For a pull request compare against the merge base, not the tip of `main`. In CI, check out with full history (`fetch-depth: 0`). Workflows for pull requests and releases: https://spenhouet.com/obsidian-pdf-exporter/redline/usage/#in-ci
 - Embeds, Dataview and Meta Bind run before the comparison, so changes appear as they appear in the PDF. Properties that the text does not show are not compared.
-- Known weak spots, tell the user when the notes have them: inserted table rows break the table, changes in code or Mermaid blocks show literal `<del>`/`<ins>`, replaced images and heading level changes are not marked. List with issues: https://spenhouet.com/obsidian-pdf-exporter/redline/limitations/
-- `--debug` keeps `redline_assembled.md` (the diffed Markdown) next to the PDF. Styling (`ins`, `del`, `.redline-ins`, `.redline-del`): https://spenhouet.com/obsidian-pdf-exporter/redline/styling/
+- Not shown: uncommitted changes, properties that the text does not show, changes inside a diagram (the old and new drawing are shown). Limits: https://spenhouet.com/obsidian-pdf-exporter/redline/limitations/
+- `--debug` keeps `redline_assembled.md` (the diffed Markdown) and `redline_final.html` next to the PDF. Styling (`ins`, `del`, `div.rl-block`, `--rl-ins`, `--rl-del` ...): https://spenhouet.com/obsidian-pdf-exporter/redline/styling/
 
 ## Templates
 
