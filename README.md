@@ -24,8 +24,8 @@ ope export ./MyVault/Handbook --title "Team handbook" --version 1.2.0
 ```
 
 <p align="center">
-  <a href="https://spenhouet.com/obsidian-pdf-exporter/"><img src="https://raw.githubusercontent.com/Spenhouet/obsidian-pdf-exporter/438e5ec1d9c4fa3788a0c8b11c33bdf74a95622c/docs/img/home/handbook-1.webp" width="360" alt="Page 1 of an exported handbook: title, table of contents, a callout, a task list and a table"></a>
-  <a href="https://spenhouet.com/obsidian-pdf-exporter/"><img src="https://raw.githubusercontent.com/Spenhouet/obsidian-pdf-exporter/438e5ec1d9c4fa3788a0c8b11c33bdf74a95622c/docs/img/home/handbook-2.webp" width="360" alt="Page 2 of the handbook: a numbered section with a Mermaid flowchart, a callout, a table and an embedded note"></a>
+  <a href="https://spenhouet.com/obsidian-pdf-exporter/"><img src="https://raw.githubusercontent.com/Spenhouet/obsidian-pdf-exporter/main/docs/img/home/handbook-1.webp" width="360" alt="Page 1 of an exported handbook: title, table of contents, a callout, a task list and a table"></a>
+  <a href="https://spenhouet.com/obsidian-pdf-exporter/"><img src="https://raw.githubusercontent.com/Spenhouet/obsidian-pdf-exporter/main/docs/img/home/handbook-2.webp" width="360" alt="Page 2 of the handbook: a numbered section with a Mermaid flowchart, a callout, a table and an embedded note"></a>
 </p>
 
 Each feature page of the docs shows the Markdown next to the rendered PDF.
