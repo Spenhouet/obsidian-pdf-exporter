@@ -270,16 +270,26 @@ def export(  # noqa: PLR0913 - typer commands enumerate every CLI flag
 
 @app.command()
 def redline(  # noqa: PLR0913 - typer commands enumerate every CLI flag
-    root: Path = typer.Argument(..., help="Path to the vault folder to export"),
-    from_commit: str = typer.Option(
-        ...,
+    root: Path = typer.Argument(
+        ..., help="Folder or note to compare (with --from-path: the newer version on disk)"
+    ),
+    from_commit: str | None = typer.Option(
+        None,
         "--from-commit",
         help="Older git commit ref (baseline)",
     ),
-    to_commit: str = typer.Option(
-        "HEAD",
+    to_commit: str | None = typer.Option(
+        None,
         "--to-commit",
         help="Newer git commit ref (default: HEAD)",
+    ),
+    from_path: Path | None = typer.Option(
+        None,
+        "--from-path",
+        help=(
+            "Older version as a folder or note on disk (baseline), compared with ROOT on disk "
+            "without git; not with --from-commit, --to-commit or --blame"
+        ),
     ),
     template: str = typer.Option(
         "redline",
@@ -300,7 +310,7 @@ def redline(  # noqa: PLR0913 - typer commands enumerate every CLI flag
         None,
         "--title",
         "-t",
-        help="Document title (default: folder name)",
+        help="Document title (default: folder or note name)",
     ),
     subtitle: str | None = typer.Option(None, "--subtitle", help="Document subtitle"),
     option: list[str] = typer.Option(
@@ -336,18 +346,15 @@ def redline(  # noqa: PLR0913 - typer commands enumerate every CLI flag
         help="Keep the intermediate build directory for inspection",
     ),
 ) -> None:
-    """Generate a redline (tracked-changes) PDF between two git commits.
+    """Generate a redline (tracked-changes) PDF between two versions.
 
+    Compare two git commits of ROOT with --from-commit (and --to-commit), or two
+    folders or two notes on disk with --from-path OLD (ROOT is the newer one).
     Choose the look with -O redline.style=blackline (default) or
     -O redline.style=side-by-side, and show only the changes with
     -O redline.collapse=on.
     """
-    if not is_git_repo(Path.cwd()):
-        _console.print(
-            "[red]ERROR:[/red] redline requires the vault to be in a git repository. "
-            "Run `git init` and commit your vault, or use `export` instead."
-        )
-        raise typer.Exit(code=1)
+    _check_redline_sources(root, from_commit, to_commit, from_path, blame=blame)
 
     options = _parse_options(option)
     chosen_title = default_title(title, root)
@@ -363,8 +370,9 @@ def redline(  # noqa: PLR0913 - typer commands enumerate every CLI flag
         root=root,
         output=output_path,
         template=tpl,
-        from_commit=from_commit,
-        to_commit=to_commit,
+        from_commit=from_commit or "",
+        to_commit=to_commit or "HEAD",
+        from_path=from_path,
         title=chosen_title,
         subtitle=subtitle or "",
         options=options,
@@ -376,9 +384,44 @@ def redline(  # noqa: PLR0913 - typer commands enumerate every CLI flag
     _run(lambda: export_redline(request, log=_log))
 
 
+def _check_redline_sources(
+    root: Path,
+    from_commit: str | None,
+    to_commit: str | None,
+    from_path: Path | None,
+    *,
+    blame: bool,
+) -> None:
+    """Stop with a clear message when the two versions of a redline are not given right."""
+    problem = ""
+    if from_path is not None and (from_commit or to_commit):
+        problem = "--from-path cannot be combined with --from-commit or --to-commit."
+    elif from_path is not None and blame:
+        problem = (
+            "--blame needs the git history of both versions and cannot be used with "
+            "--from-path. Use --from-commit, or `ope export --blame` for one version."
+        )
+    elif from_path is not None and from_path.is_file() != root.is_file():
+        problem = "--from-path and ROOT must both be folders or both be notes."
+    elif from_path is None and not from_commit:
+        problem = "Name the older version with --from-commit REF or --from-path PATH."
+    elif from_path is None and not is_git_repo(Path.cwd()):
+        problem = (
+            "redline with --from-commit requires the vault to be in a git repository. "
+            "Run `git init` and commit your vault, use --from-path to compare two folders "
+            "or notes, or use `export` instead."
+        )
+    if problem:
+        _console.print(f"[red]ERROR:[/red] {problem}")
+        raise typer.Exit(code=1)
+
+
 def default_title(title: str | None, root: Path) -> str:
-    """The title of the PDF: ``title``, or the real name of the folder (also for ``.``)."""
-    return title or root.resolve().name
+    """The title of the PDF: ``title``, or the real name of the folder or note (also for ``.``)."""
+    if title:
+        return title
+    resolved = root.resolve()
+    return resolved.stem if resolved.is_file() else resolved.name
 
 
 def _default_output(title: str, suffix: str = "") -> Path:
