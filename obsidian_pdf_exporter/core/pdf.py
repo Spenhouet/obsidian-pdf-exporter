@@ -5,10 +5,13 @@ from __future__ import annotations
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
+from obsidian_pdf_exporter.core.diagram_fit import render_fitted
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
     from pathlib import Path
 
+    from obsidian_pdf_exporter.core.diagram_fit import FitSettings
     from obsidian_pdf_exporter.templates.base import Decorations
 
 
@@ -27,17 +30,24 @@ def apply_decorations(html: str, decorations: Decorations | None) -> str:
     return html
 
 
-def html_to_pdf(html: str, output_path: Path, base_url: str = "") -> None:
+def html_to_pdf(
+    html: str,
+    output_path: Path,
+    base_url: str = "",
+    fit: FitSettings | None = None,
+) -> None:
     """Render ``html`` to a PDF at ``output_path`` using WeasyPrint.
 
     WeasyPrint converts ``<a href="#id">`` anchors to native PDF GoTo
     annotations and builds the bookmark tree from heading hierarchy with no
-    extra work required.
+    extra work required. With ``fit``, Mermaid diagrams taller than their
+    page are scaled or cut to fit it, see :mod:`.diagram_fit`.
     """
     from weasyprint import HTML
 
     with svg_current_color():
-        HTML(string=html, base_url=base_url or None).write_pdf(str(output_path))
+        document = render_fitted(HTML(string=html, base_url=base_url or None), fit)
+        document.write_pdf(str(output_path))
 
 
 _SVG_TAG = "{http://www.w3.org/2000/svg}svg"

@@ -94,6 +94,7 @@ class MermaidSettings:
     landscape: bool = True
     landscape_ratio: float = 1.4
     landscape_min_font: float = 7.0
+    fit: bool = True
 
 
 def mermaid_settings(
@@ -118,7 +119,9 @@ def mermaid_settings(
       diagram that is scaled down goes to a landscape page (default ``1.4``).
     * ``mermaid.landscape_min_font=PT``: smallest font size in points a
       diagram may have on a portrait page before it goes to a landscape
-      page (default ``7``).
+      page (default ``7``). A diagram taller than its page is cut into parts
+      instead of scaled when scaling would make its text smaller than that.
+    * ``mermaid.fit=off``: let diagrams taller than the page run past it.
     """
     image_format = options.get("mermaid.format", "svg").strip().lower()
     if image_format not in _FORMATS:
@@ -148,6 +151,7 @@ def mermaid_settings(
         landscape=options.get("mermaid.landscape", "on").strip().lower() not in _OFF_VALUES,
         landscape_ratio=_checked_number(options, "mermaid.landscape_ratio", 1.4),
         landscape_min_font=_checked_number(options, "mermaid.landscape_min_font", 7.0),
+        fit=options.get("mermaid.fit", "on").strip().lower() not in _OFF_VALUES,
     )
 
 
