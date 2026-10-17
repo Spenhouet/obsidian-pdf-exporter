@@ -3,8 +3,9 @@
 Only changed blocks stay, with the headings of the sections that contain a change, so
 the reader keeps the heading path. Every run of unchanged blocks becomes one quiet
 line such as "⋯ 3 paragraphs unchanged ⋯"; inside changed lists and tables, runs of
-unchanged items and rows are collapsed the same way. Collapsed headings keep their
-anchors, so links from the table of contents and the summary still work.
+unchanged items and rows are collapsed the same way. The line keeps the ids of what it
+stands for, so links from the table of contents, the summary and the text to a
+collapsed heading or block land on the line.
 """
 
 from __future__ import annotations
@@ -75,9 +76,7 @@ def collapsed_line(dropped: list[HtmlElement]) -> HtmlElement:
         else:
             word = _kind_word(el)
             kinds[word] = kinds.get(word, 0) + 1
-        for e in [el, *el.iterdescendants()]:
-            if e.get("id"):
-                line.append(element("span", "rl-anchor", id=e.get("id")))
+        keep_anchors(line, [el])
     parts = ", ".join(f"{n} {w}{'s' if n > 1 else ''}" for w, n in kinds.items())
     if heads:
         text = "unchanged: " + ", ".join(heads) + (f" ({parts})" if parts else "")
@@ -85,6 +84,17 @@ def collapsed_line(dropped: list[HtmlElement]) -> HtmlElement:
         text = f"{parts} unchanged"
     line.append(element("span", "rl-ctx-text", f"⋯ {text} ⋯"))
     return line
+
+
+def keep_anchors(
+    holder: HtmlElement, dropped: list[HtmlElement], extra: tuple[str, ...] = ()
+) -> None:
+    """Give ``holder`` the ids of ``dropped`` (and ``extra``), so links to them still land."""
+    ids = [*extra]
+    for el in dropped:
+        ids += [e.get("id") for e in [el, *el.iterdescendants()] if e.get("id")]
+    for i in dict.fromkeys(ids):
+        holder.append(element("span", "rl-anchor", id=i))
 
 
 def keep_flags(items: list[tuple[HtmlElement | None, bool]]) -> list[bool]:
@@ -148,9 +158,12 @@ def _collapse_runs(
             text = f"⋯ {n} {word}{'s' if n > 1 else ''} unchanged ⋯"
             if items[k].tag == "li":
                 holder = element("li", "rl-ctx-item", text)
+                keep_anchors(holder, items[k:j])
             else:
                 holder = element("tr", "rl-ctx-row")
-                holder.append(element("td", "", text, colspan=str(len(items[k]))))
+                cell = element("td", "", text, colspan=str(len(items[k])))
+                keep_anchors(cell, items[k:j])
+                holder.append(cell)
             items[k].addprevious(holder)
             for e in items[k:j]:
                 drop(e)
