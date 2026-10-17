@@ -32,7 +32,7 @@ class MyTemplate(Template):
 | `get_css()` | Before the export, without context | The CSS source. Written to `<build>/<name>.css`. |
 | `assets()` | Before the export | Files written into the build folder, for relative `url(...)` in the CSS. |
 | `decorations(ctx)` | After the HTML hooks | Running header and footer HTML and page CSS. `None` for none. |
-| `mermaid_config(ctx)` | Before Mermaid runs | Base Mermaid config. `-O mermaid.config` and `-O mermaid.theme` are merged over it. |
+| `mermaid_config(ctx)` | Before Mermaid runs | Base Mermaid config. `-O mermaid.config` is merged over it. |
 | `process_markdown(content, ctx)` | Right before pandoc | The assembled Markdown of the whole document, after all steps and plugins. |
 | `process_html(html, ctx)` | After pandoc and the HTML steps | The full HTML document, before decorations. |
 

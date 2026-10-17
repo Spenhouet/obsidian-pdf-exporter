@@ -76,7 +76,6 @@ When WeasyPrint still cannot find the libraries, set `OBSIDIAN_PDF_GTK_PATH` to 
 | Tool | Needed for |
 | ---- | ---------- |
 | git | [Redline](../redline/index.md), the version label from the commit hash, and the vault root for Dataview. |
-| Node.js (`npx`) or `mmdc` | [Mermaid](../obsidian/mermaid.md) diagrams with mermaid-cli, the default renderer. Without it, Mermaid blocks stay code blocks. `-O mermaid.renderer=pele` draws them without Node.js. |
 
 ## In CI
 
@@ -100,7 +99,7 @@ jobs:
           path: handbook.pdf
 ```
 
-Mermaid diagrams need Node.js on the runner, which `ubuntu-latest` has. On a runner without it, add `-O mermaid.renderer=pele`.
+[Mermaid](../obsidian/mermaid.md) diagrams are drawn inside ope, so the runner needs no Node.js or browser.
 
 ## Check the install
 
