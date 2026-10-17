@@ -25,13 +25,13 @@ warning.
 
 from __future__ import annotations
 
-import hashlib
 import html
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from obsidian_pdf_exporter.core.build_files import content_digest
 from obsidian_pdf_exporter.core.code import outside_code
 from obsidian_pdf_exporter.core.tree import lookup_page
 from obsidian_pdf_exporter.core.wiki_links import RE_EMBED_PIPE
@@ -178,9 +178,9 @@ def render_pdf_pages(
     """
     import pypdfium2 as pdfium
 
-    stat = pdf_file.stat()
-    key = f"{pdf_file.resolve()}|{stat.st_mtime_ns}|{stat.st_size}|{dpi}"
-    digest = hashlib.sha1(key.encode("utf-8"), usedforsecurity=False).hexdigest()[:10]
+    # Named by the bytes of the PDF, so the pages of an unchanged PDF get the same names in
+    # both versions of a redline, and the pages of a replaced PDF of the same name do not.
+    digest = content_digest(pdf_file.read_bytes() + f"|{dpi}".encode())
     stem = _RE_UNSAFE.sub("-", pdf_file.stem).strip("-")[:40] or "pdf"
     try:
         document = pdfium.PdfDocument(pdf_file)

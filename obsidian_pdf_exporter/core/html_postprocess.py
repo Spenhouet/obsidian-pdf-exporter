@@ -7,6 +7,7 @@ import html as html_lib
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING
+from urllib.parse import unquote
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -246,6 +247,17 @@ def table_needs_width(table_html: str) -> bool:
     return max(wrapped, words) > _PORTRAIT_CHARS
 
 
+def _build_file(build_dir: Path, src: str) -> Path | None:
+    """The file that ``src`` names in ``build_dir``: its relative path there, else its name."""
+    root = build_dir.resolve()
+    names = dict.fromkeys((src, unquote(src)))
+    for candidate in [root / n for n in names] + [root / Path(n).name for n in names]:
+        resolved = candidate.resolve()
+        if resolved.is_relative_to(root) and resolved.is_file():
+            return resolved
+    return None
+
+
 def inline_svg_images(  # noqa: C901 - small SVG handler
     html: str,
     build_dir: Path,
@@ -266,12 +278,10 @@ def inline_svg_images(  # noqa: C901 - small SVG handler
             except (ValueError, UnicodeDecodeError):
                 return None
         if src.startswith("data:image/svg+xml,"):
-            from urllib.parse import unquote
-
             return unquote(src[19:])
         if not src.startswith(("http://", "https://")) and ".svg" in src.lower():
-            p = build_dir / Path(src).name
-            if p.exists():
+            p = _build_file(build_dir, src)
+            if p is not None:
                 return p.read_text(encoding="utf-8", errors="replace")
         return None
 

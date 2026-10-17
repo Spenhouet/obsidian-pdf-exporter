@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import re
-import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from obsidian_pdf_exporter.core.build_files import stage_file
 from obsidian_pdf_exporter.core.code import outside_code
 from obsidian_pdf_exporter.core.tree import lookup_page
 from obsidian_pdf_exporter.core.util import slugify
@@ -59,7 +59,7 @@ def resolve_image(
     build_dir: Path,
     vault_index: VaultIndex | None = None,
 ) -> str | None:
-    """Copy an embedded image into ``build_dir`` and return its filename.
+    """Copy an embedded image into ``build_dir`` and return its path there.
 
     Lookup picks the candidate file with the deepest common ancestor
     with ``page_folder`` (see :class:`VaultIndex`). Without an index,
@@ -75,10 +75,7 @@ def resolve_image(
         found = _legacy_attachments_lookup(img_name, page_folder)
     if found is None:
         return None
-    dest = build_dir / found.name
-    if not dest.exists():
-        shutil.copy2(found, dest)
-    return found.name
+    return stage_file(found, build_dir)
 
 
 def _legacy_attachments_lookup(img_name: str, page_folder: Path) -> Path | None:
