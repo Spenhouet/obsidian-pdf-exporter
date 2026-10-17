@@ -1029,7 +1029,7 @@ requires-dist = [
     { name = "rich" },
     { name = "tinycss2", specifier = ">=1.4" },
     { name = "typer" },
-    { name = "weasyprint" },
+    { name = "weasyprint", specifier = ">=70.0" },
     { name = "ziamath", specifier = ">=0.13" },
 ]
 
