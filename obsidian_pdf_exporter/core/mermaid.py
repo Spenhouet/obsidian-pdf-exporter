@@ -1,9 +1,12 @@
-"""Render Mermaid code blocks to images with mermaid-cli.
+"""Render Mermaid code blocks to images with mermaid-cli or Pele.
 
 Obsidian renders ```` ```mermaid ```` blocks natively. Pandoc and WeasyPrint
 do not, so every block is rendered to an SVG (default) or PNG with
-mermaid-cli (``mmdc``) before pandoc runs. When no renderer is available or
-rendering fails, the code block stays as it is and a warning is logged.
+mermaid-cli (``mmdc``) before pandoc runs. With ``mermaid.renderer=pele``,
+blocks are drawn as SVG by Pele in the embedded V8 engine instead (see
+:mod:`obsidian_pdf_exporter.core.mermaid_pele`); a block Pele can not draw
+goes to mermaid-cli. When no renderer is available or rendering fails, the
+code block stays as it is and a warning is logged.
 
 SVG output is forced to ``htmlLabels: false``. Mermaid otherwise puts labels
 into ``<foreignObject>`` elements, which WeasyPrint does not draw.
@@ -31,6 +34,8 @@ import subprocess
 from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
+
+from obsidian_pdf_exporter.core import mermaid_pele
 
 #: npm package run through ``npx`` when ``mmdc`` is not on the PATH.
 MERMAID_CLI_PACKAGE = "@mermaid-js/mermaid-cli@11.4.2"
@@ -75,6 +80,7 @@ _DEFAULT_FONT_PX = 16.0
 _RE_FONT_SIZE = re.compile(r"font-size:\s*([\d.]+)px")
 
 _FORMATS = ("svg", "png")
+_RENDERERS = ("mermaid-cli", "pele")
 _OFF_VALUES = {"0", "false", "no", "off"}
 _TIMEOUT_SECONDS = 600
 
@@ -84,6 +90,7 @@ class MermaidSettings:
     """How Mermaid blocks are rendered for one export."""
 
     enabled: bool = True
+    renderer: str = "mermaid-cli"
     image_format: str = "svg"
     scale: int = 3
     config: dict[str, object] = field(default_factory=dict)
@@ -106,6 +113,9 @@ def mermaid_settings(
     Recognised options (all optional):
 
     * ``mermaid=off``: keep Mermaid blocks as code.
+    * ``mermaid.renderer=mermaid-cli|pele``: what draws the diagrams (default
+      ``mermaid-cli``). Pele runs in the embedded V8 engine and always writes
+      SVG; a diagram it can not draw goes to mermaid-cli.
     * ``mermaid.format=svg|png``: output format (default ``svg``).
     * ``mermaid.scale=N``: PNG pixel density (default ``3``).
     * ``mermaid.config=PATH``: JSON Mermaid config merged over the template's.
@@ -127,6 +137,10 @@ def mermaid_settings(
     if image_format not in _FORMATS:
         msg = f"mermaid.format must be one of {', '.join(_FORMATS)}, got {image_format!r}"
         raise ValueError(msg)
+    renderer = options.get("mermaid.renderer", "mermaid-cli").strip().lower()
+    if renderer not in _RENDERERS:
+        msg = f"mermaid.renderer must be one of {', '.join(_RENDERERS)}, got {renderer!r}"
+        raise ValueError(msg)
 
     config = copy.deepcopy(dict(template_config or {}))
     config_path = options.get("mermaid.config")
@@ -141,6 +155,7 @@ def mermaid_settings(
 
     return MermaidSettings(
         enabled=options.get("mermaid", "on").strip().lower() not in _OFF_VALUES,
+        renderer=renderer,
         image_format=image_format,
         scale=int(options.get("mermaid.scale", "3")),
         config=config,
@@ -201,50 +216,122 @@ def render_mermaid_blocks(
     settings: MermaidSettings,
     *,
     log=print,  # noqa: ANN001 - log is any callable(str)
+    css: str = "",
 ) -> str:
     """Replace every Mermaid code block in ``markdown`` with a rendered image.
 
     Images are written to ``build_dir``. Blocks that can not be rendered stay
-    as code blocks.
+    as code blocks. ``css`` is the template's CSS, which sets the colors and
+    fonts of diagrams drawn by Pele.
     """
     blocks = list(RE_MERMAID_BLOCK.finditer(markdown))
     if not blocks or not settings.enabled:
         return markdown
 
-    cli = find_mermaid_cli(settings.cli)
-    if cli is None:
+    codes = list(dict.fromkeys(strip_comments(m.group("code")) for m in blocks))
+    images: dict[str, Path] = {}
+    if settings.renderer == "pele":
+        images = _render_with_pele(codes, build_dir, settings, css, log)
+    rest = [code for code in codes if code not in images]
+    cli = find_mermaid_cli(settings.cli) if rest else None
+    if rest and cli is None:
+        state = "could not be drawn by Pele and stay" if settings.renderer == "pele" else "kept"
         log(
-            f"  Warning: {len(blocks)} Mermaid block(s) kept as code. "
+            f"  Warning: {len(rest)} Mermaid block(s) {state} as code. "
             "Install mermaid-cli (mmdc) or Node.js (npx) to render them."
         )
-        return markdown
-
-    config = _render_config(settings)
-    ext = settings.image_format
-    sources = {}
-    for m in blocks:
-        code = strip_comments(m.group("code"))
-        sources[_digest(code, config, settings)] = code
-    todo = [d for d in sources if not (build_dir / f"mermaid-{d}.{ext}").exists()]
-    if todo:
-        log(f"  Rendering {len(todo)} Mermaid diagram(s)...")
-        _render(cli, {d: sources[d] for d in todo}, build_dir, config, settings, log)
+    elif rest and cli is not None:
+        images.update(_render_with_cli(cli, rest, build_dir, settings, log))
 
     failed = 0
 
     def replace(m: re.Match) -> str:
         nonlocal failed
         code = strip_comments(m.group("code"))
-        image = build_dir / f"mermaid-{_digest(code, config, settings)}.{ext}"
-        if not image.exists():
+        image = images.get(code)
+        if image is None:
             failed += 1
             return m.group(0)
         return _image_markdown(image, code, settings)
 
     result = RE_MERMAID_BLOCK.sub(replace, markdown)
-    if failed:
+    if failed and cli is not None:
         log(f"  Warning: {failed} Mermaid block(s) could not be rendered and stay as code.")
     return result
+
+
+def _render_with_cli(
+    cli: list[str],
+    codes: list[str],
+    build_dir: Path,
+    settings: MermaidSettings,
+    log,  # noqa: ANN001
+) -> dict[str, Path]:
+    """Render ``codes`` with mermaid-cli. Returns the image of every code that rendered."""
+    config = _render_config(settings)
+    ext = settings.image_format
+    sources = {_digest(code, config, settings): code for code in codes}
+    todo = [d for d in sources if not (build_dir / f"mermaid-{d}.{ext}").exists()]
+    if todo:
+        what = " with mermaid-cli" if settings.renderer == "pele" else ""
+        log(f"  Rendering {len(todo)} Mermaid diagram(s){what}...")
+        _render(cli, {d: sources[d] for d in todo}, build_dir, config, settings, log)
+    images = {}
+    for digest, code in sources.items():
+        image = build_dir / f"mermaid-{digest}.{ext}"
+        if image.exists():
+            images[code] = image
+    return images
+
+
+def _render_with_pele(
+    codes: list[str],
+    build_dir: Path,
+    settings: MermaidSettings,
+    css: str,
+    log,  # noqa: ANN001
+) -> dict[str, Path]:
+    """Draw ``codes`` with Pele. Returns the image of every code it could draw."""
+    theme = mermaid_pele.pele_theme(css, settings.config)
+    config = mermaid_pele.pele_config(settings.config)
+    jobs = {}
+    for code in codes:
+        options: dict[str, object] = {
+            "responsive": False,
+            "autoDirection": False,
+            "fontFamily": theme.font_family,
+            "fontFamilyMono": theme.font_mono,
+            "padding": _TRIM_MARGIN if settings.trim else 16,
+            "links": False,
+            "images": False,
+            "config": config,
+        }
+        size = mermaid_pele.diagram_font_size(code, settings.config)
+        if size:
+            options["fontSize"] = size
+        digest = mermaid_pele.pele_digest(code, options, theme)
+        jobs[code] = (build_dir / f"mermaid-{digest}.svg", options)
+
+    todo = {code: job for code, job in jobs.items() if not job[0].exists()}
+    failed: set[str] = set()
+    if todo:
+        log(f"  Rendering {len(todo)} Mermaid diagram(s) with Pele...")
+        try:
+            renderer = mermaid_pele.PeleRenderer(theme)
+        except mermaid_pele.PeleUnavailableError as e:
+            log(f"  Warning: {e}")
+            return {}
+        with renderer:
+            for code, (image, options) in todo.items():
+                result = renderer.render(code, options)
+                if result.error:
+                    failed.add(code)
+                    first_line = result.error.splitlines()[0]
+                    kind = diagram_type(code) or "Mermaid"
+                    log(f"  Warning: Pele could not draw a {kind} diagram: {first_line}")
+                    continue
+                image.write_text(result.svg, encoding="utf-8")
+    return {code: job[0] for code, job in jobs.items() if code not in failed and job[0].exists()}
 
 
 def _image_markdown(image: Path, code: str, settings: MermaidSettings) -> str:
@@ -630,13 +717,19 @@ def _landscape_width(image: Path, settings: MermaidSettings, width: str) -> str:
 def _font_px(image: Path) -> float:
     """Return the base font size of a diagram in CSS pixels.
 
-    Mermaid writes it into the first rule of the SVG's style sheet. PNG
-    images and SVGs without it use Mermaid's default of 16px.
+    Mermaid writes it into the first rule of the SVG's style sheet, Pele into
+    the ``font-size`` attribute of the root element. PNG images and SVGs
+    without it use Mermaid's default of 16px.
     """
     if image.suffix != ".svg":
         return _DEFAULT_FONT_PX
-    match = _RE_FONT_SIZE.search(image.read_text(encoding="utf-8"))
-    return float(match.group(1)) if match else _DEFAULT_FONT_PX
+    svg = image.read_text(encoding="utf-8")
+    match = _RE_FONT_SIZE.search(svg)
+    if match:
+        return float(match.group(1))
+    root = re.search(r"<svg\b[^>]*>", svg)
+    attribute = re.search(r'\sfont-size="([\d.]+)"', root.group(0)) if root else None
+    return float(attribute.group(1)) if attribute else _DEFAULT_FONT_PX
 
 
 def diagram_type(code: str) -> str:
