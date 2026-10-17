@@ -1,14 +1,9 @@
-"""Tests for drawing Mermaid diagrams with Pele in the embedded V8 engine.
-
-None of these tests needs Node.js. The comparison with mermaid-cli at the end
-runs only when mermaid-cli is available, like the other real-CLI tests.
-"""
+"""Tests for drawing Mermaid diagrams with Pele in the embedded V8 engine."""
 
 from __future__ import annotations
 
 import re
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -17,7 +12,6 @@ from obsidian_pdf_exporter.core import mermaid
 from obsidian_pdf_exporter.core import mermaid_pele
 from obsidian_pdf_exporter.core.html_postprocess import inline_svg_images
 from obsidian_pdf_exporter.core.mermaid import MermaidSettings
-from obsidian_pdf_exporter.core.mermaid import mermaid_settings
 from obsidian_pdf_exporter.core.mermaid import render_mermaid_blocks
 from obsidian_pdf_exporter.core.mermaid_pele import PeleRenderer
 from obsidian_pdf_exporter.core.mermaid_pele import PeleTheme
@@ -25,10 +19,11 @@ from obsidian_pdf_exporter.core.mermaid_pele import diagram_font_size
 from obsidian_pdf_exporter.core.mermaid_pele import finish_svg
 from obsidian_pdf_exporter.core.mermaid_pele import pele_theme
 from obsidian_pdf_exporter.core.mermaid_pele import resolve_vars
-from tests.unit.test_mermaid import _REAL_CLI
-from tests.unit.test_mermaid import FakeMermaidCli
 
-PELE = MermaidSettings(renderer="pele")
+if TYPE_CHECKING:
+    from pathlib import Path
+
+PELE = MermaidSettings()
 FLOWCHART = "flowchart LR\n  A[Collect data] -->|then| B{Valid?}"
 
 
@@ -40,37 +35,10 @@ def _images(markdown: str) -> list[tuple[str, str]]:
     return re.findall(r"!\[\]\((mermaid-[0-9a-f]+\.svg)\)\{([^}]*)\}", markdown)
 
 
-@pytest.fixture
-def no_cli(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(mermaid, "find_mermaid_cli", lambda _override="": None)
-
-
-@pytest.fixture
-def fake_cli(monkeypatch: pytest.MonkeyPatch) -> FakeMermaidCli:
-    fake = FakeMermaidCli()
-    monkeypatch.setattr(mermaid, "find_mermaid_cli", lambda _override="": ["mmdc"])
-    monkeypatch.setattr(mermaid.subprocess, "run", fake)
-    return fake
-
-
-# ---- Settings ---------------------------------------------------------------
-
-
-def test_renderer_defaults_to_mermaid_cli() -> None:
-    assert mermaid_settings({}).renderer == "mermaid-cli"
-    assert mermaid_settings({"mermaid.renderer": "Pele"}).renderer == "pele"
-
-
-def test_settings_reject_unknown_renderer() -> None:
-    with pytest.raises(ValueError, match=r"mermaid\.renderer"):
-        mermaid_settings({"mermaid.renderer": "browser"})
-
-
 # ---- Rendering --------------------------------------------------------------
 
 
-@pytest.mark.usefixtures("no_cli")
-def test_pele_renders_without_node(tmp_path: Path) -> None:
+def test_pele_renders_svg(tmp_path: Path) -> None:
     messages: list[str] = []
     out = render_mermaid_blocks(_block(FLOWCHART), tmp_path, PELE, log=messages.append)
 
@@ -91,7 +59,6 @@ def test_pele_renders_without_node(tmp_path: Path) -> None:
     assert not any("Warning" in m for m in messages)
 
 
-@pytest.mark.usefixtures("no_cli")
 def test_pele_renders_every_diagram_type_once(tmp_path: Path) -> None:
     blocks = [
         FLOWCHART,
@@ -114,7 +81,6 @@ def test_pele_renders_every_diagram_type_once(tmp_path: Path) -> None:
         assert "var(" not in svg.read_text(encoding="utf-8")
 
 
-@pytest.mark.usefixtures("no_cli")
 def test_pele_output_is_reused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     render_mermaid_blocks(_block(FLOWCHART), tmp_path, PELE)
 
@@ -125,33 +91,17 @@ def test_pele_output_is_reused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     assert _images(render_mermaid_blocks(_block(FLOWCHART), tmp_path, PELE))
 
 
-def test_pele_failure_falls_back_to_mermaid_cli(tmp_path: Path, fake_cli: FakeMermaidCli) -> None:
-    messages: list[str] = []
-    bad = "flowchart LR\n  A --> (("
-    md = f"{_block(FLOWCHART)}\n\n{_block(bad)}\n"
-    out = render_mermaid_blocks(md, tmp_path, PELE, log=messages.append)
-
-    assert len(_images(out)) == 2
-    assert "```mermaid" not in out
-    batch = fake_cli.calls[0][fake_cli.calls[0].index("-i") + 1]
-    assert Path(batch).read_text(encoding="utf-8").count("```mermaid") == 1
-    assert any("Pele could not draw a flowchart diagram" in m for m in messages)
-    assert any("1 Mermaid diagram(s) with mermaid-cli" in m for m in messages)
-
-
-@pytest.mark.usefixtures("no_cli")
-def test_pele_failure_without_mermaid_cli_keeps_code(tmp_path: Path) -> None:
+def test_pele_failure_keeps_code(tmp_path: Path) -> None:
     messages: list[str] = []
     bad = _block("flowchart LR\n  A --> ((")
     out = render_mermaid_blocks(bad, tmp_path, PELE, log=messages.append)
 
     assert out == bad
     assert any(m.startswith("  Warning: Pele could not draw") for m in messages)
-    assert any("could not be drawn by Pele and stay as code" in m for m in messages)
+    assert any("could not be drawn and stay as code" in m for m in messages)
 
 
-@pytest.mark.usefixtures("no_cli")
-def test_unknown_diagram_type_falls_back(tmp_path: Path) -> None:
+def test_unknown_diagram_type_stays_code(tmp_path: Path) -> None:
     messages: list[str] = []
     out = render_mermaid_blocks(_block("notADiagram\n  x"), tmp_path, PELE, log=messages.append)
     assert "```mermaid" in out
@@ -165,7 +115,6 @@ def test_closing_br_tag_breaks_the_line() -> None:
     assert "LocalDatabase" not in result.svg
 
 
-@pytest.mark.usefixtures("no_cli")
 def test_wide_pele_diagram_goes_to_landscape(tmp_path: Path) -> None:
     chain = " --> ".join(f"N{i}[Step number {i}]" for i in range(12))
     out = render_mermaid_blocks(_block(f"flowchart LR\n  {chain}"), tmp_path, PELE)
@@ -173,7 +122,6 @@ def test_wide_pele_diagram_goes_to_landscape(tmp_path: Path) -> None:
     assert ".landscape" in attrs
 
 
-@pytest.mark.usefixtures("no_cli")
 def test_font_size_from_front_matter(tmp_path: Path) -> None:
     code = "---\nconfig:\n  themeVariables:\n    fontSize: 12px\n---\n" + FLOWCHART
     out = render_mermaid_blocks(_block(code), tmp_path, PELE)
@@ -223,7 +171,6 @@ def test_theme_without_css_uses_pele_defaults() -> None:
     assert theme.font_family == "sans-serif"
 
 
-@pytest.mark.usefixtures("no_cli")
 def test_theme_colors_end_up_in_the_svg(tmp_path: Path) -> None:
     out = render_mermaid_blocks(_block(FLOWCHART), tmp_path, PELE, css=TEMPLATE_CSS)
     [(name, _attrs)] = _images(out)
@@ -233,7 +180,6 @@ def test_theme_colors_end_up_in_the_svg(tmp_path: Path) -> None:
     assert 'color="#222222"' in svg
 
 
-@pytest.mark.usefixtures("no_cli")
 def test_theme_change_renders_again(tmp_path: Path) -> None:
     first = render_mermaid_blocks(_block(FLOWCHART), tmp_path, PELE)
     second = render_mermaid_blocks(_block(FLOWCHART), tmp_path, PELE, css=TEMPLATE_CSS)
@@ -311,7 +257,6 @@ def test_labels_are_measured_in_the_diagram_font() -> None:
 # ---- Layout -----------------------------------------------------------------
 
 
-@pytest.mark.usefixtures("no_cli")
 def test_tall_pele_diagram_is_cut_into_parts(tmp_path: Path) -> None:
     weasyprint = pytest.importorskip("weasyprint")
     steps = "\n".join(f"  A->>B: Request {i}\n  B-->>A: Response {i}" for i in range(40))
@@ -345,23 +290,3 @@ def test_vendored_build_carries_its_license() -> None:
     assert "MIT License" in header
     assert "Lucide" in header
     assert "ISC License" in header
-
-
-# ---- Real mermaid-cli -------------------------------------------------------
-
-
-@pytest.mark.skipif(not _REAL_CLI, reason="mermaid-cli not available")
-def test_real_cli_and_pele_draw_the_same_labels(tmp_path: Path) -> None:
-    """Both renderers draw every word of the labels of the same diagram."""
-    texts: dict[str, Any] = {}
-    for renderer in ("mermaid-cli", "pele"):
-        build = tmp_path / renderer
-        build.mkdir()
-        settings = mermaid_settings({"mermaid.renderer": renderer, "mermaid.cli": _REAL_CLI})
-        out = render_mermaid_blocks(_block(FLOWCHART), build, settings)
-        [(name, _attrs)] = _images(out)
-        texts[renderer] = (build / name).read_text(encoding="utf-8")
-    for svg in texts.values():
-        # mermaid-cli puts every word of a label in a tspan of its own.
-        for word in ("Collect", "data", "Valid?", "then"):
-            assert f">{word}<" in svg or f"{word} " in svg or f" {word}" in svg

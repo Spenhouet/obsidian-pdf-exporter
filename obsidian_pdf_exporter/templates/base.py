@@ -89,10 +89,10 @@ class Template:
         return None
 
     def mermaid_config(self, context: ExportContext) -> dict[str, object]:
-        """Return a Mermaid config (``theme``, ``themeVariables``, ...) for diagrams.
+        """Return a Mermaid config (``themeVariables.fontSize``, ...) for diagrams.
 
-        The user's ``--option mermaid.config=PATH`` and ``mermaid.theme=NAME``
-        are merged over it.
+        The user's ``--option mermaid.config=PATH`` is merged over it. Colors
+        of diagrams come from ``--pele-*`` variables in the template's CSS.
         """
         return {}
 

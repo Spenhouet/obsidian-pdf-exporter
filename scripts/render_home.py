@@ -20,7 +20,7 @@ output changed. Run from the repository root:
 
     uv run python scripts/render_home.py
 
-Needs ``pdftoppm`` (poppler) and Node.js for the Mermaid diagram.
+Needs ``pdftoppm`` (poppler).
 """
 
 from __future__ import annotations

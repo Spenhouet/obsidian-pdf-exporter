@@ -19,7 +19,7 @@ Run from the repository root:
     uv run python scripts/render_examples.py             # everything
     uv run python scripts/render_examples.py callouts    # some examples
 
-Needs ``pdftoppm`` (poppler) and, for the Mermaid example, Node.js. The
+Needs ``pdftoppm`` (poppler). The
 Redline screenshots come from ``scripts/render_redline_examples.py``.
 """
 
@@ -97,9 +97,6 @@ SETTINGS: dict[str, Example] = {
 #: Extra images made from an existing example folder with other settings.
 VARIANTS: dict[str, Example] = {
     "line-breaks-soft": Example(folder="line-breaks", args=["-O", "line_breaks=soft"]),
-    "mermaid-renderers-pele": Example(
-        folder="mermaid-renderers", args=["-O", "mermaid.renderer=pele"]
-    ),
 }
 
 

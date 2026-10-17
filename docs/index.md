@@ -134,7 +134,7 @@ ope export ./Handbook --title "Team handbook" --version 1.2.0
 
     __Mermaid diagrams__
 
-    Rendered to sharp vector graphics.
+    Rendered to sharp vector graphics, without Node.js or a browser.
 
     [:octicons-arrow-right-24: Mermaid](obsidian/mermaid.md)
 

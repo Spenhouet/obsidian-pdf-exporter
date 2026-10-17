@@ -45,7 +45,7 @@
 - [Properties](https://spenhouet.com/obsidian-pdf-exporter/obsidian/properties/): YAML frontmatter is parsed, used by plugins and removed from the PDF.
 - [Tasks](https://spenhouet.com/obsidian-pdf-exporter/obsidian/tasks/): Task list items become check boxes.
 - [Line breaks](https://spenhouet.com/obsidian-pdf-exporter/obsidian/line-breaks/): A single newline is a line break, as in Obsidian, unless strict line breaks are on.
-- [Mermaid](https://spenhouet.com/obsidian-pdf-exporter/obsidian/mermaid/): Mermaid code blocks rendered to SVG or PNG diagrams with mermaid-cli, or with Pele without Node.js.
+- [Mermaid](https://spenhouet.com/obsidian-pdf-exporter/obsidian/mermaid/): Mermaid code blocks drawn as SVG diagrams by Pele, inside ope, without Node.js or a browser.
 - [Bases](https://spenhouet.com/obsidian-pdf-exporter/obsidian/bases/): Obsidian Bases (.base files and base code blocks) rendered as static tables and lists.
 
 ## Plugins
