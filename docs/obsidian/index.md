@@ -56,8 +56,9 @@ After pandoc, the HTML steps run: `base_css`, `empty_table_headers`, `column_wid
 
 Some content cannot be drawn in a PDF, or is not supported yet. It stays in the document in a simple form, and the export prints a line starting with `Warning:` that names the page:
 
-- An embed of a file type other than notes, images and PDF files, such as `![[Board.canvas]]` or a video, becomes a link (or italic text when the file is not part of the export).
+- An embed of a file type other than notes, images and PDF files, such as `![[Board.canvas]]` or a video, becomes a link (or plain text when the file is not part of the export).
 - A PDF embed that cannot be found or opened (for example an encrypted PDF) becomes a link the same way.
+- A link to a note that is not part of the PDF becomes plain text, see [Wiki links](wiki-links.md#links-to-pages-outside-the-pdf).
 - An image that cannot be found becomes the italic text _[Image: name]_.
 - A code block of a plugin ope does not render, such as ` ```tasks `, ` ```dataviewjs `, ` ```chart ` or an Admonition block ` ```ad-note `, stays a code block.
 - DataviewJS and `TASK` queries become a short note in italics.

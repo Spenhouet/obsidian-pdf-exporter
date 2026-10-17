@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
+from urllib.parse import unquote
 
 from obsidian_pdf_exporter.core.build_files import stage_file
 from obsidian_pdf_exporter.core.code import outside_code
+from obsidian_pdf_exporter.core.outside_links import outside_label
+from obsidian_pdf_exporter.core.outside_links import outside_text
 from obsidian_pdf_exporter.core.tree import lookup_page
 from obsidian_pdf_exporter.core.util import slugify
 
@@ -22,6 +26,14 @@ RE_WIKI_LINK = re.compile(r"\[\[([^\]#|\\]+?)(?:#([^\]|\\]*))?(?:\\?\|([^\]]*))?
 # Matches [[inner] rest](url) — a markdown link whose text starts with a bracketed
 # term. Must run after wiki link conversion so [[page]] is already resolved.
 RE_BRACKET_LINK = re.compile(r"\[\[([^\]\n]+)\]([^\]\n]*)\]\(([^)\n]+)\)")
+# A Markdown link to a note: ``[text](Note.md)``, ``[text](<Folder/My Note.md#Heading>)``
+# or ``[text](My%20Note.md#^id)``. Images (``![..](..)``) are left alone.
+RE_NOTE_LINK = re.compile(
+    r"(?<![!\\\]])\[(?P<text>(?:\\.|[^\[\]\\\n])*)\]"
+    r"\((?:<(?P<angled>[^<>\n]+?\.md(?:#[^<>\n]*)?)>|(?P<plain>[^\s()<>]+?\.md(?:#[^\s()]*)?))"
+    r"(?:\s+\"[^\"\n]*\")?\)",
+    re.IGNORECASE,
+)
 
 _IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"}
 
@@ -99,6 +111,7 @@ def _render_embed(
     build_dir: Path,
     vault_index: VaultIndex | None,
     report: Callable[[str], None],
+    outside: Callable[[str, str], str],
 ) -> str:
     if is_image_target(target):
         resolved = resolve_image(target, page_folder, build_dir, vault_index)
@@ -109,12 +122,13 @@ def _render_embed(
         return f"*[Image: {target}]*"
 
     kind = Path(target).suffix.lower() or "these"
-    report(f"cannot render embed ![[{target}]] ({kind} files are not rendered), kept as a link")
     page_name = Path(target).stem
     page_info = lookup_page(page_index, page_name.strip(), page_folder)
     if page_info:
+        report(f"cannot render embed ![[{target}]] ({kind} files are not rendered), kept as a link")
         return f"[{page_name}](#{page_info['anchor']})"
-    return f"*{page_name}*"
+    report(f"cannot render embed ![[{target}]] ({kind} files are not rendered)")
+    return outside(page_name, target)
 
 
 def _heading_link(label: str, heading: str, page_info: dict) -> str:
@@ -133,6 +147,77 @@ def _heading_link(label: str, heading: str, page_info: dict) -> str:
     )
 
 
+@dataclass
+class _Converter:
+    """Rewrites the wiki links, embeds and note links of one note."""
+
+    page_folder: Path
+    page_index: dict
+    build_dir: Path
+    vault_index: VaultIndex | None
+    warn: Callable[[str], None] | None
+    outside: Callable[[str, str], str] | None
+
+    def report(self, message: str) -> None:
+        if self.warn is not None:
+            self.warn(message)
+
+    def outside_link(self, label: str, target: str) -> str:
+        if self.outside is not None:
+            return self.outside(label, target)
+        return outside_text(label)
+
+    def link_to(self, page_name: str, section: str, display: str) -> str:
+        page_info = lookup_page(self.page_index, page_name, self.page_folder)
+        heading = section.rsplit("#", 1)[-1].strip()
+        if page_info and heading and not heading.startswith("^"):
+            return _heading_link(display or f"{page_name} > {heading}", heading, page_info)
+        if page_info:
+            return f"[{display or page_name}](#{page_info['anchor']})"
+        name = page_name[:-3] if page_name.lower().endswith(".md") else page_name
+        target = f"{name}#{section}" if section else name
+        return self.outside_link(display or outside_label(name, section), target)
+
+    def embed(self, m: re.Match) -> str:
+        target = m.group(1).strip()
+        alt = m.group(2).strip() if m.group(2) else ""
+        return _render_embed(
+            target,
+            alt,
+            self.page_folder,
+            self.page_index,
+            self.build_dir,
+            self.vault_index,
+            self.report,
+            self.outside_link,
+        )
+
+    def wiki_link(self, m: re.Match) -> str:
+        page_name = m.group(1).strip() if m.group(1) else ""
+        section = m.group(2).strip() if m.group(2) else ""
+        display = m.group(3).strip() if m.group(3) else ""
+        if not page_name and section:
+            return f"[{display or section}](#{slugify(section)})"
+        if page_name.startswith("http"):
+            return f"[{display or page_name}]({page_name})"
+        return self.link_to(page_name, section, display)
+
+    def note_link(self, m: re.Match) -> str:
+        dest = m.group("angled") or m.group("plain")
+        if "://" in dest:
+            return m.group(0)
+        path, _, section = unquote(dest).replace("\\", "/").partition("#")
+        page_name = path.strip().removeprefix("./")
+        return self.link_to(page_name, section.strip(), m.group("text").strip())
+
+    def convert(self, text: str) -> str:
+        text = RE_WIKI_EMBED_IMAGE.sub(self.embed, text)
+        text = RE_WIKI_LINK.sub(self.wiki_link, text)
+        if ".md" in text.lower():
+            text = RE_NOTE_LINK.sub(self.note_link, text)
+        return text
+
+
 def convert_wiki_links(
     content: str,
     page_folder: Path,
@@ -140,47 +225,21 @@ def convert_wiki_links(
     build_dir: Path,
     vault_index: VaultIndex | None = None,
     warn: Callable[[str], None] | None = None,
+    outside: Callable[[str, str], str] | None = None,
 ) -> str:
-    """Convert ``[[wiki]]`` and ``![[image]]`` syntax into standard markdown.
+    """Convert ``[[wiki]]``, ``![[image]]`` and ``[text](Note.md)`` into standard markdown.
 
     Links and embeds inside code stay as written. ``warn`` gets a message for
     every image that cannot be found and for every embed of a file type that
     is not rendered (such as ``.canvas`` or ``.pdf``), which becomes a link.
+
+    A link to a note that is not part of the export becomes the text that
+    ``outside`` returns for its label and target (see
+    :meth:`~obsidian_pdf_exporter.core.steps.base.PageContext.outside_link`).
+    Without ``outside`` it is the plain label.
     """
-
-    def report(message: str) -> None:
-        if warn is not None:
-            warn(message)
-
-    def replace_embed(m: re.Match) -> str:
-        target = m.group(1).strip()
-        alt = m.group(2).strip() if m.group(2) else ""
-        return _render_embed(target, alt, page_folder, page_index, build_dir, vault_index, report)
-
-    def replace_link(m: re.Match) -> str:
-        page_name = m.group(1).strip() if m.group(1) else ""
-        section = m.group(2).strip() if m.group(2) else ""
-        display = m.group(3).strip() if m.group(3) else ""
-
-        if not page_name and section:
-            return f"[{display or section}](#{slugify(section)})"
-
-        page_info = lookup_page(page_index, page_name, page_folder)
-        heading = section.rsplit("#", 1)[-1].strip()
-        if page_info and heading and not heading.startswith("^"):
-            return _heading_link(display or f"{page_name} > {heading}", heading, page_info)
-        label = display or page_name
-        if page_info:
-            return f"[{label}](#{page_info['anchor']})"
-        if page_name.startswith("http"):
-            return f"[{label}]({page_name})"
-        return f"*{label}*"
-
-    def convert(text: str) -> str:
-        text = RE_WIKI_EMBED_IMAGE.sub(replace_embed, text)
-        return RE_WIKI_LINK.sub(replace_link, text)
-
-    return outside_code(content, convert)
+    converter = _Converter(page_folder, page_index, build_dir, vault_index, warn, outside)
+    return outside_code(content, converter.convert)
 
 
 def normalize_bracket_links(content: str) -> str:
