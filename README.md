@@ -23,14 +23,14 @@ Each feature page of the docs shows the Markdown next to the rendered PDF.
 
 ## Redline: see every change in the PDF
 
-`ope redline` turns two git commits of a folder into a tracked-changes PDF: inserted text in green, removed text struck through in red, in the layout of the real document. It is made for reviews, approvals, audits and release notes of documents kept in git.
+`ope redline` turns two git commits of a folder into a tracked-changes PDF: inserted text underlined in blue, removed text struck through in red, moved text in purple and a change bar in the margin, in the layout of the real document. A change summary lists every changed section. The side-by-side style shows the old and the new document in two aligned columns, `-O redline.collapse=on` shows only the changes, and `--blame` adds the author, date and commit message of every changed block next to the page. It is made for reviews, approvals, audits and release notes of documents kept in git.
 
 ```bash
 ope redline ./Policy --from-commit v1.0.0 --to-commit v1.1.0
 ```
 
 <p align="center">
-  <a href="https://spenhouet.com/obsidian-pdf-exporter/redline/"><img src="https://raw.githubusercontent.com/Spenhouet/obsidian-pdf-exporter/c8ea25fdd403f990cfbdba2d54ac5800adac597d/docs/img/redline/redline-three-up.png" alt="The same policy before and after a change, and the redline PDF with inserted, removed and changed text"></a>
+  <a href="https://spenhouet.com/obsidian-pdf-exporter/redline/"><img src="https://raw.githubusercontent.com/Spenhouet/obsidian-pdf-exporter/2a14c57cb85f500739f991f4b57fa430861ef832/docs/img/redline/redline-three-up.png" alt="The same policy before and after a change, and the redline PDF with inserted, removed and changed text and change bars"></a>
 </p>
 
 Tags, branches, commit hashes and `HEAD~n` work as versions, and the docs have GitHub Actions workflows that attach a redline to every pull request or release. See [Redline](https://spenhouet.com/obsidian-pdf-exporter/redline/).

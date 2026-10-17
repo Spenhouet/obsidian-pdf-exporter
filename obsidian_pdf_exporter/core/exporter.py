@@ -8,8 +8,12 @@ from contextlib import suppress
 from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from obsidian_pdf_exporter.core.assemble import assemble_document
+from obsidian_pdf_exporter.core.blame import build_index
+from obsidian_pdf_exporter.core.blame import range_commits
+from obsidian_pdf_exporter.core.blame import write_blame_pdf
 from obsidian_pdf_exporter.core.pandoc import render_html
 from obsidian_pdf_exporter.core.pdf import apply_decorations
 from obsidian_pdf_exporter.core.pdf import html_to_pdf
@@ -18,7 +22,10 @@ from obsidian_pdf_exporter.core.pipeline import run_document
 from obsidian_pdf_exporter.core.pipeline import run_html
 from obsidian_pdf_exporter.core.redline import diff_markdown
 from obsidian_pdf_exporter.core.redline import extract_commit
+from obsidian_pdf_exporter.core.redline import redline_source_info
 from obsidian_pdf_exporter.core.redline import resolve_short_hash
+from obsidian_pdf_exporter.core.redline_html import parse_style
+from obsidian_pdf_exporter.core.redline_html import render_redline
 from obsidian_pdf_exporter.core.steps import core_steps
 from obsidian_pdf_exporter.core.steps.base import DocumentContext
 from obsidian_pdf_exporter.core.tree import build_space_tree
@@ -34,6 +41,9 @@ from obsidian_pdf_exporter.runtime import ensure_pandoc
 from obsidian_pdf_exporter.runtime import register_native_dependencies
 from obsidian_pdf_exporter.templates.base import ExportContext
 from obsidian_pdf_exporter.templates.base import Template
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 @dataclass
@@ -53,6 +63,7 @@ class ExportRequest:
     disabled_plugins: set[str] = field(default_factory=set)
     debug: bool = False
     toc: bool = True
+    blame: bool = False
 
 
 @dataclass
@@ -70,6 +81,7 @@ class RedlineRequest:
     disabled_plugins: set[str] = field(default_factory=set)
     debug: bool = False
     toc: bool = True
+    blame: bool = False
 
 
 def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
@@ -181,7 +193,10 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
         (build_dir / "final.html").write_text(html, encoding="utf-8")
 
         log("  Generating PDF...")
-        html_to_pdf(html, output_path, base_url=build_dir.as_uri())
+        if request.blame:
+            _write_with_blame(html, output_path, build_dir, root_folder, "", log)
+        else:
+            html_to_pdf(html, output_path, base_url=build_dir.as_uri())
 
         size_kb = output_path.stat().st_size / 1024
         log(f"\n  PDF created: {output_path}")
@@ -201,6 +216,7 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
     ensure_pandoc()
 
     root_folder = _resolve_root(request.root)
+    parse_style(request.options)
     if not is_git_repo(Path.cwd()):
         msg = (
             "redline requires the vault to be in a git repository. "
@@ -257,7 +273,7 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
                 missing=f"  Note: path not found in {from_hash}",
                 plugins=plugins,
                 plugin_options=request.options,
-                steps=steps,
+                steps=core_steps(),
             )
             new_md = _assemble_if_present(
                 new_root,
@@ -274,16 +290,23 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
             diff_body = diff_markdown(old_md, new_md)
 
             label = f"Redline: {from_hash} -> {to_hash}"
-            markdown = _prepend_metadata(diff_body, title, request.subtitle or label, label, date)
+            subtitle = request.subtitle or (
+                f"Changes from {request.from_commit} to {request.to_commit}"
+            )
+            markdown = _prepend_metadata(diff_body, title, subtitle, "", date)
+            options = dict(request.options)
+            options.update(
+                redline_source_info(repo, request.from_commit, request.to_commit, rel_path)
+            )
 
             ctx = ExportContext(
                 title=title,
-                subtitle=request.subtitle or label,
+                subtitle=subtitle,
                 date=date,
                 label=label,
                 output_path=output_path,
                 build_dir=build_dir,
-                options=dict(request.options),
+                options=options,
             )
             doc_ctx = DocumentContext(
                 build_dir=build_dir,
@@ -312,13 +335,26 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
                 toc=request.toc,
             )
             html = run_html(html, doc_ctx, steps)
+            html = render_redline(html, options)
             html = request.template.process_html(html, ctx)
             html = apply_decorations(html, request.template.decorations(ctx))
 
             (build_dir / "redline_final.html").write_text(html, encoding="utf-8")
 
             log("  Generating PDF...")
-            html_to_pdf(html, output_path, base_url=build_dir.as_uri())
+            if request.blame:
+                _write_with_blame(
+                    html,
+                    output_path,
+                    build_dir,
+                    repo / rel_path,
+                    request.to_commit,
+                    log,
+                    highlight=range_commits(repo, request.from_commit, request.to_commit),
+                    range_label=f"{request.from_commit} \u2192 {request.to_commit}",
+                )
+            else:
+                html_to_pdf(html, output_path, base_url=build_dir.as_uri())
 
             size_kb = output_path.stat().st_size / 1024
             log(f"\n  Redline PDF created: {output_path}")
@@ -326,6 +362,31 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
             return output_path
     finally:
         _cleanup(build_dir, output_path, debug=request.debug, log=log)
+
+
+def _write_with_blame(
+    html: str,
+    output_path: Path,
+    build_dir: Path,
+    folder: Path,
+    commit: str,
+    log: Callable[[str], object],
+    *,
+    highlight: set[str] | None = None,
+    range_label: str = "",
+) -> None:
+    """Write the PDF with the blame strip next to every page."""
+    start = folder if folder.exists() else Path.cwd()
+    if not is_git_repo(start):
+        log("  Warning: --blame needs a git repository; the PDF has no blame strip")
+        html_to_pdf(html, output_path, base_url=build_dir.as_uri())
+        return
+    log("  Reading the git history (blame)...")
+    index = build_index(git_root(start), folder, commit)
+    share = write_blame_pdf(
+        html, output_path, build_dir.as_uri(), index, highlight=highlight, range_label=range_label
+    )
+    log(f"  Blame: {share:.0%} of the blocks matched a source line")
 
 
 def _resolve_root(root: Path) -> Path:

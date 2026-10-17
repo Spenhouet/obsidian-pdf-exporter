@@ -224,6 +224,14 @@ def export(  # noqa: PLR0913 - typer commands enumerate every CLI flag
         "--toc/--no-toc",
         help="Include a table of contents at the start of the document",
     ),
+    blame: bool = typer.Option(
+        False,
+        "--blame",
+        help=(
+            "Add a strip next to every page with the last commit that changed each block "
+            "(author, date, message; details on hover)"
+        ),
+    ),
     debug: bool = typer.Option(
         False,
         "--debug",
@@ -232,7 +240,7 @@ def export(  # noqa: PLR0913 - typer commands enumerate every CLI flag
 ) -> None:
     """Export an Obsidian-format folder tree to a single PDF file."""
     options = _parse_options(option)
-    chosen_title = title or root.name
+    chosen_title = default_title(title, root)
     output_path = output or _default_output(chosen_title)
 
     try:
@@ -255,6 +263,7 @@ def export(  # noqa: PLR0913 - typer commands enumerate every CLI flag
         disabled_plugins=set(disable_plugin),
         debug=debug,
         toc=toc,
+        blame=blame,
     )
     _run(lambda: export_pdf(request, log=_log))
 
@@ -298,7 +307,10 @@ def redline(  # noqa: PLR0913 - typer commands enumerate every CLI flag
         [],
         "--option",
         "-O",
-        help="Pass key=value options to plugins / template (repeatable)",
+        help=(
+            "Pass key=value options to plugins / template (repeatable), e.g. "
+            "redline.style=side-by-side or redline.collapse=on"
+        ),
     ),
     disable_plugin: list[str] = typer.Option(
         [],
@@ -310,13 +322,26 @@ def redline(  # noqa: PLR0913 - typer commands enumerate every CLI flag
         "--toc/--no-toc",
         help="Include a table of contents at the start of the document",
     ),
+    blame: bool = typer.Option(
+        False,
+        "--blame",
+        help=(
+            "Add a strip next to every page with the last commit that changed each block "
+            "(author, date, message; details on hover)"
+        ),
+    ),
     debug: bool = typer.Option(
         False,
         "--debug",
         help="Keep the intermediate build directory for inspection",
     ),
 ) -> None:
-    """Generate a redline (tracked-changes) PDF between two git commits."""
+    """Generate a redline (tracked-changes) PDF between two git commits.
+
+    Choose the look with -O redline.style=blackline (default) or
+    -O redline.style=side-by-side, and show only the changes with
+    -O redline.collapse=on.
+    """
     if not is_git_repo(Path.cwd()):
         _console.print(
             "[red]ERROR:[/red] redline requires the vault to be in a git repository. "
@@ -325,7 +350,7 @@ def redline(  # noqa: PLR0913 - typer commands enumerate every CLI flag
         raise typer.Exit(code=1)
 
     options = _parse_options(option)
-    chosen_title = title or root.name
+    chosen_title = default_title(title, root)
     output_path = output or _default_output(chosen_title, suffix="_redline")
 
     try:
@@ -346,8 +371,14 @@ def redline(  # noqa: PLR0913 - typer commands enumerate every CLI flag
         disabled_plugins=set(disable_plugin),
         debug=debug,
         toc=toc,
+        blame=blame,
     )
     _run(lambda: export_redline(request, log=_log))
+
+
+def default_title(title: str | None, root: Path) -> str:
+    """The title of the PDF: ``title``, or the real name of the folder (also for ``.``)."""
+    return title or root.resolve().name
 
 
 def _default_output(title: str, suffix: str = "") -> Path:

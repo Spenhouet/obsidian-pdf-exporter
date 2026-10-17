@@ -135,10 +135,13 @@ A note takes its style from where it is referenced, so a note referenced in a ca
 
 | Selector | What it is |
 | -------- | ---------- |
-| `ins`, `del` | Inserted and removed words inside a changed block. |
-| `.redline-ins`, `.redline-del` | Inserted and removed blocks. |
+| `ins`, `del` | Inserted and removed words. |
+| `div.rl-block.rl-ins`, `div.rl-block.rl-del`, `.rl-mod`, `.rl-move-from`, `.rl-move-to` | Inserted, removed, changed and moved blocks. |
+| `div.rl-hunk` | A group of changed blocks, with the change bar. |
+| `section.rl-summary` | The change summary after the title. |
+| `table.rl-sbs` | The two columns of the side-by-side style. |
 
-All elements, the colour variables and how to restyle them: [Styling the redline](../redline/styling.md).
+The colours are the variables `--rl-ins`, `--rl-del`, `--rl-move`, `--rl-fmt` and `--rl-bar`. All elements and how to restyle them: [Styling the redline](../redline/styling.md).
 
 ## The base CSS
 

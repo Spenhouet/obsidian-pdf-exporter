@@ -5,10 +5,13 @@ description: Tracked-changes PDFs between two git commits of a vault. What a red
 
 # Redline
 
-`ope redline` builds a tracked-changes PDF of a folder between two git commits. Inserted text is green and underlined, removed text is red and struck through, and the rest of the document is exactly as it is in the newer commit. A reader sees every change in context, in the same layout as the released PDF.
+`ope redline` builds a tracked-changes PDF of a folder between two git commits. Inserted text is blue and underlined, removed text is vermilion and struck through, moved text is purple, and a bar in the margin marks every change. The rest of the document is exactly as it is in the newer commit, so a reader sees every change in context, in the same layout as the released PDF.
 
 ```bash
 ope redline ./Policy --from-commit v1.0.0 --to-commit v1.1.0
+ope redline ./Policy --from-commit v1.0.0 -O redline.style=side-by-side   # old | new in two columns
+ope redline ./Policy --from-commit v1.0.0 -O redline.collapse=on          # only the changes
+ope redline ./Policy --from-commit v1.0.0 --blame                         # who changed what, and why
 ```
 
 ![Before, after and redline of a short policy, next to each other](../img/redline/redline-three-up.png)
@@ -27,28 +30,30 @@ A redline answers "what changed since the version I approved?" without a diff to
 1. Both commits are taken from git with `git archive`. Uncommitted changes in the working tree are not part of either version.
 2. Each version of the folder is assembled into one Markdown document with the same steps and plugins as `ope export`. Embeds are expanded, Dataview queries run and Meta Bind values are filled in, so the two documents are compared as they appear in the PDF.
 3. The two documents are split into blocks at blank lines (paragraphs, list blocks, tables, headings, code blocks) and the blocks are compared.
-4. An unchanged block is kept as it is. A block that changed is compared word by word, and in lists line by line, and gets inline `<ins>` and `<del>` marks. A block that only exists in one version is shown as a whole inserted or removed block.
-5. The result goes through the rest of the export (callouts, links, numbering, table of contents) and is laid out with the [`redline` template](styling.md).
+4. Blocks that are alike are paired. A paired block is compared word by word (lists item by item, tables cell by cell, code line by line) and gets inline `<ins>` and `<del>` marks. A block that only exists in one version is shown as a whole inserted or removed block, and a block that was removed in one place and inserted in another is shown as moved.
+5. The result goes through the rest of the export (callouts, links, numbering, table of contents). Then the change summary is added and the document is laid out in the chosen [style](styles.md), with the [`redline` template](styling.md).
 
 ## What the reader sees
 
 ![Redline of the example policy](../img/redline/overview.png)
 
-- Inserted words: green, underlined, on a light green background.
-- Removed words: red, struck through, on a light red background.
-- Inserted blocks: a green box with a green bar on the left.
-- Removed blocks: a red box with a red bar, all text struck through. A removed heading is shown as bold text, so it does not get a number and does not show up in the table of contents.
-- Changed headings: the word changes are shown in the heading and in the table of contents.
-- The subtitle and the version label show the two short commit hashes, for example `Redline: f240681 -> d1d04f5`.
+- A change summary after the title: the two versions, the number of changes of each kind, the changed sections with their page numbers and the commits in between.
+- Inserted words: blue with a double underline. Removed words: vermilion and struck through. A replaced passage shows the old words, then the new ones.
+- Inserted and removed blocks (paragraphs, list items, table rows, callouts, figures, code lines) are marked the same way as a whole; a removed figure is faded and labelled.
+- Moved text: purple, with a link from each end to the other.
+- A black bar in the left margin next to every group of changed blocks.
+- Changed headings show their word changes, also in the table of contents, which counts the changes per section, marks new sections and lists removed headings struck through. A changed heading level gets a small label.
+- The [side-by-side style](styles.md#side-by-side) shows the old and the new document in two aligned columns instead.
 
-Some kinds of change are not shown well yet, for example inserted table rows and changes inside code blocks. [What changes look like](changes.md) shows every case with a screenshot and links the open issues.
-
+[What changes look like](changes.md) shows every kind of change in both styles.
 ## In this section
 
 | Page | Content |
 | ---- | ------- |
 | [Usage](usage.md) | The command and every flag, default names, one document or a folder, and CI workflows. |
 | [Comparing versions](compare.md) | Tags, branches, commits and `HEAD~n`, releases, pull requests, the history of one note, and versions outside git. |
-| [What changes look like](changes.md) | Words, paragraphs, headings, lists, tables, callouts, images, embeds, properties and Dataview, each with a screenshot. |
-| [Styling the redline](styling.md) | The `redline` template, the elements and classes a redline emits, and how to restyle them. |
+| [Styles and options](styles.md) | Blackline and side by side, collapsing unchanged content and the blame strip, with every combination. |
+| [What changes look like](changes.md) | Words, paragraphs, headings, lists, tables, callouts, images, embeds, properties and Dataview, each in both styles. |
+| [Blame](blame.md) | The author, date and commit message of each block next to the page, for exports and redlines. |
+| [Styling the redline](styling.md) | The `redline` template, the classes and variables a redline uses, and how to restyle them. |
 | [Limitations and tips](limitations.md) | What a redline does not show, and how to get a clean one. |

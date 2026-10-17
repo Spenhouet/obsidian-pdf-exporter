@@ -113,3 +113,15 @@ def git_short_hash(cwd: Path | None = None) -> str:
     except (OSError, subprocess.SubprocessError):
         return ""
     return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def run_git(repo: Path, *args: str) -> str:
+    """Run ``git args`` in ``repo`` and return its output, or '' when git fails."""
+    command = ["git", *args]
+    try:
+        result = subprocess.run(  # noqa: S603 - git with arguments built by ope
+            command, capture_output=True, text=True, cwd=str(repo), check=False
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return result.stdout if result.returncode == 0 else ""
