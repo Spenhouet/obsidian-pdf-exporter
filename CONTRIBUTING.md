@@ -517,11 +517,16 @@ debug message) when either does not match. Every export applies them once
 before rendering; `-O weasyprint.patches=off` turns them off.
 
 - Elements with the same `style` attribute share one computed style
-  ([Kozea/WeasyPrint#2981](https://github.com/Kozea/WeasyPrint/pull/2981),
-  issue [#2980](https://github.com/Kozea/WeasyPrint/issues/2980)). Applied
-  to WeasyPrint 70.0. Remove the patch when WeasyPrint >= the first release
-  that includes #2981 is the oldest supported version. When a new
-  WeasyPrint release still lacks the fix, raise `LAST_VERSION`.
+  (issue [Kozea/WeasyPrint#2980](https://github.com/Kozea/WeasyPrint/issues/2980)).
+- The image streams of the PDF are built in a few threads instead of one
+  after the other (issue
+  [Kozea/WeasyPrint#2982](https://github.com/Kozea/WeasyPrint/issues/2982)).
+  Pillow decodes and encodes the images without holding the GIL. Each
+  thread holds one decoded image, so peak memory grows a little.
+
+The patches are applied to WeasyPrint 70.0. Remove a patch when the oldest
+supported WeasyPrint includes its fix. When a new WeasyPrint release still
+lacks the fixes, raise `LAST_VERSION`.
 
 ## Testing
 

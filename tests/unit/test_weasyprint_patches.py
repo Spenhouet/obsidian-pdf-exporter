@@ -4,18 +4,23 @@ from __future__ import annotations
 
 import logging
 import shutil
+import threading
 from typing import TYPE_CHECKING
 from typing import Any
 
 import pypdfium2
 import pytest
 import weasyprint
+from PIL import Image
 from weasyprint import css
+from weasyprint import images as weasy_images
+from weasyprint import pdf as weasy_pdf
 from weasyprint.css import get_all_computed_styles
 
 from obsidian_pdf_exporter.compat import weasyprint_patches
 from obsidian_pdf_exporter.compat.weasyprint_patches import FIRST_VERSION
 from obsidian_pdf_exporter.compat.weasyprint_patches import LAST_VERSION
+from obsidian_pdf_exporter.compat.weasyprint_patches import PATCHES
 from obsidian_pdf_exporter.compat.weasyprint_patches import apply_weasyprint_patches
 from obsidian_pdf_exporter.compat.weasyprint_patches import parse_version
 from obsidian_pdf_exporter.core.exporter import ExportRequest
@@ -64,7 +69,7 @@ def test_equal_style_attributes_share_one_computed_style() -> None:
     (p1, p2, p3), style_for = _styles(html)
     assert style_for(p1) is not style_for(p2)
 
-    assert apply_weasyprint_patches() is True
+    assert apply_weasyprint_patches() == [patch.name for patch in PATCHES]
     (p1, p2, p3), style_for = _styles(html)
     assert style_for(p1) is style_for(p2)
     assert style_for(p1) is not style_for(p3)
@@ -73,14 +78,14 @@ def test_equal_style_attributes_share_one_computed_style() -> None:
 
 @supported
 def test_patch_is_applied_once_and_turned_off() -> None:
-    original = css.find_style_attributes
-    assert apply_weasyprint_patches({}) is True
-    patched = css.find_style_attributes
-    assert patched is not original
-    assert apply_weasyprint_patches({}) is True
-    assert css.find_style_attributes is patched
-    assert apply_weasyprint_patches(OFF) is False
-    assert css.find_style_attributes is original
+    originals = (css.find_style_attributes, weasy_pdf._use_references)
+    assert len(apply_weasyprint_patches({})) == len(PATCHES)
+    patched = (css.find_style_attributes, weasy_pdf._use_references)
+    assert all(p is not o for p, o in zip(patched, originals, strict=True))
+    assert len(apply_weasyprint_patches({})) == len(PATCHES)
+    assert (css.find_style_attributes, weasy_pdf._use_references) == patched
+    assert apply_weasyprint_patches(OFF) == []
+    assert (css.find_style_attributes, weasy_pdf._use_references) == originals
 
 
 def test_patch_is_skipped_on_a_newer_weasyprint(
@@ -90,7 +95,7 @@ def test_patch_is_skipped_on_a_newer_weasyprint(
     monkeypatch.setattr(weasyprint, "__version__", newer)
     original = css.find_style_attributes
     with caplog.at_level(logging.DEBUG, logger=weasyprint_patches.__name__):
-        assert apply_weasyprint_patches() is False
+        assert apply_weasyprint_patches() == []
     assert css.find_style_attributes is original
     assert f"WeasyPrint {newer}" in caplog.text
 
@@ -98,7 +103,7 @@ def test_patch_is_skipped_on_a_newer_weasyprint(
 def test_patch_is_skipped_on_an_older_weasyprint(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(weasyprint, "__version__", "68.1")
     original = css.find_style_attributes
-    assert apply_weasyprint_patches() is False
+    assert apply_weasyprint_patches() == []
     assert css.find_style_attributes is original
 
 
@@ -108,7 +113,7 @@ def test_patch_is_skipped_when_the_target_is_missing(
 ) -> None:
     monkeypatch.delattr(css, "find_style_attributes")
     with caplog.at_level(logging.DEBUG, logger=weasyprint_patches.__name__):
-        assert apply_weasyprint_patches() is False
+        assert PATCHES[0].name not in apply_weasyprint_patches()
     assert not hasattr(css, "find_style_attributes")
     assert "not as expected" in caplog.text
 
@@ -119,7 +124,7 @@ def test_patch_is_skipped_when_the_signature_changed(monkeypatch: pytest.MonkeyP
         yield from ()
 
     monkeypatch.setattr(css, "find_style_attributes", find_style_attributes)
-    assert apply_weasyprint_patches() is False
+    assert PATCHES[0].name not in apply_weasyprint_patches()
     assert css.find_style_attributes is find_style_attributes
 
 
@@ -167,3 +172,90 @@ def test_patched_export_is_the_same_as_unpatched(tmp_path: Path) -> None:
     assert hasattr(css.find_style_attributes, "__wrapped__")
     assert len(patched[0]) > 1
     assert patched == unpatched
+
+
+def _image_page(folder: Path) -> str:
+    """A page with raster images of every kind WeasyPrint turns into a PDF stream."""
+    noise = bytes(i * 7919 % 251 for i in range(64 * 48 * 4))
+    rgba = Image.frombytes("RGBA", (64, 48), noise)
+    images = {
+        "rgba.png": rgba,
+        "rgb.png": rgba.convert("RGB"),
+        "gray.png": rgba.convert("L"),
+        "gray-alpha.png": rgba.convert("LA"),
+        "palette.png": rgba.convert("RGB").convert("P"),
+        "photo.jpg": rgba.convert("RGB"),
+    }
+    tags = []
+    for name, image in images.items():
+        image.save(folder / name)
+        tags.append(f'<img src="{name}" style="width: 64px">')
+    # The same image drawn twice, once without interpolation.
+    tags.append('<img src="rgba.png" style="width: 64px; image-rendering: pixelated">')
+    return "<p>" + "".join(tags) + "</p>"
+
+
+def _pdf(html: str, folder: Path, **options: Any) -> bytes:  # noqa: ANN401
+    return weasyprint.HTML(string=html, base_url=str(folder) + "/").write_pdf(**options)
+
+
+@supported
+@pytest.mark.parametrize("options", [{}, {"dpi": 30}])
+def test_image_streams_built_in_parallel_give_the_same_pdf(
+    tmp_path: Path, options: dict[str, Any]
+) -> None:
+    html = _image_page(tmp_path)
+    unpatched = _pdf(html, tmp_path, **options)
+    apply_weasyprint_patches()
+    threads: set[str] = set()
+    original = weasy_images.RasterImage.get_x_object
+
+    def get_x_object(self: Any, *args: Any) -> Any:  # noqa: ANN401
+        threads.add(threading.current_thread().name)
+        return original(self, *args)
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(weasy_images.RasterImage, "get_x_object", get_x_object)
+        patched = _pdf(html, tmp_path, **options)
+    assert patched == unpatched
+    if not options:
+        assert threading.current_thread().name not in threads
+
+
+@supported
+def test_image_streams_are_built_once_and_not_left_on_the_images(tmp_path: Path) -> None:
+    html = _image_page(tmp_path)
+    apply_weasyprint_patches()
+    calls: list[Any] = []
+    document = weasyprint.HTML(string=html, base_url=str(tmp_path) + "/").render()
+    original = weasy_images.RasterImage.get_x_object
+
+    def get_x_object(self: Any, *args: Any) -> Any:  # noqa: ANN401
+        calls.append((self, *args))
+        return original(self, *args)
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(weasy_images.RasterImage, "get_x_object", get_x_object)
+        document.write_pdf()
+    assert len(calls) == len({(id(image), *args) for image, *args in calls}) == 7
+    assert all("get_x_object" not in vars(image) for image, *_ in calls)
+
+
+@supported
+def test_a_failing_image_stream_is_built_again_by_weasyprint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    html = _image_page(tmp_path)
+    apply_weasyprint_patches()
+    original = weasy_images.RasterImage.get_x_object
+    main = threading.current_thread()
+
+    def get_x_object(self: Any, *args: Any) -> Any:  # noqa: ANN401
+        if threading.current_thread() is not main:
+            raise OSError
+        return original(self, *args)
+
+    monkeypatch.setattr(weasy_images.RasterImage, "get_x_object", get_x_object)
+    patched = _pdf(html, tmp_path)
+    apply_weasyprint_patches(OFF)
+    assert patched == _pdf(html, tmp_path)
