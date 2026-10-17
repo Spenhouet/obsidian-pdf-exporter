@@ -1344,6 +1344,7 @@ the template. These keys are read by ope itself:
 | `mermaid.landscape` | `on`, `off` | `on` | [Mermaid](../obsidian/mermaid.md#wide-diagrams) |
 | `mermaid.landscape_ratio` | number | `1.4` | [Mermaid](../obsidian/mermaid.md#wide-diagrams) |
 | `mermaid.landscape_min_font` | points | `7` | [Mermaid](../obsidian/mermaid.md#wide-diagrams) |
+| `mermaid.fit` | `on`, `off` | `on` | [Mermaid](../obsidian/mermaid.md#tall-diagrams) |
 | `footnotes` | `page`, `end` | `page` | [Footnotes](../markdown/footnotes.md) |
 | `pdf_embeds` | `pages`, `link` | `pages` | [Embeds](../obsidian/embeds.md#pdf) |
 | `pdf_embeds.max_pages` | number | `10` | [Embeds](../obsidian/embeds.md#pdf) |
@@ -2446,7 +2447,8 @@ The default output is SVG, so text stays sharp and can be searched. Mermaid norm
 | `-O mermaid.max_height=LENGTH` | Largest height, such as `10cm`. Taller diagrams are scaled down. | none |
 | `-O mermaid.landscape=on\|off` | Put wide diagrams on landscape pages. | `on` |
 | `-O mermaid.landscape_ratio=R` | Width to height ratio from which a diagram that has to shrink goes to landscape. | `1.4` |
-| `-O mermaid.landscape_min_font=PT` | Smallest text size a diagram may shrink to on a portrait page before it goes to landscape. | `7` |
+| `-O mermaid.landscape_min_font=PT` | Smallest text size a diagram may shrink to on a portrait page before it goes to landscape, or to fit a tall diagram on one page. | `7` |
+| `-O mermaid.fit=on\|off` | Scale or split diagrams that are taller than the page. | `on` |
 
 A template can set a base config with the `mermaid` key in `template.yaml` or `Template.mermaid_config()`. `mermaid.config` is merged over it, then `mermaid.theme`.
 
@@ -2497,6 +2499,69 @@ A short paragraph right below the diagram that starts with a word and a number, 
 ope export ./Notes -O mermaid.landscape_ratio=2
 ope export ./Notes -O mermaid.landscape=off
 ```
+
+## Tall diagrams
+
+A diagram taller than the page would run past the bottom margin. ope keeps every diagram inside the page content box. The size of the page and its margins come from the template, for portrait and landscape pages alike.
+
+- When the diagram's text stays at least `mermaid.landscape_min_font` points tall, the diagram is scaled down to the height of the page. It keeps its aspect ratio. A caption below it stays on the same page.
+- Otherwise the diagram is cut into parts that follow each other over several pages. The parts keep the width the diagram had, so the text keeps its size. Each cut goes through a row near the bottom of the page where little is drawn, so it does not go through a box or a line of text when there is a gap between them.
+
+Markdown:
+
+````markdown
+A sequence diagram that is taller than the page goes on over two pages:
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+    C->>S: Request 1
+    S-->>C: Response 1
+    C->>S: Request 2
+    S-->>C: Response 2
+    C->>S: Request 3
+    S-->>C: Response 3
+    C->>S: Request 4
+    S-->>C: Response 4
+    C->>S: Request 5
+    S-->>C: Response 5
+    C->>S: Request 6
+    S-->>C: Response 6
+    C->>S: Request 7
+    S-->>C: Response 7
+    C->>S: Request 8
+    S-->>C: Response 8
+    C->>S: Request 9
+    S-->>C: Response 9
+    C->>S: Request 10
+    S-->>C: Response 10
+    C->>S: Request 11
+    S-->>C: Response 11
+    C->>S: Request 12
+    S-->>C: Response 12
+    C->>S: Request 13
+    S-->>C: Response 13
+    C->>S: Request 14
+    S-->>C: Response 14
+    C->>S: Request 15
+    S-->>C: Response 15
+    C->>S: Request 16
+    S-->>C: Response 16
+    C->>S: Request 17
+    S-->>C: Response 17
+    C->>S: Request 18
+    S-->>C: Response 18
+```
+
+The text continues after the diagram.
+````
+
+PDF:
+
+![A long sequence diagram cut into two parts on two pages](../img/features/mermaid-tall.png)
+
+Every part holds the whole drawing and shows only its band of it, so a search in the PDF also finds the text of the hidden bands. PNG diagrams cannot be cut and are always scaled. Fitting needs a second layout of the document, which only runs when a diagram is too tall. `-O mermaid.fit=off` turns it off, `mermaid.max_height` gives all diagrams a smaller limit.
 
 ## Notes
 
