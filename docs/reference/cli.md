@@ -20,7 +20,7 @@ ope [--version] COMMAND [ARGS]...
 | [`list-templates`](#list-templates) | List all known PDF templates (built-in, packaged, user-config, runtime). |
 | [`list-plugins`](#list-plugins) | List all installed Obsidian-plugin support modules (built-in + third-party). |
 | [`export`](#export) | Export an Obsidian-format folder tree to a single PDF file. |
-| [`redline`](#redline) | Generate a redline (tracked-changes) PDF between two git commits. |
+| [`redline`](#redline) | Generate a redline (tracked-changes) PDF between two versions. |
 
 ## `version`
 
@@ -125,25 +125,26 @@ ope export ./Vault/Handbook \
 
 ## `redline`
 
-Generate a redline (tracked-changes) PDF between two git commits.
+Generate a redline (tracked-changes) PDF between two versions.
 
 ```text
 ope redline ROOT [OPTIONS]
 ```
 
-Builds a tracked-changes PDF between two git commits. Must run inside the git repository that holds `ROOT`. See [Redline](../redline/index.md).
+Builds a tracked-changes PDF between two git commits of `ROOT` (`--from-commit`, run inside the git repository that holds `ROOT`), or between two folders or notes on disk without git (`--from-path`). See [Redline](../redline/index.md) and [Comparing versions](../redline/compare.md).
 
 | Argument | Description |
 | -------- | ----------- |
-| `ROOT` | Path to the vault folder to export (required) |
+| `ROOT` | Folder or note to compare (with --from-path: the newer version on disk) (required) |
 
 | Option | Description | Default |
 | ------ | ----------- | ------- |
-| `--from-commit REF` | Older git commit ref (baseline) | required |
-| `--to-commit REF` | Newer git commit ref (default: HEAD) | `HEAD` |
+| `--from-commit REF` | Older git commit ref (baseline) |  |
+| `--to-commit REF` | Newer git commit ref (default: HEAD) |  |
+| `--from-path PATH` | Older version as a folder or note on disk (baseline), compared with ROOT on disk without git; not with --from-commit, --to-commit or --blame |  |
 | `-T NAME\|PATH`, `--template NAME\|PATH` | Template name (default: redline) or path to a custom template (.css file or directory with template.yaml) | `redline` |
 | `-o PATH`, `--output PATH` | Output PDF path (default: ./.export/&lt;title&gt;_redline.pdf) |  |
-| `-t TEXT`, `--title TEXT` | Document title (default: folder name) |  |
+| `-t TEXT`, `--title TEXT` | Document title (default: folder or note name) |  |
 | `--subtitle TEXT` | Document subtitle |  |
 | `-O KEY=VALUE`, `--option KEY=VALUE` | Pass key=value options to plugins / template (repeatable), e.g. redline.style=side-by-side or redline.collapse=on |  |
 | `--disable-plugin NAME` | Skip the named Obsidian plugin (repeatable; see `list-plugins`) |  |

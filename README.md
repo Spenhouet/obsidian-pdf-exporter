@@ -33,7 +33,7 @@ ope redline ./Policy --from-commit v1.0.0 --to-commit v1.1.0
   <a href="https://spenhouet.com/obsidian-pdf-exporter/redline/"><img src="https://raw.githubusercontent.com/Spenhouet/obsidian-pdf-exporter/2a14c57cb85f500739f991f4b57fa430861ef832/docs/img/redline/redline-three-up.png" alt="The same policy before and after a change, and the redline PDF with inserted, removed and changed text and change bars"></a>
 </p>
 
-Tags, branches, commit hashes and `HEAD~n` work as versions, and the docs have GitHub Actions workflows that attach a redline to every pull request or release. See [Redline](https://spenhouet.com/obsidian-pdf-exporter/redline/).
+Tags, branches, commit hashes and `HEAD~n` work as versions, two folders or notes on disk can be compared without git (`--from-path`), and the docs have GitHub Actions workflows that attach a redline to every pull request or release. See [Redline](https://spenhouet.com/obsidian-pdf-exporter/redline/).
 
 ## Install
 

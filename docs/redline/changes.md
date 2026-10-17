@@ -22,7 +22,7 @@ Each case below shows the note in the older commit, the note in the newer commit
 | Task checked or unchecked | The new checkbox with a "now checked" label | Old and new checkbox |
 | Table cell, row, column | Marks per cell; inserted and removed rows and an added column marked as a whole | Old and new table on one row |
 | Callout text, callout inserted or removed | Marks inside the callout; a whole callout marked as one block | Old and new callout on one row |
-| Image or diagram replaced | Removed figure faded and labelled, inserted figure labelled | Old and new figure on one row |
+| Image or diagram replaced, also by a new file of the same name | Removed figure faded and labelled, inserted figure labelled | Old and new figure on one row |
 | Code block | Changed lines: the old line struck through, then the new line | Old code left, new code right |
 | Embedded note, Meta Bind value, Dataview result | Marked where they appear in the PDF | The same |
 | Property that is not shown in the text | Not shown | Not shown |
@@ -491,6 +491,41 @@ A replaced image is shown twice: the old one faded under a "Removed figure" labe
 === "Side by side"
 
     ![A removed figure, faded, and an inserted figure, side by side](../img/redline/images-side-by-side.png)
+
+</div>
+</div>
+
+### Image files with the same name
+
+Images are compared by their file content, not only by the name in the note. An image file that keeps its name and path but has a new picture is shown as replaced, in the same way as an image that was renamed. The same holds for SVG files, embedded PDF pages, draw.io and Excalidraw drawings, and images inside embedded notes. Files with the same bytes in both versions are not marked, even when they moved to another folder.
+
+<div class="ope-example ope-redline" markdown>
+<div markdown>
+<p class="ope-label">Before</p>
+
+````markdown
+--8<-- "examples/_redline/image-file/before/Policy/Policy.md"
+````
+
+</div>
+<div markdown>
+<p class="ope-label">After (same text, new `visits.png`)</p>
+
+````markdown
+--8<-- "examples/_redline/image-file/after/Policy/Policy.md"
+````
+
+</div>
+<div markdown class="ope-redline-pdf">
+<p class="ope-label">Redline PDF</p>
+
+=== "Blackline"
+
+    ![The old and the new version of an image file with the same name](../img/redline/image-file.png)
+
+=== "Side by side"
+
+    ![The old and the new version of an image file with the same name, side by side](../img/redline/image-file-side-by-side.png)
 
 </div>
 </div>

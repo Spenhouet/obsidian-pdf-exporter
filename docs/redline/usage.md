@@ -7,9 +7,10 @@ description: The ope redline command and every flag, commit refs, default output
 
 ```text
 ope redline ROOT --from-commit REF [--to-commit REF] [OPTIONS]
+ope redline ROOT --from-path PATH [OPTIONS]
 ```
 
-`ROOT` is the folder to compare, the same folder `ope export` takes. The command must run inside the git repository that holds `ROOT`, and both commits must be in its history.
+`ROOT` is the folder to compare, the same folder `ope export` takes, or a single note. With `--from-commit`, the command must run inside the git repository that holds `ROOT`, and both commits must be in its history. With `--from-path`, `ROOT` is the newer version on disk and `PATH` the older one, and no git is needed (see [Without git](compare.md#without-git)).
 
 ```bash
 cd MyVault                      # anywhere inside the repository
@@ -20,16 +21,17 @@ ope redline ./Handbook --from-commit v1.0.0
 
 | Flag | Default | Meaning |
 | ---- | ------- | ------- |
-| `--from-commit REF` | required | The older version, the baseline. |
-| `--to-commit REF` | `HEAD` | The newer version. |
+| `--from-commit REF` | | The older version, the baseline, as a git commit. |
+| `--to-commit REF` | `HEAD` | The newer version, as a git commit. |
+| `--from-path PATH` | | The older version as a folder or note on disk; `ROOT` on disk is the newer one. Not together with `--from-commit`, `--to-commit` or `--blame`. |
 | `-o PATH`, `--output PATH` | `./.export/<title>_redline.pdf` | Where the PDF goes. `.export/` is made in the current folder. |
-| `-t TEXT`, `--title TEXT` | the folder name | Title on the first page and in the header. |
-| `--subtitle TEXT` | `Changes from <from> to <to>` | Replaces the subtitle. The version label in the footer keeps the hashes. |
+| `-t TEXT`, `--title TEXT` | the folder name, or the note name | Title on the first page and in the header. |
+| `--subtitle TEXT` | `Changes from <from> to <to>` | Replaces the subtitle. The version label in the footer keeps the hashes (or the names of the two folders or notes). |
 | `-T NAME\|PATH`, `--template NAME\|PATH` | `redline` | Another template, see [Styling the redline](styling.md). |
 | `-O redline.style=STYLE` | `blackline` | `blackline` or `side-by-side`, see [Styles and options](styles.md). |
 | `-O redline.collapse=on` | off | Show only the changes and the headings of their sections. |
 | `-O KEY=VALUE`, `--option KEY=VALUE` | | Other options for steps, plugins and the template, as for `export`. |
-| `--blame` | off | A strip next to every page with the author, date and commit message of each changed block, see [Blame](blame.md). |
+| `--blame` | off | A strip next to every page with the author, date and commit message of each changed block, see [Blame](blame.md). Needs `--from-commit`. |
 | `--disable-plugin NAME` | | Skip a plugin in both versions. |
 | `--toc/--no-toc` | `--toc` | Table of contents at the start. |
 | `--debug` | off | Keep the build folder `_build_<name>/` next to the PDF, with `redline_assembled.md` (the diffed Markdown) and `redline_final.html`. |
@@ -38,7 +40,13 @@ ope redline ./Handbook --from-commit v1.0.0
 
 ## Which versions
 
-`--from-commit` and `--to-commit` take tags, branches, commit hashes and relative refs such as `HEAD~3`. Both sides are read from git, so uncommitted changes are not included. When `ROOT` does not exist in one of the two commits, that side counts as empty: a folder that is new since `--from-commit` comes out as one big insertion. [Comparing versions](compare.md) has the details: releases, pull requests, the history of one note, and what to do without git.
+`--from-commit` and `--to-commit` take tags, branches, commit hashes and relative refs such as `HEAD~3`. Both sides are read from git, so uncommitted changes are not included. When `ROOT` does not exist in one of the two commits, that side counts as empty: a folder that is new since `--from-commit` comes out as one big insertion. [Comparing versions](compare.md) has the details: releases, pull requests and the history of one note.
+
+`--from-path` compares two folders or two notes on disk instead, without git:
+
+```bash
+ope redline ./Handbook --from-path ./archive/Handbook
+```
 
 ## Output name and title block
 
