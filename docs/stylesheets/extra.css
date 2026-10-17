@@ -688,3 +688,13 @@
     transition: none;
   }
 }
+
+/* Commands on the home page wrap instead of being cut off. A wrapped line
+   is indented, so it reads as the continuation of the command. */
+.md-typeset .ope-cmd code {
+  padding-right: 2.6em;
+  padding-left: 2.4em;
+  text-indent: -1.2em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

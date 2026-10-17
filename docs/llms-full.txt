@@ -22,17 +22,17 @@ Source: https://spenhouet.com/obsidian-pdf-exporter/
 
 === "Linux / macOS"
 
-    ```bash
+    ``` { .bash .ope-cmd }
     curl -LsSf uvx.sh/obsidian-pdf-exporter/install.sh | sh && ope setup --yes
     ```
 
 === "Windows"
 
-    ```powershell
+    ``` { .powershell .ope-cmd }
     powershell -ExecutionPolicy ByPass -c "irm https://uvx.sh/obsidian-pdf-exporter/install.ps1 | iex; ope setup --yes"
     ```
 
-```bash
+``` { .bash .ope-cmd }
 ope export ./MyVault/Handbook --title "Team handbook"
 ```
 
@@ -85,7 +85,7 @@ Handbook/
 └── Terms/              → 3 Terms
 ```
 
-```bash
+``` { .bash .ope-cmd }
 ope export ./Handbook --title "Team handbook" --version 1.2.0
 ```
 
@@ -217,7 +217,7 @@ Also: [highlights and comments](obsidian/highlights-comments.md), [tasks](obsidi
 
 Two git commits of your notes become one tracked-changes PDF: inserted text underlined in blue, removed text struck through in red, a change bar in the margin and a summary of every changed section. Made for reviews, approvals, audits and release notes.
 
-```bash
+``` { .bash .ope-cmd }
 ope redline ./Policy --from-commit v1.0.0 --to-commit v1.1.0
 ```
 
@@ -284,7 +284,7 @@ A template is a folder with CSS, a running header and footer and page rules. Sta
 
 ## Export your first folder in a minute
 
-```bash
+``` { .bash .ope-cmd }
 curl -LsSf uvx.sh/obsidian-pdf-exporter/install.sh | sh && ope setup --yes
 ```
 
