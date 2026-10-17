@@ -360,7 +360,7 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
 
 
 def _is_strip(options: dict[str, str]) -> bool:
-    return options.get("blame.layout", "margin") in STRIP_VARIANTS
+    return options.get("blame.layout", "line") in STRIP_VARIANTS
 
 
 def _strip_blame(  # noqa: PLR0913
@@ -386,7 +386,7 @@ def _strip_blame(  # noqa: PLR0913
         output_path,
         build_dir.as_uri(),
         index,
-        variant=request.options.get("blame.layout", "bracket"),
+        variant=request.options.get("blame.layout", "line"),
         highlight=highlight,
         range_label=range_label,
     )

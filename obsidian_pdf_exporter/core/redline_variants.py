@@ -67,6 +67,7 @@ class Row:
     right: object = None
     section: str = ""
     note: str = ""
+    orig: object = None
 
 
 # ---------------------------------------------------------------------------
@@ -143,7 +144,7 @@ def doc_rows(body, hunks: list) -> list[list[Row]]:  # noqa: ANN001, C901, PLR09
                     rows.append(Row("rep", _old_copy(el), partner, note=_note("rep", el)))
                 elif change == "mod":
                     rows.append(
-                        Row("mod", rh._side(el, "old"), rh._side(el, "new"), note=_note("mod", el))  # noqa: SLF001
+                        Row("mod", rh._side(el, "old"), rh._side(el, "new"), note=_note("mod", el), orig=el)  # noqa: SLF001
                     )
                 elif change == "del":
                     rows.append(Row("del", _old_copy(el), None, note=_note("del", el)))
@@ -154,7 +155,7 @@ def doc_rows(body, hunks: list) -> list[list[Row]]:  # noqa: ANN001, C901, PLR09
                 elif change == "move-to":
                     rows.append(Row("move-to", None, el, note=_note("move-to", el)))
         elif _has_change(c):
-            rows.append(Row("mod", rh._side(c, "old"), rh._side(c, "new"), note=_note("mod", c)))  # noqa: SLF001
+            rows.append(Row("mod", rh._side(c, "old"), rh._side(c, "new"), note=_note("mod", c), orig=c))  # noqa: SLF001
         else:
             rows.append(Row("equal", _old_copy(c), c))
         for r in rows:
@@ -203,7 +204,13 @@ def _aligned(tree, hunks, options, style: str) -> None:  # noqa: ANN001, C901, P
     """sbs1 / sbs2 / sbs3: the whole document as aligned rows."""
     body = tree.body
     a, b = _labels(options)
+    collapse = options.get("redline.collapse_on") == "1"
     chapters = doc_rows(body, hunks)
+    if style == "sbs1":
+        chapters = [split_list_rows(rows) for rows in chapters]
+        if collapse:
+            chapters = [collapse_rows(rows) for rows in chapters]
+            chapters = [rows for rows in chapters if any(r.kind != "ctx" for r in rows)] or chapters[:1]
     for n, rows in enumerate(chapters):
         table = element("table", f"rl-wd rl-wd-{style}")
         if n:
@@ -229,6 +236,18 @@ def _aligned(tree, hunks, options, style: str) -> None:  # noqa: ANN001, C901, P
         table.append(tbody)
         for r in rows:
             tr = element("tr", f"rl-wd-row rl-wd-{r.kind}")
+            side = r.right if r.right is not None else r.left
+            if side is not None and (_level(side) or side.find(".//h1") is not None or side.find(".//h2") is not None
+                                     or side.find(".//h3") is not None):
+                add_class(tr, "rl-wd-hrow")
+            if r.kind == "ctx":
+                td = element("td", "rl-wd-ctx")
+                td.set("colspan", "3" if style != "sbs3" else "4")
+                r.right.tail = None
+                td.append(r.right)
+                tr.append(td)
+                tbody.append(tr)
+                continue
             left_gap = "moved" if r.kind == "move-to" else "not in " + a
             right_gap = "moved" if r.kind == "move-from" else "not in " + b
             if r.kind == "del":
@@ -247,7 +266,7 @@ def _aligned(tree, hunks, options, style: str) -> None:  # noqa: ANN001, C901, P
             else:
                 tr.append(_cell("rl-wd-l", left))
                 g = element("td", "rl-wd-g")
-                if r.kind != "equal":
+                if r.kind != "equal" and style != "sbs1":
                     g.append(element("span", f"rl-sym rl-sym-{r.kind}", SYMBOL[r.kind]))
                 tr.append(g)
                 tr.append(_cell("rl-wd-r", right))
@@ -672,3 +691,206 @@ rh.LEGENDS.update(
         "diff5": "small edits inline, rewrites split · " + _MARKS,
     }
 )
+
+
+# ---------------------------------------------------------------------------
+# Round 3: list rows for sbs1, collapse of unchanged content
+# ---------------------------------------------------------------------------
+
+
+def _the_list(el):  # noqa: ANN001, ANN202
+    """Return ``el`` when it is a list, or the single list inside a block div."""
+    if el is None:
+        return None
+    if el.tag in {"ul", "ol"}:
+        return el
+    kids = [c for c in el if isinstance(c.tag, str) and not has_class(c, "rl-move-label")]
+    if el.tag == "div" and len(kids) == 1 and kids[0].tag in {"ul", "ol"}:
+        return kids[0]
+    return None
+
+
+def _li_kind(li) -> str:  # noqa: ANN001
+    cls = classes(li)
+    for c, k in (("rl-li-ins", "ins"), ("rl-li-del", "del"), ("rl-li-move-to", "move-to"),
+                 ("rl-li-move-from", "move-from")):
+        if c in cls:
+            return k
+    if li.xpath(".//ins|.//del|.//span[contains(@class,'rl-fmt') or contains(@class,'rl-link')]") or "rl-li-task" in cls:
+        return "mod"
+    return "equal"
+
+
+def _wrap_li(lst, li, index: int):  # noqa: ANN001, ANN202
+    holder = element(lst.tag, (lst.get("class", "") + " rl-li-row").strip())
+    if lst.tag == "ol":
+        holder.set("start", str(index))
+    li.tail = None
+    holder.append(li)
+    return holder
+
+
+def split_list_rows(rows: list[Row]) -> list[Row]:
+    """Give every top-level list item its own row, so items stay level across the columns."""
+    out: list[Row] = []
+    for r in rows:
+        src = r.orig if r.kind == "mod" else r.right
+        lst = _the_list(src)
+        if lst is None or r.kind not in {"equal", "mod"}:
+            out.append(r)
+            continue
+        items = [li for li in lst if li.tag == "li"]
+        if r.kind == "equal":
+            for n, li in enumerate(items, start=1):
+                out.append(Row("equal", _wrap_li(lst, _old_copy(li), n), _wrap_li(lst, li, n), r.section))
+            continue
+        # Changed list: the right side still carries the change classes of the items.
+        old_n = new_n = 0
+        for li in items:
+            k = _li_kind(li)
+            left = right = None
+            if k not in {"ins", "move-to"}:
+                old_n += 1
+                left = _wrap_li(lst, rh._side(li, "old"), old_n)  # noqa: SLF001
+            if k not in {"del", "move-from"}:
+                new_n += 1
+                right = _wrap_li(lst, rh._side(li, "new"), new_n)  # noqa: SLF001
+            out.append(Row(k, left, right, r.section, note=""))
+    return out
+
+
+def _level(el) -> int:  # noqa: ANN001
+    if el is None:
+        return 0
+    if el.tag in HEADINGS:
+        return int(el.tag[1])
+    if has_class(el, "rl-heading"):
+        return int(el.get("data-level", "2"))
+    return 0
+
+
+def _kind_word(el) -> str:  # noqa: ANN001
+    if el is None:
+        return "block"
+    lst = _the_list(el)
+    if el.tag == "li" or (lst is not None and len([c for c in lst if c.tag == "li"]) == 1 and el.tag in {"ul", "ol"}):
+        return "list item"
+    return {"p": "paragraph", "ul": "list", "ol": "list", "table": "table", "pre": "code block",
+            "figure": "figure"}.get(el.tag, "callout" if has_class(el, "callout") else "block")
+
+
+def _ctx_text(dropped: list) -> tuple[str, list[str]]:
+    """Text of a collapsed line and the ids it must keep (for links to dropped headings)."""
+    heads, ids, kinds = [], [], {}
+    for el in dropped:
+        if el is None:
+            continue
+        if _level(el):
+            heads.append(rh._heading_label(el))  # noqa: SLF001
+        else:
+            w = _kind_word(el)
+            kinds[w] = kinds.get(w, 0) + 1
+        for e in [el, *el.iterdescendants()]:
+            if e.get("id"):
+                ids.append(e.get("id"))
+    parts = [f"{n} {w}{'s' if n > 1 else ''}" for w, n in kinds.items()]
+    if heads:
+        text = "unchanged: " + ", ".join(heads) + (f" ({', '.join(parts)})" if parts else "")
+    else:
+        text = ", ".join(parts) + " unchanged"
+    return "⋯ " + text + " ⋯", ids
+
+
+def _keep_flags(items: list[tuple[object, bool]]) -> list[bool]:
+    """items: (element, changed). Headings are kept when their section has a change."""
+    keep = []
+    for k, (el, changed) in enumerate(items):
+        lvl = _level(el)
+        if changed:
+            keep.append(True)
+        elif lvl:
+            has = False
+            for el2, ch2 in items[k + 1 :]:
+                l2 = _level(el2)
+                if l2 and l2 <= lvl:
+                    break
+                if ch2:
+                    has = True
+                    break
+            keep.append(has)
+        else:
+            keep.append(False)
+    return keep
+
+
+def collapse_rows(rows: list[Row]) -> list[Row]:
+    """sbs1: replace runs of unchanged rows by one collapsed row."""
+    items = [(r.right if r.right is not None else r.left, r.kind != "equal") for r in rows]
+    keep = _keep_flags(items)
+    out: list[Row] = []
+    run: list[Row] = []
+
+    def flush() -> None:
+        if run:
+            text, ids = _ctx_text([r.right if r.right is not None else r.left for r in run])
+            line = element("div", "rl-ctx")
+            for i in ids:
+                line.append(element("span", "rl-anchor", id=i))
+            line.append(element("span", "rl-ctx-t", text))
+            out.append(Row("ctx", None, line, run[0].section))
+            run.clear()
+
+    for r, k in zip(rows, keep, strict=True):
+        if k:
+            flush()
+            out.append(r)
+        else:
+            run.append(r)
+    flush()
+    return out
+
+
+def collapse_blocks(body, hunks: list) -> None:  # noqa: ANN001
+    """Style A: replace runs of unchanged blocks by one quiet line; keep heading paths."""
+    hunk_ids = {id(h.el) for h in hunks}
+    content = [c for c in _content(body) if not has_class(c, "rl-annex")]
+    items = [(c, id(c) in hunk_ids or _has_change(c)) for c in content]
+    keep = _keep_flags(items)
+    run: list = []
+
+    def flush() -> None:
+        if not run:
+            return
+        text, ids = _ctx_text(run)
+        line = element("div", "rl-ctx")
+        for i in ids:
+            line.append(element("span", "rl-anchor", id=i))
+        line.append(element("span", "rl-ctx-t", text))
+        run[0].addprevious(line)
+        for e in run:
+            drop(e)
+        run.clear()
+
+    for (c, _changed), k in zip(items, keep, strict=True):
+        if k:
+            flush()
+        else:
+            run.append(c)
+    flush()
+
+
+def collapse_items(hunks: list, *, lists: bool) -> None:
+    """Collapse runs of unchanged list items (style A) and table rows inside changed blocks."""
+    for h in hunks:
+        if lists:
+            for lst in h.el.xpath(".//ul|.//ol"):
+                items = [li for li in lst if li.tag == "li"]
+                _collapse_items(items, lambda li: _li_kind(li) == "equal", "li")
+        for tbody in h.el.xpath(".//tbody"):
+            rows = [tr for tr in tbody if tr.tag == "tr"]
+            _collapse_items(
+                rows,
+                lambda tr: not tr.xpath(".//ins|.//del")
+                and not any(c.startswith("rl-tr") for c in classes(tr)),
+                "tr",
+            )
