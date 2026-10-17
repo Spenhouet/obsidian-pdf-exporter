@@ -22,6 +22,7 @@ widget   :class:`ListPair` or :class:`ExternalLink`
 
 from __future__ import annotations
 
+import functools
 import math
 import re
 import unicodedata
@@ -160,6 +161,7 @@ def _word_char(ch: str) -> bool:
     return (ch.isdigit() and ch.isascii()) or is_letter(ch) or ch in "_-"
 
 
+@functools.lru_cache(maxsize=65536)
 def canonicalize_var_name(name: str) -> str:
     """Dataview's key normalisation: ``Due Date`` becomes ``due-date``."""
     out = []
@@ -189,6 +191,7 @@ def canonicalize_var_name(name: str) -> str:
     return "".join(out)
 
 
+@functools.lru_cache(maxsize=65536)
 def normalize_header_for_link(header: str) -> str:
     """Collapse a heading into the form Obsidian links to (punctuation becomes spaces)."""
     out = []
