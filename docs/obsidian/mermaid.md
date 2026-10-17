@@ -1,11 +1,11 @@
 ---
 title: Mermaid
-description: Mermaid code blocks rendered to SVG or PNG diagrams with mermaid-cli.
+description: Mermaid code blocks rendered to SVG or PNG diagrams with mermaid-cli, or with Pele without Node.js.
 ---
 
 # Mermaid
 
-` ```mermaid ` blocks are drawn with [mermaid-cli](https://github.com/mermaid-js/mermaid-cli). ope uses `mmdc` if it is on the `PATH`, else `npx -y @mermaid-js/mermaid-cli@11.4.2` when Node.js is installed. Without either, the blocks stay code blocks and the export prints a warning. A block that fails to render also stays code.
+` ```mermaid ` blocks are drawn with [mermaid-cli](https://github.com/mermaid-js/mermaid-cli). ope uses `mmdc` if it is on the `PATH`, else `npx -y @mermaid-js/mermaid-cli@11.4.2` when Node.js is installed. Without either, the blocks stay code blocks and the export prints a warning. A block that fails to render also stays code. `-O mermaid.renderer=pele` draws the diagrams with [Pele](#renderers) instead, which needs no Node.js.
 
 <div class="ope-example" markdown>
 <div markdown>
@@ -31,6 +31,7 @@ The default output is SVG, so text stays sharp and can be searched. Mermaid norm
 | Option | Effect | Default |
 | ------ | ------ | ------- |
 | `-O mermaid=off` | Keep Mermaid blocks as code. | on |
+| `-O mermaid.renderer=mermaid-cli\|pele` | What draws the diagrams, see [Renderers](#renderers). | `mermaid-cli` |
 | `-O mermaid.format=svg\|png` | Output format. | `svg` |
 | `-O mermaid.scale=N` | Pixel density of PNG output. The image keeps its natural size. | `3` |
 | `-O mermaid.config=PATH` | JSON [Mermaid config](https://mermaid.js.org/config/schema-docs/config.html) (`theme`, `themeVariables`, ...). | none |
@@ -53,6 +54,65 @@ ope export ./Notes -O mermaid.config=mermaid.json
 ```json
 { "theme": "base", "themeVariables": { "primaryColor": "#e8eef5", "pie1": "#2c5282" } }
 ```
+
+## Renderers
+
+`-O mermaid.renderer` picks what draws the diagrams.
+
+- `mermaid-cli` (default) is Mermaid itself, run by Node.js in a headless Chromium. Diagrams look as they do in Obsidian.
+- `pele` is [Pele](https://pele.run), a Mermaid renderer in TypeScript by the Obsidian team. It reads Mermaid 12.1 syntax and draws every diagram type Mermaid has, with its own layout and style. ope runs it in the JavaScript engine that also runs [DataviewJS](../plugins/dataview.md), so it needs no Node.js, npm or browser, and it is much faster: a few milliseconds per diagram instead of seconds for a whole document.
+
+```bash
+ope export ./Notes -O mermaid.renderer=pele
+```
+
+The same note with both renderers:
+
+<div class="ope-example" markdown>
+<div markdown>
+<p class="ope-label">mermaid-cli</p>
+
+![A flowchart, a sequence diagram and a pie chart drawn by mermaid-cli](../img/features/mermaid-renderers.png)
+
+</div>
+<div markdown>
+<p class="ope-label">Pele</p>
+
+![The same diagrams drawn by Pele](../img/features/mermaid-renderers-pele.png)
+
+</div>
+</div>
+
+??? example "Markdown of the note"
+
+    ````markdown
+    --8<-- "examples/mermaid-renderers/mermaid-renderers.md"
+    ````
+
+Pele always writes SVG, so `mermaid.format`, `mermaid.scale`, `mermaid.cli` and `mermaid.puppeteer_config` only apply to mermaid-cli. Its SVG has an exact size with a margin of 8 px, so it needs no trimming pass. Wide and tall diagrams go to landscape pages or are scaled and cut as described below, as with mermaid-cli.
+
+A diagram Pele cannot draw, for example because of a syntax error or syntax it does not know, goes to mermaid-cli when Node.js or `mmdc` is installed. Otherwise it stays a code block and the export prints a line starting with `Warning:`.
+
+### Colors and fonts with Pele
+
+Pele draws with its own neutral style and ignores Mermaid themes (`theme`, `themeVariables`, `themeCSS`). Its colors are the CSS variables listed under [Theming](https://pele.run/theming), such as `--pele-fg`, `--pele-surface`, `--pele-border`, `--pele-line`, `--pele-accent` and `--pele-series-1` to `--pele-series-8`. WeasyPrint does not resolve CSS variables in SVG, so ope writes their values into the SVG. They come from the template's CSS:
+
+- The label font is the `font-family` of `body`, the monospace font the one of `code` or `pre`, and the text color the `color` of `body`. Diagrams use the font of the document.
+- `themeVariables.fontFamily` in the Mermaid config sets the label font too.
+- `themeVariables.fontSize` in the Mermaid config or in the front matter of a diagram sets the base font size.
+- `--pele-*` variables in a rule for `:root`, `html`, `body` or `.pele` set any color. They may use `var()` of other custom properties of those rules.
+
+```css
+.pele {
+  --pele-surface: #eef2f7;
+  --pele-border: #6b7f99;
+  --pele-accent: var(--color-accent);
+}
+```
+
+Pele needs the width of every label to lay a diagram out. ope measures them with Pango, the text engine WeasyPrint uses, in the font of the PDF, so labels fit their boxes in any font.
+
+The Pele build is part of ope (version 1.6.0, MIT license, see the license header of `obsidian_pdf_exporter/core/assets/pele.js`). `scripts/update_pele.py` in the repository replaces it with another version and checks it against the hash the npm registry publishes. Pele's links and images are turned off.
 
 ## Diagram size
 
@@ -118,7 +178,7 @@ A diagram taller than the page would run past the bottom margin. ope keeps every
 
 Every part holds the whole drawing and shows only its band of it, so a search in the PDF also finds the text of the hidden bands. PNG diagrams cannot be cut and are always scaled. Fitting needs a second layout of the document, which only runs when a diagram is too tall. `-O mermaid.fit=off` turns it off, `mermaid.max_height` gives all diagrams a smaller limit.
 
-## Notes
+## Notes on mermaid-cli
 
 - WeasyPrint clips text centered in a semi-transparent group. Gantt axis labels are drawn that way, so ope adds `.grid .tick { opacity: 1 }` to the `themeCSS` of SVG diagrams.
 - Wrapped labels in timeline diagrams carry a line offset twice. ope removes the outer one, so the text stays in its box.

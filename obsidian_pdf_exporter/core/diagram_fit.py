@@ -184,13 +184,21 @@ def _fit(
 
 
 def font_pt(element: ET.Element, width: float) -> float:
-    """Return the base font size of an inline Mermaid SVG drawn ``width`` px wide, in pt."""
+    """Return the base font size of an inline Mermaid SVG drawn ``width`` px wide, in pt.
+
+    mermaid-cli writes the size into the style sheet of the SVG, Pele into the
+    ``font-size`` attribute of the root element.
+    """
     view = _view_box(element)
     if view is None or view[2] <= 0:
         return 0.0
     css = "".join(style.text or "" for style in element.iter(_STYLE))
     match = _RE_FONT_SIZE.search(css)
-    font_px = float(match.group(1)) if match else _DEFAULT_FONT_PX
+    try:
+        # Pele sets the base size on the root element instead of a style sheet.
+        font_px = float(match.group(1) if match else element.get("font-size", ""))
+    except ValueError:
+        font_px = _DEFAULT_FONT_PX
     return font_px * 0.75 * width / view[2]
 
 
