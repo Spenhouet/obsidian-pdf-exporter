@@ -215,3 +215,12 @@ table.rl-commits td:nth-child(3) { width: 18%; }
 .rl-fn-inline { font-size: 0.8em; color: var(--color-grey); }
 .rl-fn-inline::before { content: " [footnote: "; }
 .rl-fn-inline::after { content: "]"; }
+
+/* ---- Collapsed unchanged content (-O redline.collapse=on) ---- */
+body.rl-collapse h1 { break-before: auto; margin-top: 1.2em; }
+.rl-ctx { display: flex; align-items: center; gap: 3mm; margin: 0.4em 0 0.8em; color: #8a9097; font-size: 0.8em; font-style: italic; }
+.rl-ctx::before, .rl-ctx::after { content: ""; flex: 1; border-top: 0.6pt dotted #b9bec5; }
+.rl-ctx-t { flex: 0 1 auto; text-align: center; }
+.rl-anchor { display: inline; }
+li.rl-ctx-item { list-style: none; color: #8a9097; font-size: 0.85em; font-style: italic; }
+tr.rl-ctx-row td { color: #8a9097; font-size: 0.85em; font-style: italic; text-align: center; }

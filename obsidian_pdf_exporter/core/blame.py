@@ -49,6 +49,27 @@ class Commit:
     author: str = ""
     time: int = 0
     subject: str = ""
+    email: str = ""
+    tz: str = ""
+    message: str = ""
+
+    @property
+    def iso_date(self) -> str:
+        """Author date as ``YYYY-MM-DD``."""
+        if not self.time:
+            return ""
+        return datetime.datetime.fromtimestamp(self.time, tz=datetime.timezone.utc).date().isoformat()
+
+    @property
+    def full_time(self) -> str:
+        """Author date and time in the author's time zone."""
+        if not self.time:
+            return ""
+        tz = self.tz or "+0000"
+        sign = -1 if tz.startswith("-") else 1
+        offset = datetime.timedelta(hours=int(tz[1:3]), minutes=int(tz[3:5])) * sign
+        t = datetime.datetime.fromtimestamp(self.time, tz=datetime.timezone(offset))
+        return t.strftime("%Y-%m-%d %H:%M ") + tz
 
     @property
     def short(self) -> str:
@@ -189,6 +210,14 @@ def build_index(repo: Path, folder: Path, commit: str = "") -> BlameIndex:
         if commit:
             args.append(commit)
         _parse_blame(_git(repo, *args, "--", f), f, index)
+    shas = [c for c in index.commits if c != UNCOMMITTED]
+    if shas:
+        out = _git(repo, "show", "-s", "--format=%H%x00%B%x01", *shas)
+        for chunk in out.split("\x01"):
+            if "\x00" in chunk:
+                sha, msg = chunk.strip("\n").split("\x00", 1)
+                if sha in index.commits:
+                    index.commits[sha].message = msg.strip()
     return index
 
 
@@ -204,6 +233,8 @@ def _parse_blame(out: str, file: str, index: BlameIndex) -> None:
                     meta.get("author", ""),
                     int(meta.get("author-time", "0") or 0),
                     meta.get("summary", ""),
+                    meta.get("author-mail", "").strip("<>"),
+                    meta.get("author-tz", ""),
                 )
                 if sha == UNCOMMITTED:
                     c.author, c.subject = "Not committed", "Uncommitted change"
@@ -242,9 +273,13 @@ def _units(body) -> list:  # noqa: ANN001
             p = el.getparent()
             skip = False
             while p is not None:
+                if p.tag == "table" and (has_class(p, "rl-wd") or has_class(p, "rl-split")):
+                    p = p.getparent()
+                    continue
                 if (
                     p.tag in SKIP_ANCESTORS
                     or has_class(p, "rl-summary")
+                    or has_class(p, "rl-wd-l")
                     or has_class(p, "rl-balloon")
                 ):
                     if not (el.tag == "li" and p.tag == "li"):
@@ -257,10 +292,18 @@ def _units(body) -> list:  # noqa: ANN001
             if skip:
                 continue
         if any(
-            has_class(a, "rl-summary") or has_class(a, "rl-del") or has_class(a, "rl-move-from")
+            has_class(a, "rl-summary")
+            or has_class(a, "rl-del")
+            or has_class(a, "rl-move-from")
+            or has_class(a, "rl-wd-l")
+            or has_class(a, "rl-ctx")
             for a in el.iterancestors()
         ):
             continue
+        if el.tag == "tr":
+            tbl = next((a for a in el.iterancestors() if a.tag == "table"), None)
+            if tbl is not None and has_class(tbl, "rl-wd"):
+                continue
         if el.get("data-bl-skip") or any(a.tag == "nav" for a in el.iterancestors()):
             continue
         out.append(el)
@@ -505,8 +548,8 @@ body.bl-wide .bl-key, body.bl-wide nav#TOC, body.bl-wide header#title-block-head
 # Blame strip outside the page (round 2)
 # ---------------------------------------------------------------------------
 
-STRIP_VARIANTS = ("bracket", "leader", "bands", "agebar", "legend")
-STRIP_WIDTH_MM = {"bracket": 64, "leader": 62, "bands": 62, "agebar": 62, "legend": 58}
+STRIP_VARIANTS = ("line", "bracket", "leader", "bands", "agebar", "legend")
+STRIP_WIDTH_MM = {"line": 70, "bracket": 64, "leader": 62, "bands": 62, "agebar": 62, "legend": 58}
 PX_PER_MM = 96 / 25.4
 MAX_SUBJECT = 50
 
@@ -534,6 +577,22 @@ def _match_units(body, index: BlameIndex) -> list[tuple[object, str | None]]:  #
     return found
 
 
+FIRST_LINES: dict[tuple[int, int], tuple[float, float]] = {}
+
+
+def _first_line(box):  # noqa: ANN001, ANN202
+    """The first line box inside ``box`` (depth first), or None."""
+    if type(box).__name__ == "LineBox":
+        return box
+    for child in getattr(box, "children", ()) or ():
+        if type(child).__name__ == "LineBox" and not (child.height or 0):
+            continue
+        found = _first_line(child)
+        if found is not None:
+            return found
+    return None
+
+
 def _boxes(box, out: dict, page: int) -> None:  # noqa: ANN001
     el = getattr(box, "element", None)
     if el is not None and hasattr(el, "get"):
@@ -546,6 +605,12 @@ def _boxes(box, out: dict, page: int) -> None:  # noqa: ANN001
             out[(int(k), page)] = (
                 (min(cur[0], top), max(cur[1], bottom)) if cur else (top, bottom)
             )
+            if (int(k), page) not in FIRST_LINES:
+                line = _first_line(box)
+                if line is not None:
+                    FIRST_LINES[(int(k), page)] = (line.position_y, line.position_y + line.baseline)
+                else:
+                    FIRST_LINES[(int(k), page)] = (top, top + 10)
     for child in getattr(box, "children", ()) or ():
         _boxes(child, out, page)
 
@@ -588,6 +653,7 @@ def render_with_strip(  # noqa: C901, PLR0912, PLR0913, PLR0914, PLR0915
     with svg_current_color():
         document = weasyprint.HTML(string=tree.serialize(), base_url=base_url or None).render()
     positions: dict[tuple[int, int], tuple[float, float]] = {}
+    FIRST_LINES.clear()
     sizes = []
     for p, page in enumerate(document.pages):
         _boxes(page._page_box, positions, p)  # noqa: SLF001
@@ -602,7 +668,13 @@ def render_with_strip(  # noqa: C901, PLR0912, PLR0913, PLR0914, PLR0915
     sw = STRIP_WIDTH_MM[variant] * PX_PER_MM
     pages_html = []
     css_pages = []
+    tips: dict[int, list[tuple[float, float, float, float, str]]] = {}
     for p, (w, h) in enumerate(sizes):
+        if variant == "line":
+            html_p, tips[p] = _line_page(p, found, index, sw, h, highlight, range_label)
+            pages_html.append(html_p)
+            css_pages.append(f"@page s{p} {{ size: {sw:.2f}px {h:.2f}px; margin: 0; }}")
+            continue
         groups: list[_Group] = []
         items = sorted(
             ((k, positions[(k, p)]) for k in range(len(found)) if (k, p) in positions),
@@ -641,16 +713,119 @@ def render_with_strip(  # noqa: C901, PLR0912, PLR0913, PLR0914, PLR0915
     writer = PdfWriter(clone_from=PdfReader(io.BytesIO(output_path.read_bytes())))
     strip = PdfReader(io.BytesIO(strip_pdf))
     extra = sw * 0.75
+    fields = []
     for p, page in enumerate(writer.pages):
         x0, y0, x1, y1 = (float(v) for v in page.mediabox)
         if p < len(strip.pages):
             page.merge_transformed_page(strip.pages[p], Transformation().translate(x1, y0))
         page.mediabox.upper_right = (x1 + extra, y1)
         page.cropbox.upper_right = (x1 + extra, y1)
+        for n, (tx, ty, tw, th, text) in enumerate(tips.get(p, [])):
+            fields.append(_tooltip_widget(writer, page, f"blame_{p}_{n}", text,
+                                          (x1 + tx * 0.75, y1 - (ty + th) * 0.75, x1 + (tx + tw) * 0.75, y1 - ty * 0.75)))
+    if fields:
+        from pypdf.generic import ArrayObject  # noqa: PLC0415
+        from pypdf.generic import DictionaryObject  # noqa: PLC0415
+        from pypdf.generic import NameObject  # noqa: PLC0415
+
+        acro = writer._root_object.get("/AcroForm")  # noqa: SLF001
+        if acro is None:
+            acro = DictionaryObject({NameObject("/Fields"): ArrayObject()})
+            writer._root_object[NameObject("/AcroForm")] = acro  # noqa: SLF001
+        acro = acro.get_object()
+        acro.setdefault(NameObject("/Fields"), ArrayObject())
+        acro["/Fields"].extend(fields)
     with output_path.open("wb") as fh:
         writer.write(fh)
     total = len(found)
     return (sum(1 for _, s in found if s) / total) if total else 0.0
+
+
+def _tooltip_widget(writer, page, name: str, text: str, rect: tuple) -> object:  # noqa: ANN001
+    """An invisible, read-only push button whose tooltip (/TU) holds ``text``."""
+    from pypdf.generic import ArrayObject  # noqa: PLC0415
+    from pypdf.generic import DecodedStreamObject  # noqa: PLC0415
+    from pypdf.generic import DictionaryObject  # noqa: PLC0415
+    from pypdf.generic import FloatObject  # noqa: PLC0415
+    from pypdf.generic import NameObject  # noqa: PLC0415
+    from pypdf.generic import NumberObject  # noqa: PLC0415
+    from pypdf.generic import TextStringObject  # noqa: PLC0415
+
+    ap = DecodedStreamObject()
+    ap.set_data(b"")
+    ap.update({
+        NameObject("/Type"): NameObject("/XObject"), NameObject("/Subtype"): NameObject("/Form"),
+        NameObject("/BBox"): ArrayObject([FloatObject(0), FloatObject(0), FloatObject(1), FloatObject(1)]),
+    })
+    widget = DictionaryObject({
+        NameObject("/Type"): NameObject("/Annot"), NameObject("/Subtype"): NameObject("/Widget"),
+        NameObject("/FT"): NameObject("/Btn"), NameObject("/Ff"): NumberObject(65536 | 1),
+        NameObject("/T"): TextStringObject(name), NameObject("/TU"): TextStringObject(text),
+        NameObject("/Rect"): ArrayObject([FloatObject(v) for v in rect]),
+        NameObject("/F"): NumberObject(4), NameObject("/MK"): DictionaryObject(),
+        NameObject("/AP"): DictionaryObject({NameObject("/N"): writer._add_object(ap)}),  # noqa: SLF001
+        NameObject("/P"): page.indirect_reference,
+    })
+    ref = writer._add_object(widget)  # noqa: SLF001
+    if "/Annots" not in page:
+        page[NameObject("/Annots")] = ArrayObject()
+    page["/Annots"].get_object().append(ref) if hasattr(page["/Annots"], "get_object") else page["/Annots"].append(ref)
+    return ref
+
+
+def _line_page(  # noqa: PLR0913
+    p: int,
+    found: list,
+    index: BlameIndex,
+    sw: float,
+    h: float,
+    highlight: set[str],
+    range_label: str,
+) -> tuple[str, list[tuple[float, float, float, float, str]]]:
+    """One strip page with one line of text per block, at the block's first line."""
+    font_px = 6.8 * 96 / 72
+    ascent = 0.78 * font_px
+    x = 3.5 * PX_PER_MM
+    width = sw - x - 3 * PX_PER_MM
+    labels: list[str] = []
+    tips: list[tuple[float, float, float, float, str]] = []
+    prev_bottom = -1e9
+    prev_sha = None
+    items = sorted(
+        ((k, FIRST_LINES[(k, p)]) for k in range(len(found)) if (k, p) in FIRST_LINES),
+        key=lambda kv: (kv[1][1], kv[0]),
+    )
+    for k, (_line_top, baseline) in items:
+        sha = found[k][1]
+        if sha is None or (highlight and sha not in highlight):
+            prev_sha = None
+            continue
+        top = baseline - ascent
+        if top < prev_bottom:
+            continue
+        c = index.commits[sha]
+        cls = "bl1 hl" if sha in highlight else "bl1"
+        if sha == prev_sha:
+            text = "\u3003"
+            cls += " ditto"
+        else:
+            text = f"{c.author} \u00b7 {c.iso_date} \u00b7 {c.subject}"
+        labels.append(
+            f'<div class="{cls}" style="top:{top:.2f}px;left:{x:.1f}px;width:{width:.1f}px">{escape(text)}</div>'
+        )
+        tip = f"{c.author} <{c.email}>\n{c.full_time}\ncommit {c.sha}\n\n{c.message or c.subject}"
+        tips.append((x, top - 1, width, font_px * 1.25, tip))
+        prev_bottom = top + font_px * 1.15
+        prev_sha = sha
+    if p == 0:
+        key = "Last change per block: author \u00b7 date \u00b7 commit message. Hover a line for details."
+        if highlight and range_label:
+            key = f"Blocks changed in {escape(range_label)}: author \u00b7 date \u00b7 commit message. Hover a line for details."
+        labels.append(
+            f'<div class="key1" style="top:{10 * PX_PER_MM:.1f}px;left:{x:.1f}px;width:{width:.1f}px">{key}</div>'
+        )
+    html_p = f'<div class="sp sp-line" style="page: s{p}; width:{sw:.1f}px; height:{h:.1f}px">' + "".join(labels) + "</div>"
+    return html_p, tips
 
 
 def _strip_page(  # noqa: C901, PLR0912, PLR0913, PLR0915
@@ -774,6 +949,12 @@ body { margin: 0; font-family: Arial, 'Liberation Sans', sans-serif; }
   border-left: 0.75pt solid #b4bac2; box-sizing: border-box; }
 .sp:last-child { break-after: auto; }
 .sp-bands { background: #fafbfc; }
+.sp-line { background: #f7f8fa; }
+.bl1 { position: absolute; font-size: 6.8pt; line-height: 1; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; color: #8a9099; }
+.bl1.hl { color: #3f454d; }
+.bl1.ditto { color: #b8bdc4; }
+.key1 { position: absolute; font-size: 6.2pt; line-height: 1.3; color: #8a9099; font-style: italic; }
 svg.lines { position: absolute; left: 0; top: 0; }
 .lb { position: absolute; font-size: 6.6pt; line-height: 1.28; color: #2f353d; }
 .lb .nm { font-weight: bold; color: #1d232b; }

@@ -123,7 +123,16 @@ def render_redline(html_text: str, options: dict[str, str]) -> str:
     _mark_toc(tree, hunks, headings)
     summary = _summary(options, hunks, style)
     _insert_summary(body, summary)
+    collapse = options.get("redline.collapse", "off").strip().lower() in {"on", "true", "1", "yes"}
+    if collapse:
+        from obsidian_pdf_exporter.core import redline_variants as rv  # noqa: PLC0415
+
+        add_class(body, "rl-collapse")
+        options = {**options, "redline.collapse_on": "1"}
+        rv.collapse_items(hunks, lists=not style.startswith("sbs"))
     TRANSFORMS[style](tree, hunks, options)
+    if collapse and not style.startswith("sbs"):
+        rv.collapse_blocks(body, hunks)
     return tree.serialize()
 
 

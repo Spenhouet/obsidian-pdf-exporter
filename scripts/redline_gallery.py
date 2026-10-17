@@ -56,8 +56,8 @@ SCENARIOS = [
     Scenario(
         "lists",
         "Nested list: inserted, deleted and reordered items; callouts; tasks",
-        ["Review checklist", "Check the document ID"],
-        ["Register entry is updated"],
+        ["Review checklist"],
+        ["Register entry is updated", "from all sites"],
     ),
     Scenario(
         "tables",
