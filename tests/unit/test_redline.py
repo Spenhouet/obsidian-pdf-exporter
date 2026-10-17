@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import subprocess
 from typing import TYPE_CHECKING
 
@@ -120,7 +121,14 @@ def redline_markdown(two_commit_vault: Path, monkeypatch: pytest.MonkeyPatch) ->
         ),
         log=lambda _msg: None,
     )
-    return (output.parent / "_build_redline" / "redline_assembled.md").read_text(encoding="utf-8")
+    return _plain(
+        (output.parent / "_build_redline" / "redline_assembled.md").read_text(encoding="utf-8")
+    )
+
+
+def _plain(md: str) -> str:
+    """Remove the block divs of the diff, keep their content."""
+    return re.sub(r"::: \{\.rl-block[^}]*\}\n(.*?)\n:::", r"\1", md, flags=re.DOTALL)
 
 
 def _blocks(md: str) -> list[str]:
@@ -155,7 +163,7 @@ def test_diff_markdown_keeps_alignment_after_heading_anchor() -> None:
     """Heading anchors must not merge the heading with the next block during the diff."""
     old = "# Title {#title}\n\nSame.\n\nOld words here.\n\nTail."
     new = "# Title {#title}\n\nSame.\n\nNew words here.\n\nTail."
-    out = diff_markdown(old, new)
+    out = _plain(diff_markdown(old, new))
     assert _blocks(out) == [
         "# Title {#title}",
         "Same.",
@@ -166,17 +174,60 @@ def test_diff_markdown_keeps_alignment_after_heading_anchor() -> None:
 
 def test_word_diff_keeps_spaces_around_markup() -> None:
     """Inserted and deleted words keep the spaces that separate them from their neighbours."""
-    assert diff_markdown("a b c", "a x b c") == "a <ins>x</ins> b c"
-    assert diff_markdown("a b c", "a c") == "a <del>b</del> c"
+    assert _plain(diff_markdown("a b c", "a x b c")) == "a <ins>x</ins> b c"
+    assert _plain(diff_markdown("a b c", "a c")) == "a <del>b</del> c"
 
 
 def test_inserted_and_deleted_list_items_keep_markers() -> None:
     """List markers and quote prefixes stay outside the inline markup."""
     old = "> - one\n> - two\n\n1. first\n2. second"
     new = "> - one\n> - two\n> - three\n\n1. first"
-    out = diff_markdown(old, new)
+    out = _plain(diff_markdown(old, new))
     assert "> - two\n> - <ins>three</ins>" in out
     assert "1. first\n2. <del>second</del>" in out
+
+
+def test_rewrapped_paragraph_is_not_a_change() -> None:
+    """Only the line breaks of a paragraph changed: it passes through unmarked."""
+    out = diff_markdown("one two three\nfour five", "one two\nthree four five")
+    assert "<ins>" not in out
+    assert "<del>" not in out
+    assert "rl-block" not in out
+
+
+def test_moved_paragraph_is_marked_at_both_ends() -> None:
+    """A paragraph deleted in one place and inserted in another is a move."""
+    para = "This paragraph is long enough to be detected as a moved block of text."
+    out = diff_markdown(f"# A\n\n{para}\n\n# B\n\nStay.", f"# A\n\n# B\n\nStay.\n\n{para}")
+    assert 'rl-move-from data-rl-kind="para" data-rl-move="1"' in out
+    assert 'rl-move-to data-rl-kind="para" data-rl-move="1"' in out
+
+
+def test_link_target_and_formatting_changes_are_named() -> None:
+    """A changed link target and added bold are marked as such, not as new words."""
+    out = diff_markdown(
+        "See [the list](a.html) and approved.", "See [the list](b.html) and **approved**."
+    )
+    assert 'data-old-href="a.html"' in out
+    assert 'data-rl-fmt="bold added"' in out
+
+
+def test_table_rows_and_columns_keep_the_table_valid() -> None:
+    """Inserted rows, deleted rows and added columns stay inside the cells."""
+    old = "| A | B |\n| - | - |\n| 1 | x |\n| 2 | y |"
+    new = "| A | B | C |\n| - | - | - |\n| 1 | x | n |\n| 3 | z | m |"
+    out = _plain(diff_markdown(old, new))
+    rows = out.split("\n")[:5]
+    assert all(r.startswith("|") and r.endswith("|") for r in rows)
+    assert 'rl-row-del"></span><del>2</del>' in out
+    assert 'rl-col-ins"></span><ins>C</ins>' in out
+
+
+def test_dissimilar_paragraph_is_deleted_and_inserted() -> None:
+    """A paragraph replaced by different text is not word-diffed into a mix."""
+    out = diff_markdown("Reviews by email are not accepted.", "Approval is given with a signature.")
+    assert "rl-del" in out
+    assert "rl-ins" in out
 
 
 def test_word_diff_keeps_html_tags_whole() -> None:

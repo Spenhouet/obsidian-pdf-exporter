@@ -1,0 +1,42 @@
+/* ============================================================
+   Redline, side-by-side style: the old and the new document in two
+   aligned columns, one row per block, with a change bar between them.
+   ============================================================ */
+
+body.rl-side-by-side ins { text-decoration: underline; }
+body.rl-side-by-side .rl-block.rl-ins > :not(.rl-img-label):not(.rl-move-label) { text-decoration: none; }
+body.rl-side-by-side .rl-summary, body.rl-side-by-side nav#TOC { width: 62%; }
+
+table.rl-sbs { width: 100%; table-layout: fixed; border-collapse: collapse; margin: 0; font-size: 0.95em; }
+table.rl-sbs.rl-sbs-break { break-before: page; }
+body.rl-collapse table.rl-sbs.rl-sbs-break { break-before: auto; }
+col.rl-sbs-col-old, col.rl-sbs-col-new { width: 47.6%; }
+col.rl-sbs-col-gutter { width: 4.8%; }
+table.rl-sbs tr { break-inside: auto; page-break-inside: auto; }
+table.rl-sbs tr.rl-sbs-heading { break-after: avoid; page-break-after: avoid; }
+table.rl-sbs > tbody > tr > td {
+  border: none; padding: 0.05em 1.5mm 0; vertical-align: top; background: none;
+}
+td.rl-sbs-old { color: #3b4047; }
+td.rl-sbs-gutter { padding: 0; }
+tr.rl-sbs-row:not(.rl-sbs-equal):not(.rl-sbs-ctx) td.rl-sbs-gutter {
+  background: linear-gradient(to right, transparent 46%, var(--rl-bar) 46%, var(--rl-bar) 54%, transparent 54%);
+}
+tr.rl-sbs-move-from td.rl-sbs-gutter, tr.rl-sbs-move-to td.rl-sbs-gutter {
+  background: repeating-linear-gradient(to bottom, white 0, white 2.5px, transparent 2.5px, transparent 7px),
+    linear-gradient(to right, transparent 46%, var(--rl-move) 46%, var(--rl-move) 54%, transparent 54%) !important;
+}
+body.rl-collapse tr.rl-sbs-row td.rl-sbs-gutter { background: none !important; }
+td.rl-empty { background: repeating-linear-gradient(135deg, #f3f4f6 0, #f3f4f6 3px, #e7e9ec 3px, #e7e9ec 4px) !important; }
+.rl-gap { color: #7d838b; font-style: italic; font-size: 0.78em; padding: 0.35em 0.2em; }
+td.rl-sbs-ctx { padding: 0.15em 0 0.5em !important; }
+.rl-sbs h1, .rl-sbs h2, .rl-sbs h3, .rl-sbs h4, .rl-sbs .rl-heading { break-before: auto; margin-top: 0.5em; }
+td.rl-sbs-old h1, td.rl-sbs-old h2, td.rl-sbs-old h3, td.rl-sbs-old h4, td.rl-sbs-old h5, td.rl-sbs-old h6 {
+  bookmark-level: none; color: #3b4047;
+}
+.rl-sbs .rl-block.rl-ins > :not(.rl-img-label):not(.rl-move-label) { color: var(--rl-ins); }
+.rl-sbs pre, .rl-sbs table { font-size: 0.92em; }
+.rl-sbs ul, .rl-sbs ol { margin-left: 5mm; }
+.rl-sbs ul.rl-li-row, .rl-sbs ol.rl-li-row { margin-top: 0; margin-bottom: 0.2em; }
+.rl-sbs li > ul, .rl-sbs li > ol { margin-bottom: 0; }
+.rl-lg-bar { border-left: none; padding-left: 0; }
