@@ -62,9 +62,9 @@
 
 ## Redline
 
-- [Redline](https://spenhouet.com/obsidian-pdf-exporter/redline/): Tracked-changes PDFs between two git commits of a vault. What a redline is, who it is for, how ope builds it and what the reader sees.
+- [Redline](https://spenhouet.com/obsidian-pdf-exporter/redline/): Tracked-changes PDFs between two git commits of a vault, or between two folders or notes on disk. What a redline is, who it is for, how ope builds it and what the reader sees.
 - [Usage](https://spenhouet.com/obsidian-pdf-exporter/redline/usage/): The ope redline command and every flag, commit refs, default output names, recipes for releases, branches and folders, and GitHub Actions workflows for pull requests and releases.
-- [Comparing versions](https://spenhouet.com/obsidian-pdf-exporter/redline/compare/): Which two versions a redline compares. Git commits, tags, branches, HEAD~n, the history of one note, a pull request against main, CI, and what to do when the versions are not in git.
+- [Comparing versions](https://spenhouet.com/obsidian-pdf-exporter/redline/compare/): Which two versions a redline compares. Git commits, tags, branches, HEAD~n, the history of one note, a pull request against main, CI, and two folders or notes on disk without git.
 - [Styles and options](https://spenhouet.com/obsidian-pdf-exporter/redline/styles/): The two redline styles (blackline and side by side), collapsing unchanged content and the blame strip, with a picture of every combination.
 - [What changes look like](https://spenhouet.com/obsidian-pdf-exporter/redline/changes/): Markup reference for redlines. Words, paragraphs, headings, lists, tables, callouts, images, embeds, moved text, code, properties, Meta Bind, Dataview, tasks and footnotes, each with the before and after Markdown and the PDF in both styles.
 - [Blame](https://spenhouet.com/obsidian-pdf-exporter/redline/blame/): A strip next to every page of an export or a redline with the author, date and commit message of the last change of each block, with the full commit details on hover.

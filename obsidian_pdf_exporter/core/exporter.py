@@ -7,6 +7,7 @@ import tempfile
 from contextlib import suppress
 from dataclasses import dataclass
 from dataclasses import field
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -22,12 +23,14 @@ from obsidian_pdf_exporter.core.pipeline import run_document
 from obsidian_pdf_exporter.core.pipeline import run_html
 from obsidian_pdf_exporter.core.redline import diff_markdown
 from obsidian_pdf_exporter.core.redline import extract_commit
+from obsidian_pdf_exporter.core.redline import redline_path_info
 from obsidian_pdf_exporter.core.redline import redline_source_info
 from obsidian_pdf_exporter.core.redline import resolve_short_hash
 from obsidian_pdf_exporter.core.redline_html import parse_style
 from obsidian_pdf_exporter.core.redline_html import render_redline
 from obsidian_pdf_exporter.core.steps import core_steps
 from obsidian_pdf_exporter.core.steps.base import DocumentContext
+from obsidian_pdf_exporter.core.tree import PageNode
 from obsidian_pdf_exporter.core.tree import build_space_tree
 from obsidian_pdf_exporter.core.tree import collect_page_index
 from obsidian_pdf_exporter.core.util import git_root
@@ -68,13 +71,19 @@ class ExportRequest:
 
 @dataclass
 class RedlineRequest:
-    """All inputs required to build a redline (between two git commits) PDF."""
+    """All inputs required to build a redline PDF.
+
+    The older version is either a git commit (``from_commit``, with ``to_commit`` as
+    the newer one) or a folder or note on disk (``from_path``, compared with ``root``
+    as it is on disk).
+    """
 
     root: Path
     output: Path
     template: Template
-    from_commit: str
+    from_commit: str = ""
     to_commit: str = "HEAD"
+    from_path: Path | None = None
     title: str = ""
     subtitle: str = ""
     options: dict[str, str] = field(default_factory=dict)
@@ -82,6 +91,18 @@ class RedlineRequest:
     debug: bool = False
     toc: bool = True
     blame: bool = False
+
+
+@dataclass
+class _Sides:
+    """The two assembled versions of a redline and how to name them."""
+
+    old_md: str
+    new_md: str
+    label: str
+    subtitle: str
+    info: dict[str, str]
+    blame_folder: Path | None = None
 
 
 def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
@@ -211,99 +232,69 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
     *,
     log=print,  # noqa: ANN001 - log is any callable(str)
 ) -> Path:
-    """Build a redline (tracked-changes) PDF between two git commits."""
+    """Build a redline (tracked-changes) PDF between two versions of a folder or note."""
     register_native_dependencies()
     ensure_pandoc()
 
     root_folder = _resolve_root(request.root)
     parse_style(request.options)
-    if not is_git_repo(Path.cwd()):
+    if request.from_path is not None and request.blame:
         msg = (
-            "redline requires the vault to be in a git repository. "
-            "Run `git init` and commit your vault, or use `export` instead."
+            "--blame needs the git history of both versions; it cannot be used with "
+            "--from-path. Use --from-commit, or `ope export --blame` for one version."
         )
-        raise RuntimeError(msg)
-    repo = git_root(Path.cwd())
+        raise ValueError(msg)
+    if request.from_path is None and not request.from_commit:
+        msg = "redline needs the older version: --from-commit REF or --from-path PATH"
+        raise ValueError(msg)
     output_path = request.output.resolve()
-
-    from_hash = resolve_short_hash(request.from_commit, repo)
-    to_hash = resolve_short_hash(request.to_commit, repo)
-    title = request.title or root_folder.name
+    title = request.title or _root_name(root_folder)
     date = today_iso()
 
     log(f"Building Redline PDF: {title}")
-    log(f"  From: {from_hash}  ->  To: {to_hash}")
     log(f"  Output: {output_path}")
 
     build_dir = output_path.parent / f"_build_{output_path.stem}"
     build_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        try:
-            rel_path = root_folder.relative_to(repo)
-        except ValueError as e:
-            msg = f"root {root_folder} is not inside repo root {repo}"
-            raise ValueError(msg) from e
+        plugins = active_plugins(disabled=request.disabled_plugins)
+        if plugins:
+            log(f"  Active Obsidian plugins: {', '.join(p.name for p in plugins)}")
+        steps = core_steps()
 
         with (
             tempfile.TemporaryDirectory() as tmp_old_str,
             tempfile.TemporaryDirectory() as tmp_new_str,
         ):
-            tmp_old = Path(tmp_old_str)
-            tmp_new = Path(tmp_new_str)
-
-            log("  Extracting old commit...")
-            extract_commit(request.from_commit, tmp_old, repo)
-            log("  Extracting new commit...")
-            extract_commit(request.to_commit, tmp_new, repo)
-
-            old_root = tmp_old / rel_path
-            new_root = tmp_new / rel_path
-
-            plugins = active_plugins(disabled=request.disabled_plugins)
-            if plugins:
-                log(f"  Active Obsidian plugins: {', '.join(p.name for p in plugins)}")
-            steps = core_steps()
-
-            old_md = _assemble_if_present(
-                old_root,
-                build_dir,
-                tmp_old,
-                log,
-                missing=f"  Note: path not found in {from_hash}",
+            assemble = partial(
+                _assemble_if_present,
+                build_dir=build_dir,
+                log=log,
                 plugins=plugins,
                 plugin_options=request.options,
-                steps=core_steps(),
             )
-            new_md = _assemble_if_present(
-                new_root,
-                build_dir,
-                tmp_new,
-                log,
-                missing=f"  Note: path not found in {to_hash}",
-                plugins=plugins,
-                plugin_options=request.options,
-                steps=steps,
-            )
+            if request.from_path is not None:
+                sides = _path_sides(request, root_folder, partial(assemble, new_steps=steps), log)
+            else:
+                temp = (Path(tmp_old_str), Path(tmp_new_str))
+                sides = _commit_sides(
+                    request, root_folder, temp, partial(assemble, new_steps=steps), log
+                )
 
             log("  Computing redline diff...")
-            diff_body = diff_markdown(old_md, new_md)
+            diff_body = diff_markdown(sides.old_md, sides.new_md)
 
-            label = f"Redline: {from_hash} -> {to_hash}"
-            subtitle = request.subtitle or (
-                f"Changes from {request.from_commit} to {request.to_commit}"
-            )
+            subtitle = request.subtitle or sides.subtitle
             markdown = _prepend_metadata(diff_body, title, subtitle, "", date)
             options = dict(request.options)
-            options.update(
-                redline_source_info(repo, request.from_commit, request.to_commit, rel_path)
-            )
+            options.update(sides.info)
 
             ctx = ExportContext(
                 title=title,
                 subtitle=subtitle,
                 date=date,
-                label=label,
+                label=sides.label,
                 output_path=output_path,
                 build_dir=build_dir,
                 options=options,
@@ -342,12 +333,13 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
             (build_dir / "redline_final.html").write_text(html, encoding="utf-8")
 
             log("  Generating PDF...")
-            if request.blame:
+            if request.blame and sides.blame_folder is not None:
+                repo = git_root(Path.cwd())
                 _write_with_blame(
                     html,
                     output_path,
                     build_dir,
-                    repo / rel_path,
+                    sides.blame_folder,
                     request.to_commit,
                     log,
                     highlight=range_commits(repo, request.from_commit, request.to_commit),
@@ -362,6 +354,92 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
             return output_path
     finally:
         _cleanup(build_dir, output_path, debug=request.debug, log=log)
+
+
+def _commit_sides(
+    request: RedlineRequest,
+    root_folder: Path,
+    temp: tuple[Path, Path],
+    assemble: Callable[..., str],
+    log: Callable[[str], object],
+) -> _Sides:
+    """Assemble ``root_folder`` as it is in ``from_commit`` and in ``to_commit``."""
+    if not is_git_repo(Path.cwd()):
+        msg = (
+            "redline requires the vault to be in a git repository. "
+            "Run `git init` and commit your vault, use --from-path to compare two folders "
+            "or notes, or use `export` instead."
+        )
+        raise RuntimeError(msg)
+    repo = git_root(Path.cwd())
+    tmp_old, tmp_new = temp
+    try:
+        rel_path = root_folder.relative_to(repo)
+    except ValueError as e:
+        msg = f"root {root_folder} is not inside repo root {repo}"
+        raise ValueError(msg) from e
+    from_hash = resolve_short_hash(request.from_commit, repo)
+    to_hash = resolve_short_hash(request.to_commit, repo)
+    log(f"  From: {from_hash}  ->  To: {to_hash}")
+
+    log("  Extracting old commit...")
+    extract_commit(request.from_commit, tmp_old, repo)
+    log("  Extracting new commit...")
+    extract_commit(request.to_commit, tmp_new, repo)
+
+    old_md = assemble(
+        tmp_old / rel_path,
+        vault_root=tmp_old,
+        missing=f"  Note: path not found in {from_hash}",
+    )
+    new_md = assemble(
+        tmp_new / rel_path,
+        vault_root=tmp_new,
+        missing=f"  Note: path not found in {to_hash}",
+        new=True,
+    )
+    return _Sides(
+        old_md=old_md,
+        new_md=new_md,
+        label=f"Redline: {from_hash} -> {to_hash}",
+        subtitle=f"Changes from {request.from_commit} to {request.to_commit}",
+        info=redline_source_info(repo, request.from_commit, request.to_commit, rel_path),
+        blame_folder=repo / rel_path,
+    )
+
+
+def _path_sides(
+    request: RedlineRequest,
+    root_folder: Path,
+    assemble: Callable[..., str],
+    log: Callable[[str], object],
+) -> _Sides:
+    """Assemble the folder or note ``from_path`` and ``root_folder`` as they are on disk.
+
+    Each side resolves its links and embeds in its own vault: the closest folder above
+    it with ``.obsidian`` (or ``.git``), else the folder itself.
+    """
+    assert request.from_path is not None  # noqa: S101 - checked by the caller
+    old_root = _resolve_root(request.from_path)
+    if old_root.is_file() != root_folder.is_file():
+        msg = (
+            "--from-path and ROOT must both be folders or both be notes: "
+            f"{old_root} and {root_folder}"
+        )
+        raise ValueError(msg)
+    log(f"  From: {old_root}  ->  To: {root_folder}")
+    sides = []
+    for root in (old_root, root_folder):
+        start = root.parent if root.is_file() else root
+        vault = find_vault_root(start)
+        sides.append(assemble(root, vault_root=vault, missing="", new=root is root_folder))
+    return _Sides(
+        old_md=sides[0],
+        new_md=sides[1],
+        label=f"Redline: {_root_name(old_root)} -> {_root_name(root_folder)}",
+        subtitle=f"Changes from {request.from_path} to {request.root}",
+        info=redline_path_info(old_root, root_folder, str(request.from_path), str(request.root)),
+    )
 
 
 def _write_with_blame(
@@ -431,22 +509,31 @@ def _write_template_assets(template: Template, build_dir: Path) -> str:
 
 def _assemble_if_present(
     root_dir: Path,
+    *,
     build_dir: Path,
     vault_root: Path,
     log,  # noqa: ANN001
     missing: str,
-    *,
     plugins: list | None = None,
     plugin_options: dict[str, str] | None = None,
-    steps: list | None = None,
+    new: bool = False,
+    new_steps: list | None = None,
 ) -> str:
+    """Assemble the folder or note ``root_dir``; an empty document when it does not exist.
+
+    The newer side (``new``) runs ``new_steps``, the steps that also run on the diffed
+    document; the older side runs a fresh set.
+    """
     if not root_dir.exists():
         log(missing + " — treating as empty")
         return ""
     log(f"  Indexing vault at {vault_root}...")
     vault_index = VaultIndex(vault_root)
     log(f"  Building tree at {root_dir.name}...")
-    tree = build_space_tree(root_dir, plugins=plugins, vault_index=vault_index)
+    if root_dir.is_file():
+        tree = PageNode(folder=root_dir.parent, name=root_dir.stem, md_file=root_dir)
+    else:
+        tree = build_space_tree(root_dir, plugins=plugins, vault_index=vault_index)
     if tree is None:
         return ""
     idx = collect_page_index(tree)
@@ -459,8 +546,13 @@ def _assemble_if_present(
         plugin_options=plugin_options,
         vault_index=vault_index,
         log=log,
-        steps=steps,
+        steps=new_steps if new and new_steps is not None else core_steps(),
     )
+
+
+def _root_name(root: Path) -> str:
+    """The name of a folder, or of a note without ``.md``."""
+    return root.stem if root.is_file() else root.name
 
 
 def _cleanup(build_dir: Path, output_path: Path, *, debug: bool, log) -> None:  # noqa: ANN001

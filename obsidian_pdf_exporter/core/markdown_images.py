@@ -14,14 +14,12 @@ written.
 
 from __future__ import annotations
 
-import filecmp
-import hashlib
 import re
-import shutil
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from urllib.parse import unquote
 
+from obsidian_pdf_exporter.core.build_files import stage_file
 from obsidian_pdf_exporter.core.code import outside_code
 from obsidian_pdf_exporter.core.wiki_links import is_image_target
 from obsidian_pdf_exporter.core.wiki_links import split_image_size
@@ -102,18 +100,13 @@ def find_local_image(
 
 
 def copy_to_build(source: Path, build_dir: Path) -> str:
-    """Copy ``source`` into ``build_dir`` and return the name of the copy.
+    """Copy ``source`` into ``build_dir`` and return the path of the copy relative to it.
 
     A different file of the same name that is already there keeps its name.
-    The new file then gets a name with a short hash of its path.
+    The new file then goes into a subfolder named by a hash of its bytes (see
+    :mod:`~obsidian_pdf_exporter.core.build_files`).
     """
-    dest = build_dir / source.name
-    if dest.exists() and not filecmp.cmp(source, dest, shallow=False):
-        digest = hashlib.sha1(str(source).encode(), usedforsecurity=False).hexdigest()[:8]
-        dest = build_dir / f"{source.stem}-{digest}{source.suffix}"
-    if not dest.exists():
-        shutil.copy2(source, dest)
-    return dest.name
+    return stage_file(source, build_dir)
 
 
 def _destination(name: str) -> str:

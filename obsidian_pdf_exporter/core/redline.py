@@ -19,6 +19,7 @@ into the chosen look (see ``core/redline_html.py``).
 
 from __future__ import annotations
 
+import datetime
 import difflib
 import html
 import io
@@ -124,6 +125,42 @@ def redline_source_info(repo_root: Path, from_ref: str, to_ref: str, path: Path)
         commits.append({"hash": h, "date": d, "author": a, "subject": subj})
     info["redline.commits"] = json.dumps(commits)
     return info
+
+
+def redline_path_info(old: Path, new: Path, old_label: str, new_label: str) -> dict[str, str]:
+    """Describe two folders or notes on disk as template options.
+
+    The label is the path as it was given. The detail names the kind and the date of the
+    newest file (``(folder, modified 2026-03-30)``). There are no commits in between.
+    """
+    info: dict[str, str] = {}
+    for side, path, label in (("from", old, old_label), ("to", new, new_label)):
+        kind = "note" if path.is_file() else "folder"
+        info[f"redline.{side}_ref"] = label
+        info[f"redline.{side}_label"] = label
+        info[f"redline.{side}_hash"] = ""
+        info[f"redline.{side}_detail"] = f"({kind}, modified {modified_date(path)})"
+    info["redline.commits"] = "[]"
+    return info
+
+
+def modified_date(path: Path) -> str:
+    """The modification date (``YYYY-MM-DD``) of a note, or of the newest file in a folder.
+
+    Files and folders whose name starts with a dot are not counted.
+    """
+    if path.is_file():
+        files = [path]
+    else:
+        files = [
+            f
+            for f in path.rglob("*")
+            if f.is_file() and not any(p.startswith(".") for p in f.relative_to(path).parts)
+        ]
+    if not files:
+        return ""
+    newest = max(f.stat().st_mtime for f in files)
+    return datetime.date.fromtimestamp(newest).isoformat()
 
 
 # ---------------------------------------------------------------------------
