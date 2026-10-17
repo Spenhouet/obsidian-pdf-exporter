@@ -1118,7 +1118,7 @@ class DataviewIndex:
         if found is None:
             return None
         try:
-            return found.resolve().relative_to(self.root).as_posix()
+            return self.vault.resolved(found).relative_to(self.root).as_posix()
         except ValueError:
             return None
 

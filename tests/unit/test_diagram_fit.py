@@ -56,15 +56,31 @@ def test_diagram_that_fits_is_laid_out_once(monkeypatch: pytest.MonkeyPatch) -> 
     calls = []
     original = html.render
 
-    def render() -> Any:  # noqa: ANN401
+    def render(**options: Any) -> Any:  # noqa: ANN401
         calls.append(1)
-        return original()
+        return original(**options)
 
     monkeypatch.setattr(html, "render", render)
     document = render_fitted(html, FitSettings())
     assert len(calls) == 1
     [(_, element, _, _)] = _diagram_boxes(document)
     assert element.get("data-ope-fit") is None
+
+
+def test_layout_passes_share_one_image_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+    html = _html(_tall_svg(40))
+    caches = []
+    original = html.render
+
+    def render(**options: Any) -> Any:  # noqa: ANN401
+        caches.append(options.get("cache"))
+        return original(**options)
+
+    monkeypatch.setattr(html, "render", render)
+    render_fitted(html, FitSettings(min_font_pt=7))
+    assert len(caches) > 1
+    assert all(cache is caches[0] for cache in caches)
+    assert isinstance(caches[0], dict)
 
 
 def test_without_settings_a_tall_diagram_runs_past_the_page() -> None:

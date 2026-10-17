@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import html as html_lib
 import re
+import secrets
 from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import unquote
@@ -47,6 +48,52 @@ img.pdf-embed-page {
 figure.pdf-embed figcaption { break-before: avoid; page-break-before: avoid; }
 @page { @footnote { margin-top: 0.8em; padding-top: 0.3em; border-top: 0.5pt solid #999; } }
 """
+
+#: ``src="data:image/...;base64,..."`` of a raster image that pandoc embedded.
+#: SVG is left out: steps read and inline it.
+RE_EMBEDDED_IMAGE = re.compile(
+    r'\bsrc="data:image/(?P<type>png|jpeg|gif|webp|bmp|tiff);base64,(?P<data>[A-Za-z0-9+/=]+)"'
+)
+
+
+class _ImageData:
+    """The data of embedded raster images, replaced by short keys and put back later."""
+
+    #: Longer data is left in place: lxml stops at an attribute of 10 MB, and the
+    #: post-processing must see such a document as it is.
+    MAX_DATA = 9_000_000
+
+    def __init__(self, html: str) -> None:
+        self.data: list[str] = []
+        self.key = f"ope-{secrets.token_hex(8)}-"
+
+        def take(m: re.Match[str]) -> str:
+            if len(m.group("data")) > self.MAX_DATA:
+                return m.group(0)
+            self.data.append(m.group("data"))
+            return f'src="data:image/{m.group("type")};base64,{self.key}{len(self.data) - 1}"'
+
+        self.html = RE_EMBEDDED_IMAGE.sub(take, html)
+
+    def restore(self, html: str) -> str:
+        if not self.data:
+            return html
+        return re.sub(re.escape(self.key) + r"(\d+)", lambda m: self.data[int(m.group(1))], html)
+
+
+def without_image_data(html: str, process: Callable[[str], str]) -> str:
+    """Run ``process`` on ``html`` with the data of embedded raster images left out.
+
+    ``pandoc --embed-resources`` writes every image into the HTML as base64,
+    which can make up nearly all of the text. The post-processing only looks
+    at the tags, so ``process`` gets each image's data replaced by a short
+    key, and the data is put back into what it returns.
+    """
+    images = _ImageData(html)
+    if not images.data:
+        return process(html)
+    return images.restore(process(images.html))
+
 
 _CHECKBOX = re.compile(r'<input\b([^>]*\btype="checkbox"[^>]*)>(?:\s*</input>)?')
 
@@ -358,15 +405,35 @@ def unlink_missing_targets(html: str, warn: Callable[[str], None] | None = None)
     PDF, and WeasyPrint reports it. ``warn`` gets one message per missing target, the same
     as for a link to a note outside the PDF (see :mod:`obsidian_pdf_exporter.core.outside_links`).
     """
-    ids = set(_RE_ID.findall(html))
-    missing = {t for t in _RE_LOCAL_HREF.findall(html) if t not in ids and unquote(t) not in ids}
+    images = _ImageData(html)
+    ids = set(_RE_ID.findall(images.html))
+    missing = {
+        t for t in _RE_LOCAL_HREF.findall(images.html) if t not in ids and unquote(t) not in ids
+    }
     if not missing:
         return html
-    tree = HtmlTree(html)
+    tree = HtmlTree(images.html)
+    if not _keys_in_attributes(tree, images):
+        # Markup that swallows the rest of the document (such as an unclosed
+        # ``<style>`` written as text) turns image tags into text. Then lxml
+        # must see the document as it is, with the image data.
+        images = _ImageData("")
+        tree = HtmlTree(html)
     for a in tree.root.xpath("//a[starts-with(@href, '#')]"):
         if a.get("href", "")[1:] in missing:
             unwrap(a)
     for target in sorted(missing):
         if warn is not None:
             warn(outside_message(f"#{unquote(target)}"))
-    return tree.serialize()
+    return images.restore(tree.serialize())
+
+
+def _keys_in_attributes(tree: HtmlTree, images: _ImageData) -> bool:
+    """Return True when every image key of ``images`` is in a ``src`` attribute of ``tree``."""
+    found = len(
+        tree.root.xpath(
+            "//*[starts-with(@src, 'data:image/')][contains(@src, $key)]", key=images.key
+        )
+    )
+    found += sum(island.count(images.key) for island in tree.islands)
+    return found == len(images.data)

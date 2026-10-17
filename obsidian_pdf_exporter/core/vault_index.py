@@ -29,6 +29,7 @@ class VaultIndex:
         self._by_stem: dict[str, list[Path]] = {}
         self._md_files: list[Path] = []
         self._md_folders: set[Path] = {self.root}
+        self._resolved: dict[Path, Path] = {}
         self._build()
 
     def _build(self) -> None:
@@ -54,6 +55,13 @@ class VaultIndex:
                             break
                         cur = cur.parent
 
+    def resolved(self, path: Path) -> Path:
+        """Return path.resolve(), looked up once per path during the export."""
+        result = self._resolved.get(path)
+        if result is None:
+            result = self._resolved[path] = path.resolve()
+        return result
+
     def files(self) -> list[Path]:
         """Return every indexed file, sorted by path."""
         return sorted({p for paths in self._by_name.values() for p in paths})
@@ -64,7 +72,7 @@ class VaultIndex:
 
     def folder_has_markdown(self, folder: Path) -> bool:
         """True if ``folder`` (or any descendant) contains a markdown file."""
-        return folder.resolve() in self._md_folders
+        return self.resolved(folder) in self._md_folders
 
     def find_closest(self, name: str, from_folder: Path) -> Path | None:
         """Return the file closest in the tree to ``from_folder``.
@@ -81,7 +89,7 @@ class VaultIndex:
                     candidates.append(path)
         if not candidates:
             return None
-        from_resolved = from_folder.resolve()
+        from_resolved = self.resolved(from_folder)
         return min(candidates, key=lambda p: _proximity_key(p, from_resolved))
 
     def find_closest_markdown(self, stem: str, from_folder: Path) -> Path | None:
@@ -93,7 +101,7 @@ class VaultIndex:
                 candidates.append(path)
         if not candidates:
             return None
-        from_resolved = from_folder.resolve()
+        from_resolved = self.resolved(from_folder)
         return min(candidates, key=lambda p: _proximity_key(p, from_resolved))
 
     def find_markdown_by_path(self, path: str, from_folder: Path) -> Path | None:
@@ -117,7 +125,7 @@ class VaultIndex:
                 candidates.append(md)
         if not candidates:
             return None
-        from_resolved = from_folder.resolve()
+        from_resolved = self.resolved(from_folder)
         return min(candidates, key=lambda p: _proximity_key(p, from_resolved))
 
 

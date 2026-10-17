@@ -76,9 +76,11 @@ def render_fitted(html: Any, settings: FitSettings | None) -> Any:  # noqa: ANN4
     """Lay out a WeasyPrint ``HTML`` object and fit its diagrams to the pages.
 
     Returns the WeasyPrint ``Document``. ``settings`` None lays it out once,
-    without changes.
+    without changes. The passes share one image cache, so every image is read
+    and decoded once.
     """
-    document = html.render()
+    images: dict = {}
+    document = html.render(cache=images)
     if settings is None:
         return document
     for _ in range(MAX_PASSES - 1):
@@ -88,7 +90,7 @@ def render_fitted(html: Any, settings: FitSettings | None) -> Any:  # noqa: ANN4
             break
         for overflow in overflows:
             _fit(overflow, parents, settings)
-        document = html.render()
+        document = html.render(cache=images)
     return document
 
 
