@@ -29,7 +29,7 @@ description: Obsidian Bases (.base files and base code blocks) rendered as stati
 - `![[Books.base]]` and ` ```base ` blocks show the first view. `![[Books.base#Reading list]]` shows the view with that name.
 - `table` and `cards` views become a table, `list` views a bullet list. Other view types (`kanban`, `map`, views of community plugins) become a table, and the export prints a warning.
 - Columns come from the view's `order` (only the file name when there is none), with the `displayName` from `properties` as header.
-- The file name links to the note when the note is part of the export.
+- The file name links to the note when the note is part of the export. Otherwise it is plain text, see [links to pages outside the PDF](wiki-links.md#links-to-pages-outside-the-pdf).
 - `sort` (several properties, `ASC` or `DESC`, empty values last), `limit`, `groupBy` (a label line and a table per group), `groupOrder` and the view's `summaries` (a last row such as `Sum: 25.5`) work.
 - The global `filters` and the view's `filters` both apply. `and`, `or` and `not` can be nested. `this` is the note that shows the base.
 

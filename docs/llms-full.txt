@@ -1330,6 +1330,7 @@ the template. These keys are read by ope itself:
 | Key | Values | Default | Described in |
 | --- | ------ | ------- | ------------ |
 | `line_breaks` | `hard`, `soft` | from `.obsidian/app.json` | [Line breaks](../obsidian/line-breaks.md) |
+| `links.outside` | `text`, `italic` | `text` | [Wiki links](../obsidian/wiki-links.md#links-to-pages-outside-the-pdf) |
 | `tables.landscape` | `auto`, `on`, `off` | `auto` | [Tables](../markdown/tables.md#wide-tables) |
 | `tables.landscape_min_cols` | number | `6` | [Tables](../markdown/tables.md#wide-tables) |
 | `mermaid` | `off` | on | [Mermaid](../obsidian/mermaid.md) |
@@ -1727,6 +1728,7 @@ PDF:
 ![Images with captions](../img/features/images.png)
 
 - An image is at most as wide as the text and never split across pages.
+- A Markdown link to a note, such as `[text](Page.md)`, works like a [wiki link](../obsidian/wiki-links.md).
 - A single italic line right below an image becomes its caption.
 - Image sizes and the full embed syntax are on the [Embeds](../obsidian/embeds.md) page.
 
@@ -1872,8 +1874,9 @@ After pandoc, the HTML steps run: `base_css`, `empty_table_headers`, `column_wid
 
 Some content cannot be drawn in a PDF, or is not supported yet. It stays in the document in a simple form, and the export prints a line starting with `Warning:` that names the page:
 
-- An embed of a file type other than notes, images and PDF files, such as `![[Board.canvas]]` or a video, becomes a link (or italic text when the file is not part of the export).
+- An embed of a file type other than notes, images and PDF files, such as `![[Board.canvas]]` or a video, becomes a link (or plain text when the file is not part of the export).
 - A PDF embed that cannot be found or opened (for example an encrypted PDF) becomes a link the same way.
+- A link to a note that is not part of the PDF becomes plain text, see [Wiki links](wiki-links.md#links-to-pages-outside-the-pdf).
 - An image that cannot be found becomes the italic text _[Image: name]_.
 - A code block of a plugin ope does not render, such as ` ```tasks `, ` ```dataviewjs `, ` ```chart ` or an Admonition block ` ```ad-note `, stays a code block.
 - DataviewJS and `TASK` queries become a short note in italics.
@@ -1917,10 +1920,33 @@ PDF:
 | `[[Page#Heading]]`, `[[Page#Heading\|alias]]` | Link to that heading on `Page`. Without an alias the label is `Page > Heading`. When `Page` has no such heading, the link goes to the page. `[[Page#A#B]]` uses the last heading, `B`. |
 | `[[Page#^id]]` | Link to the section of `Page`. |
 | `[[Folder/Page]]`, `[[Page.md]]` | The last path part is the page name and a `.md` suffix is ignored. When several pages have that name, the one whose path ends with `Folder/Page` wins. |
-| `[[Missing page]]` | A page outside the export shows as italic text. |
+| `[[Missing page]]`, `[[Missing page#Heading]]` | A page that is not part of the PDF becomes plain text, see [Links to pages outside the PDF](#links-to-pages-outside-the-pdf). |
 | `[[https://example.com\|text]]` | An external link. |
+| `[text](Page.md)`, `[text](<Folder/My page.md#Heading>)`, `[text](My%20page.md)` | A Markdown link to a note works like the wiki link to the same note. |
 
 When two pages have the same name, the link goes to the one closest to the linking page. Each of them has its own anchor in the PDF (`page`, `page-1`, ...). Links inside code are left as written.
+
+## Links to pages outside the PDF
+
+A link to a note that is not part of the PDF, because it is outside the exported folder or does not exist, cannot be followed in the PDF. It becomes plain text, with no link and no marker: the alias when there is one, else the note name as Obsidian shows it (`Page > Heading` for `[[Page#Heading]]`, `Page > ^id` for a block). The same holds for a link to a heading that is not in the PDF, for the links Dataview and Bases write into their tables and lists, for the link an embed falls back to, and for the text of a redline.
+
+The export prints a warning for each target, once per page, and a count at the end:
+
+```text
+  Warning: link to "Release plan#Dates" in Project/Overview.md points outside the PDF, kept as text
+  Warning: link to "#old-heading" points outside the PDF, kept as text
+  2 links to 2 targets outside the PDF kept as text (see the warnings above)
+```
+
+The second form is a link that only turned out to have no target after pandoc, such as a heading that is not in the PDF. To list all of them:
+
+```bash
+ope export ./Vault/Handbook 2>&1 | grep "points outside the PDF"
+```
+
+| Option | Default | Effect |
+| ------ | ------- | ------ |
+| `-O links.outside=text\|italic` | `text` | `italic` shows the text of a link to a note outside the PDF in italics, as versions before 0.12 did. |
 
 Standard Markdown links (`[text](https://...)`) are covered in [Links and images](../markdown/links-images.md).
 
@@ -2613,7 +2639,7 @@ PDF:
 - `![[Books.base]]` and ` ```base ` blocks show the first view. `![[Books.base#Reading list]]` shows the view with that name.
 - `table` and `cards` views become a table, `list` views a bullet list. Other view types (`kanban`, `map`, views of community plugins) become a table, and the export prints a warning.
 - Columns come from the view's `order` (only the file name when there is none), with the `displayName` from `properties` as header.
-- The file name links to the note when the note is part of the export.
+- The file name links to the note when the note is part of the export. Otherwise it is plain text, see [links to pages outside the PDF](wiki-links.md#links-to-pages-outside-the-pdf).
 - `sort` (several properties, `ASC` or `DESC`, empty values last), `limit`, `groupBy` (a label line and a table per group), `groupOrder` and the view's `summaries` (a last row such as `Sum: 25.5`) work.
 - The global `filters` and the view's `filters` both apply. `and`, `or` and `not` can be nested. `this` is the note that shows the base.
 
@@ -2748,7 +2774,7 @@ Source: https://spenhouet.com/obsidian-pdf-exporter/plugins/dataview/
 
 # Dataview
 
-The `dataview` plugin runs [Dataview](https://github.com/blacksmithgu/obsidian-dataview) at export time: ` ```dataview ` blocks, inline queries, inline fields and DataviewJS. The query language, the function library, the page model and the views are a port of the Dataview sources (version 0.5.68), so a query gives the same rows, columns and order as in Obsidian's reading view. The result is written into the page as Markdown, so links to notes that are part of the export become links inside the PDF (other notes are shown in italics, like any unresolved link).
+The `dataview` plugin runs [Dataview](https://github.com/blacksmithgu/obsidian-dataview) at export time: ` ```dataview ` blocks, inline queries, inline fields and DataviewJS. The query language, the function library, the page model and the views are a port of the Dataview sources (version 0.5.68), so a query gives the same rows, columns and order as in Obsidian's reading view. The result is written into the page as Markdown, so links to notes that are part of the export become links inside the PDF (other notes are shown as plain text, see [links to pages outside the PDF](../obsidian/wiki-links.md#links-to-pages-outside-the-pdf)).
 
 The examples query these notes:
 
