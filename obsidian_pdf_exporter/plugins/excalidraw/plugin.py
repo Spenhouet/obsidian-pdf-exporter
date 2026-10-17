@@ -74,7 +74,9 @@ class ExcalidrawPlugin(ObsidianPlugin):
             if image is None:
                 return f"*{name.strip()}*"
             caption, attrs = split_image_size(m.group(2) or "")
-            return f"![{caption}]({image}){{{attrs} .excalidraw}}"
+            # The name of the drawing, for labels such as the ones of a redline.
+            source = drawing.name.removesuffix(".md").replace('"', "'").replace("\\", "/")
+            return f'![{caption}]({image}){{{attrs} .excalidraw data-source="{source}"}}'
 
         return outside_code(content, lambda text: RE_WIKI_EMBED_IMAGE.sub(replace, text))
 
@@ -123,10 +125,10 @@ class ExcalidrawPlugin(ObsidianPlugin):
             if svg is None:
                 return None
             data, suffix = svg.encode("utf-8"), ".svg"
-        # Named by the drawing file and the image, so an unchanged drawing gets the same
-        # name in both versions of a redline, and a changed drawing file or a changed
-        # image inside the drawing a different one.
-        digest = content_digest(path.read_bytes() + data)
+        # Named by the drawn image, so a drawing that looks the same gets the same name in
+        # both versions of a redline, and a drawing that looks different (also through an
+        # image inside it) a different one.
+        digest = content_digest(data)
         filename = stage_bytes(f"excalidraw-{digest}{suffix}", data, build_dir)
         self._images[key] = filename
         return filename
