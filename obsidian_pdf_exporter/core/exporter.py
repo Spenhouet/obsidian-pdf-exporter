@@ -11,12 +11,15 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from obsidian_pdf_exporter.compat.svg_text import apply_svg_text_fix
 from obsidian_pdf_exporter.compat.weasyprint_patches import apply_weasyprint_patches
 from obsidian_pdf_exporter.core.assemble import assemble_document
 from obsidian_pdf_exporter.core.blame import build_index
 from obsidian_pdf_exporter.core.blame import range_commits
 from obsidian_pdf_exporter.core.blame import write_blame_pdf
 from obsidian_pdf_exporter.core.diagram_fit import FitSettings
+from obsidian_pdf_exporter.core.html_postprocess import mark_long_words
+from obsidian_pdf_exporter.core.html_postprocess import mark_rtl_blocks
 from obsidian_pdf_exporter.core.html_postprocess import unlink_missing_targets
 from obsidian_pdf_exporter.core.html_postprocess import without_image_data
 from obsidian_pdf_exporter.core.image_placeholders import ImagePlaceholders
@@ -121,6 +124,7 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
     """Build a single PDF from an Obsidian tree according to ``request``."""
     outside_mode(request.options)
     apply_weasyprint_patches(request.options)
+    apply_svg_text_fix()
     register_native_dependencies()
     ensure_pandoc()
     log = OutsideLinkCounter(log)
@@ -224,6 +228,7 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
         html = request.template.process_html(html, ctx)
         html = apply_decorations(html, request.template.decorations(ctx))
         html = unlink_missing_targets(html, lambda m: log(f"  Warning: {m}"))
+        html = mark_long_words(mark_rtl_blocks(html))
 
         (build_dir / "final.html").write_text(images.with_data(html), encoding="utf-8")
         html = images.with_files(html)
@@ -252,6 +257,7 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
     """Build a redline (tracked-changes) PDF between two versions of a folder or note."""
     outside_mode(request.options)
     apply_weasyprint_patches(request.options)
+    apply_svg_text_fix()
     register_native_dependencies()
     ensure_pandoc()
     log = OutsideLinkCounter(log)
@@ -352,6 +358,7 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
             html = request.template.process_html(html, ctx)
             html = apply_decorations(html, request.template.decorations(ctx))
             html = unlink_missing_targets(html, lambda m: log(f"  Warning: {m}"))
+            html = mark_long_words(mark_rtl_blocks(html))
 
             (build_dir / "redline_final.html").write_text(images.with_data(html), encoding="utf-8")
             html = images.with_files(html)

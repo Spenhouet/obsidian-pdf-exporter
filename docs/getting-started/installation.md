@@ -71,6 +71,25 @@ ope setup --check   # report only, exit 1 if something is missing
 
 When WeasyPrint still cannot find the libraries, set `OBSIDIAN_PDF_GTK_PATH` to the folders that hold them, separated by `os.pathsep`.
 
+## Fonts and scripts
+
+The PDF uses the fonts installed on the machine that runs the export. Fontconfig picks them: first the fonts the template names (`default` asks for Arial or Helvetica, then any sans-serif font, and Courier New or any monospace font for code), then, for each character that font has no glyph for, another installed font that has one. Text, tables and [Mermaid](../obsidian/mermaid.md) diagrams are laid out with the fonts that draw them, so a missing template font changes the look but not the fit.
+
+Install fonts that cover the scripts of the notes. The [Noto](https://fonts.google.com/noto) fonts cover nearly all of them:
+
+```bash
+sudo apt-get install -y fonts-noto-core fonts-noto-cjk   # Debian, Ubuntu, CI runners
+```
+
+What happens with other text:
+
+- A character that no installed font has is drawn as an empty box, the `.notdef` glyph of the font. The layout stays the same, and WeasyPrint prints a warning `.notdef glyph rendered for Unicode string unsupported by fonts` with the text. In Mermaid labels such a character is drawn as `□`, and the export lists these characters in a warning.
+- Math is drawn in the math font of ziamath, which has Latin and Greek letters. A formula with other characters, such as Chinese in `\text{}`, stays as TeX source and the export prints a warning.
+- Paragraphs, headings, list items and table cells that start with Hebrew or Arabic text are laid out from right to left, the way a browser does it for `dir="auto"`.
+- Chinese and Japanese text breaks between characters, Thai text between words.
+- A word too long for its line, such as a URL, breaks at the end of the line. In a table cell, words of 24 or more characters may break so that the table fits the page.
+- Arabic or Hindi text copied out of the PDF can come out with wrong letters or in the wrong order. The printed text is right; the text layer of the PDF does not keep the letter order of shaped scripts.
+
 ## Optional tools
 
 | Tool | Needed for |

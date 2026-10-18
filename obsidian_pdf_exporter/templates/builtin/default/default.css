@@ -147,7 +147,6 @@ tr { page-break-inside: avoid; }
 .wide-table-section th,
 .wide-table-section td {
   padding: 0.3em 0.45em;
-  word-break: break-word;
   overflow-wrap: anywhere;
   hyphens: auto;
 }
