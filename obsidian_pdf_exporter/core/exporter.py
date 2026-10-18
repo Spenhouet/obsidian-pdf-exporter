@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 from obsidian_pdf_exporter.compat.svg_text import apply_svg_text_fix
 from obsidian_pdf_exporter.compat.weasyprint_patches import apply_weasyprint_patches
+from obsidian_pdf_exporter.core import missing_glyphs
 from obsidian_pdf_exporter.core.assemble import assemble_document
 from obsidian_pdf_exporter.core.blame import build_index
 from obsidian_pdf_exporter.core.blame import range_commits
@@ -236,10 +237,11 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
 
         log("  Generating PDF...")
         fit = _fit_settings(request.options)
-        if request.blame:
-            _write_with_blame(html, output_path, build_dir, root_folder, "", log, fit=fit)
-        else:
-            html_to_pdf(html, output_path, base_url=build_dir.as_uri(), fit=fit)
+        with missing_glyphs.reported(log):
+            if request.blame:
+                _write_with_blame(html, output_path, build_dir, root_folder, "", log, fit=fit)
+            else:
+                html_to_pdf(html, output_path, base_url=build_dir.as_uri(), fit=fit)
 
         size_kb = output_path.stat().st_size / 1024
         log(f"\n  PDF created: {output_path}")
@@ -366,21 +368,22 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
 
             log("  Generating PDF...")
             fit = _fit_settings(request.options)
-            if request.blame and sides.blame_folder is not None:
-                repo = git_root(Path.cwd())
-                _write_with_blame(
-                    html,
-                    output_path,
-                    build_dir,
-                    sides.blame_folder,
-                    request.to_commit,
-                    log,
-                    highlight=range_commits(repo, request.from_commit, request.to_commit),
-                    range_label=f"{request.from_commit} \u2192 {request.to_commit}",
-                    fit=fit,
-                )
-            else:
-                html_to_pdf(html, output_path, base_url=build_dir.as_uri(), fit=fit)
+            with missing_glyphs.reported(log):
+                if request.blame and sides.blame_folder is not None:
+                    repo = git_root(Path.cwd())
+                    _write_with_blame(
+                        html,
+                        output_path,
+                        build_dir,
+                        sides.blame_folder,
+                        request.to_commit,
+                        log,
+                        highlight=range_commits(repo, request.from_commit, request.to_commit),
+                        range_label=f"{request.from_commit} \u2192 {request.to_commit}",
+                        fit=fit,
+                    )
+                else:
+                    html_to_pdf(html, output_path, base_url=build_dir.as_uri(), fit=fit)
 
             size_kb = output_path.stat().st_size / 1024
             log(f"\n  Redline PDF created: {output_path}")
