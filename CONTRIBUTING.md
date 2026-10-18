@@ -10,6 +10,7 @@ Any contribution is welcome! This document provides guidelines for contributing 
 - [Adding support for an Obsidian plugin](#adding-support-for-an-obsidian-plugin)
 - [Adding a PDF template](#adding-a-pdf-template)
 - [Patches for WeasyPrint](#patches-for-weasyprint)
+- [Performance notes](#performance-notes)
 - [Testing](#testing)
 - [Code Quality](#code-quality)
 - [Documentation](#documentation)
@@ -527,6 +528,83 @@ before rendering; `-O weasyprint.patches=off` turns them off.
 The patches are applied to WeasyPrint 70.0. Remove a patch when the oldest
 supported WeasyPrint includes its fix. When a new WeasyPrint release still
 lacks the fixes, raise `LAST_VERSION`.
+
+## Performance notes
+
+A record of where the time of a large export goes and what was tried, so
+the next attempt starts from it. The numbers are from one folder of 138
+notes: 1502 pages, about 70,000 HTML elements, 600 tables and 420 raster
+images (most of them RGBA screenshots), on a 12-core machine.
+
+### Rule: the output does not change
+
+A speed-up must not change the output. The PDF bytes move on every run
+(dates, ids), so the check compares, with `--debug`:
+
+- `assembled.md` and `final.html` (with the path of the run folder replaced)
+- `pdftotext -layout`, the page count, the bookmarks, and every link
+  annotation with its target
+- every page rendered at 50 DPI, pixel by pixel
+- the decoded pixels of every image in the PDF
+
+Two runs of the same code agree on all of these. Measure the old and the
+new code alternately, at least three runs each, and drop the first pair.
+
+### Where the time goes
+
+Seconds per stage with `--debug`, before (0.14.1) and after (0.14.2):
+
+| Stage | 0.14.1 | 0.14.2 |
+| ----- | -----: | -----: |
+| Assemble the Markdown (of which Dataview queries) | 6.7 (5.1) | 6.6 (4.9) |
+| Pandoc | 24.6 | 14.9 |
+| HTML steps, missing links, image files | 6.3 | 1.4 |
+| WeasyPrint: parse the HTML | 5.1 | 5.0 |
+| WeasyPrint: layout | 102.5 | 102.7 |
+| WeasyPrint: write the PDF | 85.7 | 46.9 |
+| Total | 239 | 186 |
+| Peak memory | 2.5 GB | 2.1 GB |
+
+Without `--debug` the installed release went from 206 s to 153 s.
+
+Inside WeasyPrint (timed without a profiler): computed styles 11 s,
+building the boxes 11 s, page layout 65 s (tables 25 s, of which 11 s are
+the preferred widths of auto-sized tables; line breaking 16 s), margin
+boxes about 9 s, drawing the pages 26 s (text 14 s, the SVG of the running
+header on every page 5 s), image streams 14 s with 4 threads, writing the
+file 4 s.
+
+### What was done
+
+- Image streams built in 4 threads (#122): write 86 s to 45 s, peak memory
+  about 0.25 GB higher. 8 threads saved 5 s more for another 0.27 GB.
+- Pandoc embeds placeholders instead of the raster images (#124): pandoc
+  25 s to 15 s, the HTML steps 6 s to 1.4 s, peak memory 0.7 GB lower,
+  because the 175 MB HTML no longer stays in memory during the render.
+
+Measured again on the final state, turning either one off costs 37 s and
+17 s.
+
+### What was tried or ruled out
+
+- Laying out the PDF in chunks: counters, `string-set`, bookmarks and
+  links cross the chunks.
+- GHC runtime options for pandoc (`+RTS -A…`, `-H`, `-F`, `-N`): no
+  change beyond noise. Pandoc spends 40 % of its time in garbage
+  collection, but no option helped.
+- Images whose EXIF block has no rotation are encoded again by WeasyPrint
+  (3.8 s here). Reported as Kozea/WeasyPrint#2983; too small for a patch.
+- The SVG of the running header is parsed and drawn again on every page
+  (4.7 s). Too small to patch.
+- The Dataview index reads the whole vault for a query on one folder
+  (at most 4.9 s). Too small for the extra code.
+
+### What is left
+
+Most of the remaining time is WeasyPrint doing its work: computing styles,
+breaking lines with Pango, laying out tables and pages, drawing text and
+compressing images. Pandoc's own parse and write is the rest. A further
+large gain needs changes inside WeasyPrint.
 
 ## Testing
 
