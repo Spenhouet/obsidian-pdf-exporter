@@ -988,7 +988,7 @@ wheels = [
 
 [[package]]
 name = "obsidian-pdf-exporter"
-version = "0.14.4"
+version = "0.14.5"
 source = { editable = "." }
 dependencies = [
     { name = "lxml" },
