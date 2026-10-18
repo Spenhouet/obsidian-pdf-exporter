@@ -23,8 +23,8 @@ jobs:
 
       - name: Crash loop
         run: |
-          for i in $(seq 25); do
-            PYTHONFAULTHANDLER=1 uv run pytest -q -x tests/unit/test_scripts.py -p no:cacheprovider > loop.txt 2>&1 || { echo "FAIL iteration $i"; grep -E "Fatal|File |Thread|Current|Segmentation|returncode|FAILED|assert -" loop.txt | head -120; }
+          for i in $(seq 40); do
+            PYTHONFAULTHANDLER=1 uv run pytest -q -x tests/unit/test_scripts.py -p no:cacheprovider > loop.txt 2>&1 || { echo "FAIL iteration $i"; grep -vE "^\s+File " loop.txt | grep -E "^E " | head -80; }
             tail -1 loop.txt
           done
 
