@@ -80,12 +80,12 @@ def _plain(md: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Engine regressions (#80 to #89)
+# Engine regressions
 # ---------------------------------------------------------------------------
 
 
 def test_table_rows_and_wider_columns_keep_the_table() -> None:
-    """#80: an inserted row and a wider column keep the pipe table intact."""
+    """An inserted row and a wider column keep the pipe table intact."""
     old = (
         "| Device | Owner | Review |\n| ------ | ----- | ------ |\n"
         "| Laptop | Anna  | yearly |\n| Phone  | Ben   | yearly |"
@@ -103,7 +103,7 @@ def test_table_rows_and_wider_columns_keep_the_table() -> None:
 
 
 def test_code_block_changes_are_html_lines() -> None:
-    """#81: a changed code block becomes HTML lines, never tags inside a fence."""
+    """A changed code block becomes HTML lines, never tags inside a fence."""
     out = diff_markdown("```python\nx = 1\nprint(x)\n```", "```python\nx = 2\nprint(x)\n```")
     assert "```" not in out
     assert 'class="rl-line rl-line-del">x = <del>1</del></span>' in out
@@ -111,7 +111,7 @@ def test_code_block_changes_are_html_lines() -> None:
 
 
 def test_dissimilar_paragraphs_are_not_word_diffed() -> None:
-    """#82: swapped paragraphs are moves or whole blocks, not a mix of single words."""
+    """Swapped paragraphs are moves or whole blocks, not a mix of single words."""
     old = (
         "## A\n\nParagraph one about apples and oranges in the basket.\n\n## B\n\n"
         "Paragraph two about pears.\n\nParagraph three about the weather today."
@@ -127,7 +127,7 @@ def test_dissimilar_paragraphs_are_not_word_diffed() -> None:
 
 
 def test_removed_callout_stays_one_block() -> None:
-    """#83: a removed callout is one block with its title and body."""
+    """A removed callout is one block with its title and body."""
     callout = (
         '::: {.callout .callout-note data-callout="note"}\n[**Note**]{.callout-title}\n\n'
         "Old note that goes away.\n:::"
@@ -142,7 +142,7 @@ def test_removed_callout_stays_one_block() -> None:
 
 
 def test_replaced_image_is_removed_and_inserted() -> None:
-    """#84: a replaced image is a removed and an inserted figure, size attributes intact."""
+    """A replaced image is a removed and an inserted figure, size attributes intact."""
     out = diff_markdown(
         "![](chart.png){.doc-image width=300}", "![](shapes.svg){.doc-image width=300}"
     )
@@ -152,7 +152,7 @@ def test_replaced_image_is_removed_and_inserted() -> None:
 
 
 def test_checked_task_keeps_its_checkbox() -> None:
-    """#85: checking a task keeps the task marker and flags the change."""
+    """Checking a task keeps the task marker and flags the change."""
     out = diff_markdown(
         "- [ ] Review the policy\n- [ ] Sign the form",
         "- [x] Review the policy\n- [ ] Sign the form",
@@ -162,7 +162,7 @@ def test_checked_task_keeps_its_checkbox() -> None:
 
 
 def test_heading_level_change_is_marked() -> None:
-    """#86: a heading that changes its level is marked with both levels."""
+    """A heading that changes its level is marked with both levels."""
     out = diff_markdown(
         "## Scope\n\nText A.\n\n## Duties\n\nText B.",
         "## Scope\n\nText A.\n\n### Duties\n\nText B.",
@@ -172,14 +172,14 @@ def test_heading_level_change_is_marked() -> None:
 
 
 def test_changed_footnote_is_not_wrapped() -> None:
-    """#87: a changed footnote definition is diffed in place, without block divs."""
+    """A changed footnote definition is diffed in place, without block divs."""
     out = diff_markdown("A claim.[^1]\n\n[^1]: Old source.", "A claim.[^1]\n\n[^1]: New source.")
     assert "[^1]: <del>Old</del><ins>New</ins> source." in out
     assert "::: {.rl-block" not in out
 
 
 def test_title_block_shows_the_range_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """#88: the title block names the compared versions once."""
+    """The title block names the compared versions once."""
     repo = _vault(tmp_path, [("A", "Text one.\n"), ("B", "Text two.\n")])
     page = _redline_html(repo, monkeypatch)
     header = lxml_html.fromstring(page).find(".//header")
@@ -190,7 +190,7 @@ def test_title_block_shows_the_range_once(tmp_path: Path, monkeypatch: pytest.Mo
 
 
 def test_changed_paragraph_before_a_new_one_keeps_its_word_diff() -> None:
-    """#89: a changed paragraph followed by a new one is diffed in place."""
+    """A changed paragraph followed by a new one is diffed in place."""
     out = diff_markdown(
         "Intro.\n\nUpdates are installed once a week.",
         "Intro.\n\nUpdates are installed once a month.\n\nA new paragraph.",
@@ -202,7 +202,7 @@ def test_changed_paragraph_before_a_new_one_keeps_its_word_diff() -> None:
 def test_default_title_uses_the_real_folder_name(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """#91: ``ope export .`` names the PDF after the folder."""
+    """``ope export .`` names the PDF after the folder."""
     folder = tmp_path / "Handbook"
     folder.mkdir()
     monkeypatch.chdir(folder)

@@ -1,4 +1,4 @@
-"""Speed-ups for WeasyPrint that are not in a WeasyPrint release yet.
+"""Speed-ups applied to WeasyPrint while a PDF is rendered.
 
 Each patch wraps one WeasyPrint function. It is applied only to WeasyPrint
 versions from :data:`FIRST_VERSION` to :data:`LAST_VERSION`, and only when the
@@ -16,10 +16,8 @@ attribute of each element is parsed on its own, so two elements with the same
 style. Pandoc writes a ``style`` attribute on every cell of a table with
 column alignments, so large tables spend much of their layout time there.
 
-The proposed upstream fix (issue
-https://github.com/Kozea/WeasyPrint/issues/2980) gives all elements with the
-same ``style`` string the same declarations. The patch does the same by
-wrapping ``weasyprint.css.find_style_attributes``.
+The patch gives all elements with the same ``style`` string the same
+declarations by wrapping ``weasyprint.css.find_style_attributes``.
 
 Build the image streams of the PDF in parallel
 ----------------------------------------------
@@ -60,7 +58,7 @@ OPTION = "weasyprint.patches"
 _OFF_VALUES = {"0", "false", "no", "off"}
 
 #: First WeasyPrint version the patches are for. Older versions do not share
-#: computed styles between elements at all (Kozea/WeasyPrint#2813).
+#: computed styles between elements at all.
 FIRST_VERSION: tuple[int, ...] = (70, 0)
 
 #: Last WeasyPrint release known to need the patches.
@@ -185,7 +183,7 @@ class Patch:
 #: The patches, in the order they are applied.
 PATCHES: tuple[Patch, ...] = (
     Patch(
-        "shared style attributes (Kozea/WeasyPrint#2980)",
+        "shared style attributes",
         "weasyprint.css",
         "find_style_attributes",
         ("tree", "presentational_hints", "base_url"),
