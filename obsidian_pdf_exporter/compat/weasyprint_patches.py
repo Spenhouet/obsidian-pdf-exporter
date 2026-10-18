@@ -54,6 +54,17 @@ grows with the number of pages. The patch wraps
 ``weasyprint.layout.page.set_page_type_computed_styles`` and only checks the
 margin boxes that ``@page`` rules can create. It computes the styles of the
 same entries, so the PDF is the same.
+
+Start the image streams while the pages are drawn
+-------------------------------------------------
+
+WeasyPrint draws all pages first and builds the image streams afterwards,
+although the two do not depend on each other. The patch wraps
+``weasyprint.pdf.stream.Stream.add_image``: the first time an image is drawn
+at full size, its stream is started in the thread pool of the patch above,
+which then takes the started streams instead of building them again. Drawing
+runs Python code and the image threads mostly run Pillow code without the
+GIL, so both make progress at the same time.
 """
 
 from __future__ import annotations
@@ -65,6 +76,7 @@ import inspect
 import logging
 import os
 import re
+from concurrent.futures import Future
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -93,7 +105,7 @@ LAST_VERSION: tuple[int, ...] = (70, 0)
 _STYLE_SPECIFICITY = (1, 0, 0)
 
 #: Most threads that build image streams at once. Each thread holds one decoded
-#: image; four threads gave most of the speed of eight with half the extra memory.
+#: image, so more threads need more memory.
 IMAGE_THREADS = min(4, os.cpu_count() or 1)
 
 #: Attribute of a wrapper that holds the function it wraps.
@@ -137,6 +149,71 @@ def share_style_attributes(original: Callable[..., Iterator[Any]]) -> Callable[.
     return find_style_attributes
 
 
+@dataclass
+class _Started:
+    """Image streams started while the pages of one PDF are drawn."""
+
+    images: dict[str, Any]
+    pool: ThreadPoolExecutor
+    futures: dict[tuple[Any, bool], Future[Any]]
+
+
+#: Streams started by ``Stream.add_image``, by ``id`` of WeasyPrint's image dict.
+_STARTED: dict[int, _Started] = {}
+
+
+def _buildable(image: object) -> bool:
+    return hasattr(image, "get_x_object") and "get_x_object" not in vars(image)
+
+
+def _build(image: Any, interpolate: bool) -> Any:  # noqa: ANN401, FBT001 - a pydyf stream
+    try:
+        return image.get_x_object(interpolate, 1)
+    except Exception:  # noqa: BLE001 - the original builds it again and reports
+        return None
+
+
+def _result(future: Future[Any]) -> Any:  # noqa: ANN401 - a pydyf stream
+    try:
+        return future.result()
+    except Exception:  # noqa: BLE001 - also a cancelled future; the original builds it
+        return None
+
+
+def _take_started(images: dict[str, Any]) -> _Started | None:
+    started = _STARTED.pop(id(images), None)
+    return started if started is not None and started.images is images else None
+
+
+def start_images_while_drawing(original: Callable[..., str]) -> Callable[..., str]:
+    """Wrap ``Stream.add_image`` so an image drawn at full size starts its stream at once.
+
+    The stream is built by the same call the patch of ``_use_references``
+    would make, ``image.get_x_object(interpolate, 1)``, in its thread pool.
+    Nothing is started when that patch is not active.
+    """
+
+    @functools.wraps(original)
+    def add_image(self: Any, image: Any, interpolate: bool, ratio: float) -> str:  # noqa: ANN401, FBT001
+        name = original(self, image, interpolate, ratio)
+        weasy_pdf = importlib.import_module("weasyprint.pdf")
+        active = hasattr(weasy_pdf._use_references, _ORIGINAL)
+        if ratio != 1 or not active or not _buildable(image):
+            return name
+        images = self._images
+        started = _STARTED.get(id(images))
+        if started is None or started.images is not images:
+            for stale in _STARTED.values():  # a PDF that was not finished
+                stale.pool.shutdown(wait=False, cancel_futures=True)
+            _STARTED.clear()
+            started = _STARTED[id(images)] = _Started(images, ThreadPoolExecutor(IMAGE_THREADS), {})
+        if (image, interpolate) not in started.futures:
+            started.futures[image, interpolate] = started.pool.submit(_build, image, interpolate)
+        return name
+
+    return add_image
+
+
 def build_images_in_parallel(original: Callable[..., None]) -> Callable[..., None]:
     """Wrap ``_use_references`` so the image streams are built in threads first.
 
@@ -155,21 +232,16 @@ def build_images_in_parallel(original: Callable[..., None]) -> Callable[..., Non
             for data in images.values()
             if data["x_object"] is None
             and max(data["dpi_ratios"]) == 1
-            and hasattr(data["image"], "get_x_object")
-            and "get_x_object" not in vars(data["image"])
+            and _buildable(data["image"])
         ]
-        if len(jobs) < 2:  # noqa: PLR2004 - one image gains nothing from a thread
-            return original(pdf, resources, images, color_profiles)
-
-        def build(job: tuple[Any, bool]) -> Any:  # noqa: ANN401 - a pydyf stream
-            image, interpolate = job
-            try:
-                return image.get_x_object(interpolate, 1)
-            except Exception:  # noqa: BLE001 - the original builds it again and reports
-                return None
-
-        with ThreadPoolExecutor(min(IMAGE_THREADS, len(jobs))) as pool:
-            streams = list(pool.map(build, jobs))
+        started = _take_started(images)
+        if started is None:
+            if len(jobs) < 2:  # noqa: PLR2004 - one image gains nothing from a thread
+                return original(pdf, resources, images, color_profiles)
+            started = _Started(images, ThreadPoolExecutor(min(IMAGE_THREADS, len(jobs))), {})
+        with started.pool as pool:
+            futures = [started.futures.get(job) or pool.submit(_build, *job) for job in jobs]
+            streams = [_result(future) for future in futures]
         ready: dict[Any, dict[tuple[bool, float], Any]] = {}
         for (image, interpolate), stream in zip(jobs, streams, strict=True):
             if stream is not None:
@@ -294,6 +366,13 @@ PATCHES: tuple[Patch, ...] = (
         "set_page_type_computed_styles",
         ("page_type", "html", "style_for"),
         page_styles_from_own_entries,
+    ),
+    Patch(
+        "image streams started while pages are drawn",
+        "weasyprint.pdf.stream",
+        "Stream.add_image",
+        ("self", "image", "interpolate", "ratio"),
+        start_images_while_drawing,
     ),
 )
 
