@@ -510,23 +510,16 @@ separate distribution rather than added here.
 ## Patches for WeasyPrint
 
 [`compat/weasyprint_patches.py`](https://github.com/Spenhouet/obsidian-pdf-exporter/blob/main/obsidian_pdf_exporter/compat/weasyprint_patches.py)
-holds small monkey patches for fixes that are merged or proposed upstream
-but not in a WeasyPrint release yet. Each patch checks the WeasyPrint
-version and the signature of the function it wraps, and is skipped (with a
-debug message) when either does not match. Every export applies them once
-before rendering; `-O weasyprint.patches=off` turns them off.
+holds small monkey patches that speed up WeasyPrint. Each patch checks the
+WeasyPrint version and the signature of the function it wraps, and is skipped
+(with a debug message) when either does not match. Every export applies them
+once before rendering; `-O weasyprint.patches=off` turns them off. The PDF
+looks the same with and without them.
 
-- Elements with the same `style` attribute share one computed style
-  (issue [Kozea/WeasyPrint#2980](https://github.com/Kozea/WeasyPrint/issues/2980)).
+- Elements with the same `style` attribute share one computed style.
 - The image streams of the PDF are built in a few threads instead of one
-  after the other (issue
-  [Kozea/WeasyPrint#2982](https://github.com/Kozea/WeasyPrint/issues/2982)).
-  Pillow decodes and encodes the images without holding the GIL. Each
-  thread holds one decoded image, so peak memory grows a little.
-
-The patches are applied to WeasyPrint 70.0. Remove a patch when the oldest
-supported WeasyPrint includes its fix. When a new WeasyPrint release still
-lacks the fixes, raise `LAST_VERSION`.
+  after the other. Pillow decodes and encodes the images without holding the
+  GIL. Each thread holds one decoded image, so peak memory grows a little.
 
 ## Testing
 
