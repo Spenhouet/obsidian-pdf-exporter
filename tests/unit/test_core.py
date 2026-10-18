@@ -170,3 +170,24 @@ def test_prepend_metadata_label_without_date() -> None:
 def test_prepend_metadata_only_title() -> None:
     out = _prepend_metadata("body\n", "T", "", "", "")
     assert out.startswith("% T\n\n")
+
+
+def test_code_span_pattern_finds_the_spans_of_the_lookbehind_form() -> None:
+    """The pattern finds the same code spans as the form that starts with the lookbehind."""
+    import itertools
+    import re
+
+    from obsidian_pdf_exporter.core.code import RE_CODE_SPAN
+    from obsidian_pdf_exporter.core.code import mask_code_spans
+
+    reference = re.compile(r"(?<![`\\])(`+)(?!`)((?:[^\n]|\n(?![ \t]*\n))+?)(?<!`)\1(?!`)")
+    pieces = ["`", "``", "```", "\\`", "a", " ", "\n", "\n\n", "\n \t\n", "x`y", "\\"]
+    texts = ["".join(p) for n in range(1, 6) for p in itertools.product(pieces, repeat=n)]
+    texts.append("".join(texts[::7]))
+    for text in texts:
+        new = [(m.span(), m.groups()) for m in RE_CODE_SPAN.finditer(text)]
+        old = [(m.span(), m.groups()) for m in reference.finditer(text)]
+        assert new == old, text
+    masked, spans = mask_code_spans(texts[-1])
+    assert spans == [m.group(0) for m in reference.finditer(texts[-1])]
+    assert masked != texts[-1]
