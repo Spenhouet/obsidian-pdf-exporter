@@ -230,3 +230,30 @@ def test_image_cache_on_disk_gives_the_same_pdf(tmp_path: Path) -> None:
     on_disk = render_fitted(HTML(string=html), None, cache).write_pdf()
     assert any((tmp_path / "cache").iterdir())  # the image bytes went to files
     assert on_disk == in_memory
+
+
+def test_embedded_image_pattern_matches_where_the_word_boundary_form_matches() -> None:
+    """The pattern finds the same images as the form that starts with a word boundary."""
+    import itertools
+    import re
+
+    from obsidian_pdf_exporter.core.html_postprocess import RE_EMBEDDED_IMAGE
+
+    reference = re.compile(
+        r'\bsrc="data:image/(?P<type>png|jpeg|gif|webp|bmp|tiff);base64,(?P<data>[A-Za-z0-9+/=]+)"'
+    )
+    before = ["", " ", "\n", "<img ", "x", "_", "1", "\u00e9", "-", "data-", ">", '"', "src"]
+    before.append(chr(0xA0))
+    kinds = ["png", "jpeg", "svg+xml", "tiff", "PNG"]
+    data = ["iVBORw0KGgo=", "", "a b", "AAAA" * 50, 'x"y']
+    after = [" />", "", "src", "s"]
+    html = "".join(
+        f'{b}src="data:image/{k};base64,{d}"{a}'
+        for b, k, d, a in itertools.product(before, kinds, data, after)
+    )
+
+    def spans(pattern: re.Pattern[str]) -> list[tuple[int, int, str, str]]:
+        return [(m.start(), m.end(), m["type"], m["data"]) for m in pattern.finditer(html)]
+
+    assert spans(RE_EMBEDDED_IMAGE) == spans(reference)
+    assert spans(reference)
