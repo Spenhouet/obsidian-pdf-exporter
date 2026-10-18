@@ -70,14 +70,14 @@ class _Overflow:
     available: float  # height it may have on its page
 
 
-def render_fitted(html: Any, settings: FitSettings | None) -> Any:  # noqa: ANN401 - WeasyPrint objects
+def render_fitted(html: Any, settings: FitSettings | None, cache: Any = None) -> Any:  # noqa: ANN401 - WeasyPrint objects
     """Lay out a WeasyPrint ``HTML`` object and fit its diagrams to the pages.
 
     Returns the WeasyPrint ``Document``. ``settings`` None lays it out once,
     without changes. The passes share one image cache, so every image is read
-    and decoded once.
+    and decoded once. ``cache`` is that cache, a new dict if None.
     """
-    images: dict = {}
+    images = {} if cache is None else cache
     document = html.render(cache=images)
     if settings is None:
         return document

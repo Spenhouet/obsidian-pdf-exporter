@@ -201,3 +201,32 @@ def test_unlink_missing_targets_keeps_very_long_image_data(monkeypatch: pytest.M
     html = f'<p><a href="#x">x</a><img src="data:image/png;base64,{red}"></p>'
     assert unlink_missing_targets(html) == _unlink_reference(html)
     assert html_postprocess._ImageData(html).data == []
+
+
+def _rgba_png(size: tuple[int, int] = (64, 32)) -> str:
+    image = Image.new("RGBA", size)
+    pixels = [
+        (x * 4 % 256, 255 - x % 256, 90, 255 if x % 3 else 128) for x in range(size[0] * size[1])
+    ]
+    image.putdata(pixels)
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return base64.b64encode(buffer.getvalue()).decode("ascii")
+
+
+def test_image_cache_on_disk_gives_the_same_pdf(tmp_path: Path) -> None:
+    from weasyprint import HTML
+
+    from obsidian_pdf_exporter.core.diagram_fit import render_fitted
+    from obsidian_pdf_exporter.core.pdf import image_cache
+
+    html = images_to_files(
+        f'<img src="data:image/png;base64,{_rgba_png()}">'
+        f'<img src="data:image/png;base64,{_png((0, 120, 255))}">',
+        tmp_path,
+    )
+    in_memory = render_fitted(HTML(string=html), None, {}).write_pdf()
+    cache = image_cache(tmp_path / "cache")
+    on_disk = render_fitted(HTML(string=html), None, cache).write_pdf()
+    assert any((tmp_path / "cache").iterdir())  # the image bytes went to files
+    assert on_disk == in_memory
