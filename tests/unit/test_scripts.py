@@ -35,6 +35,8 @@ from pathlib import Path
 
 import pytest
 
+from obsidian_pdf_exporter.runtime import ensure_pandoc
+
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "tests" / "fixtures"
 FONTS = FIXTURES / "fonts"
@@ -254,7 +256,13 @@ def _job(folder: Path, inputs: dict[str, Path], job: str, template: str) -> dict
 def _run(folder: Path, config: Path, spec: dict) -> dict:
     job_file = Path(spec["report"]).with_suffix(".job.json")
     job_file.write_text(json.dumps(spec, ensure_ascii=False), encoding="utf-8")
-    env = {**os.environ, "FONTCONFIG_FILE": str(config), "PYTHONIOENCODING": "utf-8"}
+    # A crash of the export prints the Python stack of every thread to stderr.
+    env = {
+        **os.environ,
+        "FONTCONFIG_FILE": str(config),
+        "PYTHONIOENCODING": "utf-8",
+        "PYTHONFAULTHANDLER": "1",
+    }
     env.pop("FONTCONFIG_PATH", None)
     done = subprocess.run(  # noqa: S603 - the test runner with a fixed argv
         [sys.executable, str(RUNNER), str(job_file)],
@@ -265,7 +273,7 @@ def _run(folder: Path, config: Path, spec: dict) -> dict:
         encoding="utf-8",
         check=False,
     )
-    report: dict = {"returncode": done.returncode, "stderr": done.stderr[-4000:]}
+    report: dict = {"returncode": done.returncode, "stderr": done.stderr[-20000:]}
     if done.returncode == 0:
         report.update(json.loads(Path(spec["report"]).read_text(encoding="utf-8")))
     return report
@@ -276,6 +284,8 @@ def reports(tmp_path_factory: pytest.TempPathFactory) -> dict[tuple[str, str, st
     """Run every job of every scenario, in parallel processes."""
     if shutil.which("git") is None:
         pytest.skip("git is needed for the blame export")
+    # Download pandoc once here if it is missing, not in every export process at once.
+    ensure_pandoc()
     base = tmp_path_factory.mktemp("scripts")
     inputs = _inputs(base / "inputs")
     runs = []
