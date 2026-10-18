@@ -19,6 +19,7 @@ from obsidian_pdf_exporter.core.blame import write_blame_pdf
 from obsidian_pdf_exporter.core.diagram_fit import FitSettings
 from obsidian_pdf_exporter.core.html_postprocess import unlink_missing_targets
 from obsidian_pdf_exporter.core.html_postprocess import without_image_data
+from obsidian_pdf_exporter.core.image_placeholders import ImagePlaceholders
 from obsidian_pdf_exporter.core.mermaid import mermaid_settings
 from obsidian_pdf_exporter.core.outside_links import OutsideLinkCounter
 from obsidian_pdf_exporter.core.outside_links import outside_mode
@@ -208,21 +209,24 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
         if request.version:
             extra_meta["pagetitle"] = f"{title} v{request.version}"
 
-        html = render_html(
-            markdown,
-            css_filename,
-            title,
-            build_dir,
-            dialect=markdown_dialect(doc_ctx, steps),
-            extra_metadata=extra_meta,
-            toc=request.toc,
-        )
+        with ImagePlaceholders(build_dir) as images:
+            html = render_html(
+                markdown,
+                css_filename,
+                title,
+                build_dir,
+                dialect=markdown_dialect(doc_ctx, steps),
+                extra_metadata=extra_meta,
+                toc=request.toc,
+                resource_path=images.folder,
+            )
         html = without_image_data(html, partial(run_html, context=doc_ctx, steps=steps))
         html = request.template.process_html(html, ctx)
         html = apply_decorations(html, request.template.decorations(ctx))
         html = unlink_missing_targets(html, lambda m: log(f"  Warning: {m}"))
 
-        (build_dir / "final.html").write_text(html, encoding="utf-8")
+        (build_dir / "final.html").write_text(images.with_data(html), encoding="utf-8")
+        html = images.with_files(html)
         log.summary()
 
         log("  Generating PDF...")
@@ -333,21 +337,24 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
             log("  Converting to HTML...")
             css_filename = _write_template_assets(request.template, build_dir)
 
-            html = render_html(
-                markdown,
-                css_filename,
-                title,
-                build_dir,
-                dialect=markdown_dialect(doc_ctx, steps),
-                toc=request.toc,
-            )
+            with ImagePlaceholders(build_dir) as images:
+                html = render_html(
+                    markdown,
+                    css_filename,
+                    title,
+                    build_dir,
+                    dialect=markdown_dialect(doc_ctx, steps),
+                    toc=request.toc,
+                    resource_path=images.folder,
+                )
             html = without_image_data(html, partial(run_html, context=doc_ctx, steps=steps))
             html = render_redline(html, options)
             html = request.template.process_html(html, ctx)
             html = apply_decorations(html, request.template.decorations(ctx))
             html = unlink_missing_targets(html, lambda m: log(f"  Warning: {m}"))
 
-            (build_dir / "redline_final.html").write_text(html, encoding="utf-8")
+            (build_dir / "redline_final.html").write_text(images.with_data(html), encoding="utf-8")
+            html = images.with_files(html)
             log.summary()
 
             log("  Generating PDF...")

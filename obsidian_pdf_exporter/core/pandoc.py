@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -30,6 +31,7 @@ def render_html(
     extra_metadata: dict[str, str] | None = None,
     toc: bool = True,
     hard_line_breaks: bool = False,
+    resource_path: Path | None = None,
 ) -> str:
     """Run pandoc on ``markdown`` and return the resulting standalone HTML.
 
@@ -37,7 +39,8 @@ def render_html(
     it, the dialect of the core steps is used, and ``hard_line_breaks=True``
     renders every newline inside a paragraph as a line break, as Obsidian
     does unless "Strict line breaks" is on. Set ``toc=False`` to leave out
-    the table of contents.
+    the table of contents. Pandoc looks for images and other files in
+    ``resource_path`` first, then in ``build_dir``.
     """
     import pypandoc
 
@@ -49,6 +52,8 @@ def render_html(
         if toc:
             extras += TOC_ARGS
         extras += [f"--css={css_filename}", "--metadata", f"title={title}"]
+        if resource_path is not None:
+            extras.append(f"--resource-path={resource_path}{os.pathsep}.")
         if extra_metadata:
             for key, value in extra_metadata.items():
                 extras += ["--metadata", f"{key}={value}"]

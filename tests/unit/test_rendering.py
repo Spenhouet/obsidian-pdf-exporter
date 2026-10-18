@@ -22,11 +22,12 @@ from obsidian_pdf_exporter.plugins.drawio.svg import clean_drawio_svg
 
 if TYPE_CHECKING:
     from pathlib import Path
+from typing import Any
 
 needs_pandoc = pytest.mark.skipif(shutil.which("pandoc") is None, reason="pandoc not installed")
 
 
-def _pandoc(markdown: str, tmp_path: Path, **kwargs: object) -> str:
+def _pandoc(markdown: str, tmp_path: Path, **kwargs: Any) -> str:  # noqa: ANN401
     try:
         return render_html(markdown, "x.css", "T", tmp_path, toc=False, **kwargs)
     except OSError:
