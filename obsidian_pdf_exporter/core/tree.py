@@ -45,7 +45,7 @@ class PageNode:
 
     def __post_init__(self) -> None:
         if not self.anchor:
-            self.anchor = slugify(self.name)
+            self.anchor = slugify(self.name) or "page"
 
 
 def resolve_folder_note(folder: Path, plugins: list[ObsidianPlugin] | None = None) -> Path | None:

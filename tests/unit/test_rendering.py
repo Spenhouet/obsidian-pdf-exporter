@@ -236,6 +236,22 @@ def test_render_math_falls_back_to_source(monkeypatch: pytest.MonkeyPatch) -> No
     assert any("a < b" in line for line in logs)
 
 
+def test_math_text_without_glyphs_falls_back_to_source() -> None:
+    """The math font of ziamath has no Chinese glyphs, also not for ``text``."""
+    pytest.importorskip("ziamath")
+    logs: list[str] = []
+    html = (
+        '<math display="inline"><semantics><mrow><mtext>速度</mtext><mo>=</mo><mi>v</mi></mrow>'
+        '<annotation encoding="application/x-tex">\\text{速度} = v</annotation></semantics></math>'
+        '<math display="inline"><semantics><mtext>Speed</mtext>'
+        '<annotation encoding="application/x-tex">\\text{Speed}</annotation></semantics></math>'
+    )
+    out = render_math(html, log=logs.append)
+    assert "<code>\\text{速度} = v</code>" in out
+    assert out.count('class="math-svg"') == 1
+    assert any("速度" in line and "glyphs" in line for line in logs)
+
+
 # ---- draw.io SVG ------------------------------------------------------------
 
 _DRAWIO = (

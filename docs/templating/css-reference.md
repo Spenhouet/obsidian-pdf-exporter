@@ -154,7 +154,9 @@ ul.task-list > li, ol.task-list > li { list-style: none; }
 span.math.display { display: block; text-align: center; margin: 0.6em 0; }
 svg.math-svg { display: inline; overflow: visible; }
 .math-source code { white-space: pre-wrap; }
+body { overflow-wrap: break-word; }
 td, th { overflow-wrap: break-word; }
+.long-word { overflow-wrap: anywhere; }
 .landscape-figure .landscape { margin-left: auto; margin-right: auto; }
 figure.pdf-embed { break-inside: auto; page-break-inside: auto; }
 img.pdf-embed-page {
