@@ -6,6 +6,7 @@ import base64
 import html as html_lib
 import re
 import secrets
+import unicodedata
 from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import unquote
@@ -26,7 +27,9 @@ ul.task-list > li, ol.task-list > li { list-style: none; }
 span.math.display { display: block; text-align: center; margin: 0.6em 0; }
 svg.math-svg { display: inline; overflow: visible; }
 .math-source code { white-space: pre-wrap; }
+body { overflow-wrap: break-word; }
 td, th { overflow-wrap: break-word; }
+.long-word { overflow-wrap: anywhere; }
 .landscape-figure .landscape { margin-left: auto; margin-right: auto; }
 .footnote {
   float: footnote; font-size: 0.75rem; line-height: 1.35;
@@ -437,3 +440,89 @@ def _keys_in_attributes(tree: HtmlTree, images: _ImageData) -> bool:
     )
     found += sum(island.count(images.key) for island in tree.islands)
     return found == len(images.data)
+
+
+#: Letters of right-to-left scripts (Hebrew, Arabic, Syriac, Thaana, N'Ko, ...).
+_RE_RTL_LETTER = re.compile(r"[֐-ࣿיִ-﷿ﹰ-ﻼ]")
+_RE_DIRECTION_BLOCK = re.compile(
+    r"<(p|li|h[1-6]|td|th|dt|dd|caption|figcaption|summary)\b([^>]*)>", re.IGNORECASE
+)
+_RE_TOC = re.compile(r"<nav\b[^>]*\bid=\"TOC\".*?</nav>", re.DOTALL)
+_RE_TAG_OR_ENTITY = re.compile(r"<[^>]*>|&[#\w]+;")
+#: Characters looked at to find the first strong letter of a block.
+_DIRECTION_SCAN = 2000
+
+
+def mark_rtl_blocks(html: str) -> str:
+    """Give ``dir="rtl"`` to every paragraph-like block that starts with right-to-left text.
+
+    A browser does this for ``dir="auto"``: the first letter with a strong
+    direction (Latin, Hebrew, Arabic, ...) sets the direction of the block.
+    WeasyPrint does not know ``dir="auto"`` and orders the inline parts of a
+    line (bold text, links, inserted and deleted words) from left to right,
+    so a Hebrew or Arabic sentence with formatting comes out in the wrong
+    order. Blocks of the table of contents and blocks that set ``dir`` keep
+    their direction. A document without right-to-left letters is returned as
+    it is.
+    """
+    if not _RE_RTL_LETTER.search(html):
+        return html
+    toc = [(m.start(), m.end()) for m in _RE_TOC.finditer(html)]
+
+    def replace(m: re.Match[str]) -> str:
+        if re.search(r"\bdir\s*=", m.group(2), re.IGNORECASE):
+            return m.group(0)
+        if any(start <= m.start() < end for start, end in toc):
+            return m.group(0)
+        if _first_strong_direction(html, m.end()) != "rtl":
+            return m.group(0)
+        return f'<{m.group(1)} dir="rtl"{m.group(2)}>'
+
+    return _RE_DIRECTION_BLOCK.sub(replace, html)
+
+
+def _first_strong_direction(html: str, start: int) -> str:
+    """Return ``"rtl"``, ``"ltr"`` or ``""`` for the first strong letter after ``start``."""
+    text = _RE_TAG_OR_ENTITY.sub(" ", html[start : start + _DIRECTION_SCAN])
+    for char in text:
+        kind = unicodedata.bidirectional(char)
+        if kind == "L":
+            return "ltr"
+        if kind in ("R", "AL"):
+            return "rtl"
+    return ""
+
+
+#: Shortest word that may break anywhere in a table cell.
+LONG_WORD = 24
+_RE_CELL = re.compile(r"<(td|th)\b[^>]*>.*?</\1>", re.DOTALL | re.IGNORECASE)
+_RE_CELL_TEXT = re.compile(r">([^<]+)<")
+_RE_LONG_WORD = re.compile(rf"[^\s<>&]{{{LONG_WORD},}}")
+#: Cells whose text is not plain HTML text and stays as it is.
+_RE_RAW_ISLAND = re.compile(r"<(svg|math|script|style)\b", re.IGNORECASE)
+
+
+def mark_long_words(html: str) -> str:
+    """Wrap words of table cells that are too long for most columns in ``span.long-word``.
+
+    A word without a break, such as an identifier or a URL, is the narrowest
+    width its column can get. A long one makes the table wider than the page.
+    ``overflow-wrap: anywhere`` on the whole cell would let every word break,
+    and a table that has to shrink would then cut short words such as a column
+    heading. On the long words alone it only lets those break. Cells with
+    SVG, MathML, scripts or styles are left as they are.
+    """
+    if "<td" not in html and "<th" not in html:
+        return html
+
+    def text(m: re.Match[str]) -> str:
+        words = _RE_LONG_WORD.sub(lambda w: f'<span class="long-word">{w.group(0)}</span>', m[1])
+        return f">{words}<"
+
+    def cell(m: re.Match[str]) -> str:
+        markup = m.group(0)
+        if not _RE_LONG_WORD.search(markup) or _RE_RAW_ISLAND.search(markup):
+            return markup
+        return _RE_CELL_TEXT.sub(text, markup)
+
+    return _RE_CELL.sub(cell, html)

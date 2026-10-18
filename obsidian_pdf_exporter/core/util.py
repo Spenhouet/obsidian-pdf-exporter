@@ -14,13 +14,27 @@ if TYPE_CHECKING:
 
 
 def slugify(text: str) -> str:
-    """Convert text to a URL-safe anchor identifier."""
-    text = unicodedata.normalize("NFKD", text)
-    text = text.encode("ascii", "ignore").decode("ascii")
-    text = text.lower()
-    text = re.sub(r"[^\w\s-]", "", text)
-    text = re.sub(r"[-\s]+", "-", text)
-    return text.strip("-")
+    """Convert text to an anchor identifier.
+
+    Letters are reduced to ASCII (``Schöne`` becomes ``schone``). Text without
+    any ASCII letter or digit, such as Chinese, Arabic or Hindi, keeps its
+    letters and digits instead, so it does not end up with an empty id. Marks
+    such as Hindi vowel signs are dropped, like pandoc does for heading ids.
+    """
+    ascii_text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+    slug = _slug(re.sub(r"[^\w\s-]", "", ascii_text.lower()))
+    if slug:
+        return slug
+    kept = "".join(
+        c
+        for c in unicodedata.normalize("NFC", text).lower()
+        if c in "-_" or c.isspace() or unicodedata.category(c)[0] in "LN"
+    )
+    return _slug(kept)
+
+
+def _slug(text: str) -> str:
+    return re.sub(r"[-\s]+", "-", text).strip("-")
 
 
 def safe_filename(text: str) -> str:

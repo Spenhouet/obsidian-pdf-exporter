@@ -5,7 +5,9 @@ WeasyPrint has no MathML or MathJax support. Pandoc writes math as MathML
 ``<math>`` element is rendered with `ziamath`, a pure-Python renderer that
 needs no TeX installation, and replaced by an ``<svg>`` sized in ``em`` so it
 scales with the surrounding text. Formulas that fail to render stay as
-code-styled source and a warning is logged.
+code-styled source and a warning is logged. So do formulas with characters
+the math font has no glyph for, such as Chinese in ``\text{}``: ziamath
+draws every character in its math font, they would come out as empty boxes.
 """
 
 from __future__ import annotations
@@ -69,7 +71,13 @@ def _tex_source(inner: str) -> str:
 def _render(ziamath, attrs: str, inner: str) -> str:  # noqa: ANN001 - optional module
     body = _ANNOTATION.sub("", inner)
     body = re.sub(r"</?semantics\b[^>]*>", "", body)
-    svg = ziamath.Math(f"<math{attrs}>{body}</math>", size=_SIZE).svg()
+    math = ziamath.Math(f"<math{attrs}>{body}</math>", size=_SIZE)
+    missing = _missing_glyphs(math.font, body)
+    if missing:
+        # ziamath draws all text, \text{} included, in its math font.
+        msg = f"the math font has no glyphs for {missing}"
+        raise ValueError(msg)
+    svg = math.svg()
     root = _SVG_ROOT.search(svg)
     if root is None:
         msg = "renderer returned no <svg>"
@@ -87,6 +95,16 @@ def _render(ziamath, attrs: str, inner: str) -> str:  # noqa: ANN001 - optional 
     new_tag = re.sub(r'\s(?:width|height)="[^"]*"', "", tag)
     new_tag = new_tag.replace("<svg", f'<svg class="math-svg" style="{style}"', 1)
     return svg.replace(tag, new_tag, 1)
+
+
+def _missing_glyphs(font: object, body: str) -> str:
+    """Return the characters of the MathML ``body`` that ``font`` cannot draw."""
+    text = html_lib.unescape(re.sub(r"<[^>]*>", "", body))
+    find = getattr(font, "glyphindex", None)
+    if find is None:
+        return ""
+    chars = dict.fromkeys(c for c in text if not c.isspace() and not find(c))
+    return "".join(chars)
 
 
 def _fallback(attrs: str, inner: str) -> str:

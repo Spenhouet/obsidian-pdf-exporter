@@ -231,11 +231,14 @@ def test_pango_measures_text() -> None:
     measurer = mermaid_pele._PangoMeasurer(PeleTheme())
     if not measurer.available():
         pytest.skip("Pango is not available")
-    widths = measurer.widths(["0|Hello world", "1|Hello world", "4|Hello world", "0|"])
-    assert widths["0|Hello world"] > 0
-    assert widths["1|Hello world"] >= widths["0|Hello world"]
-    assert widths["4|Hello world"] > 0
-    assert widths["0|"] == 0
+    widths = measurer.widths(
+        ["0|16|Hello world", "1|16|Hello world", "4|16|Hello world", "0|32|Hello world", "0|16|"]
+    )
+    assert widths["0|16|Hello world"] > 0
+    assert widths["1|16|Hello world"] >= widths["0|16|Hello world"]
+    assert widths["4|16|Hello world"] > 0
+    assert widths["0|32|Hello world"] == pytest.approx(2 * widths["0|16|Hello world"], rel=0.05)
+    assert widths["0|16|"] == 0
 
 
 def test_labels_are_measured_in_the_diagram_font() -> None:
@@ -247,11 +250,20 @@ def test_labels_are_measured_in_the_diagram_font() -> None:
         pytest.skip("Pango is not available")
     with PeleRenderer(PeleTheme()) as renderer:
         svg = renderer.render(code, {"responsive": False, "padding": 0}).svg
-    text_width = measurer.widths([f"0|{label}"])[f"0|{label}"] * 16
+    text_width = measurer.widths([f"0|16|{label}"])[f"0|16|{label}"]
     box = re.search(r'<rect x="[-\d.]+" y="[-\d.]+" width="([\d.]+)"', svg)
     assert box
     padding = float(box.group(1)) - text_width
     assert 0 < padding < 60
+
+
+def test_characters_without_font_are_shown_as_one_mark(monkeypatch: pytest.MonkeyPatch) -> None:
+    measurer = mermaid_pele._PangoMeasurer(PeleTheme())
+    monkeypatch.setattr(measurer, "covered", lambda c: c not in "नम")
+    assert measurer.missing("नमस्ते नम") == "नम"
+    assert measurer.shown("aनमb") == "a\u25a1\u25a1b"
+    monkeypatch.setattr(measurer, "covered", lambda c: c not in "नम\u25a1")
+    assert measurer.shown("नa") == "\ufffda"
 
 
 # ---- Layout -----------------------------------------------------------------

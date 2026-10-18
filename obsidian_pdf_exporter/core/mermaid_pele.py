@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import html as html_lib
 import json
 import re
 from dataclasses import dataclass
@@ -44,24 +45,28 @@ PELE_VERSION = "1.6.0"
 _ASSET = Path(__file__).resolve().parent / "assets" / "pele.js"
 #: Most layout passes per diagram while text widths are measured.
 _MAX_PASSES = 4
-#: Font size at which text is measured; widths are stored per pixel of font size.
-_MEASURE_SIZE = 100.0
+#: Characters drawn instead of the ones no installed font has, the first one a font has.
+MISSING = ("\u25a1", "\ufffd")
+#: Font size at which ope checks whether a font has a character.
+_COVERAGE_SIZE = 16.0
 #: Bits of the ``style`` argument of Pele's text measurer.
 _BOLD = 1
 _ITALIC = 2
 _MONO = 4
 
 # Calls Pele with a text measurer that answers from ``__ope.widths`` and notes
-# every text it does not know yet. Unknown texts get a rough estimate.
+# every text it does not know yet. Unknown texts get a rough estimate. Widths
+# are kept per font size: they do not scale exactly with the size, for example
+# the boxes drawn for characters that no font has.
 _GLUE = """
 var __ope = { widths: {}, misses: {} };
 function __opeMeasurer() {
   return {
     width: function (text, size, style) {
-      var key = style + "|" + text;
+      var key = style + "|" + size + "|" + text;
       var w = __ope.widths[key];
-      if (w === undefined) { __ope.misses[key] = 1; w = text.length * 0.6; }
-      return w * size;
+      if (w === undefined) { __ope.misses[key] = 1; w = text.length * 0.6 * size; }
+      return w;
     },
   };
 }
@@ -86,6 +91,8 @@ function __opeWidths(json) {
 
 _RE_FENCE_FRONT_MATTER = re.compile(r"\A---[ \t]*\n(?P<yaml>.*?)\n---[ \t]*(?:\n|\Z)", re.DOTALL)
 _RE_BR_CLOSE = re.compile(r"</br\s*>", re.IGNORECASE)
+#: The start tag and the text of a ``<text>`` or ``<tspan>`` up to its next tag.
+_RE_SVG_TEXT = re.compile(r"(<(?:text|tspan)\b[^>]*>)([^<]+)")
 _RE_ROOT = re.compile(r"<svg\b[^>]*>")
 _RE_STYLE_ATTR = re.compile(r'\sstyle="([^"]*)"')
 _RE_RX_STYLE = re.compile(r'\sstyle="rx:([^";]+)"')
@@ -411,6 +418,8 @@ class PeleRenderer:
             raise PeleUnavailableError(msg) from e
         self.theme = theme
         self._measurer = _PangoMeasurer(theme) if measure else None
+        #: Characters of the labels that no installed font has.
+        self.missing: set[str] = set()
         self._ctx = MiniRacer()
         try:
             self._ctx.eval(_asset() + _GLUE)
@@ -451,67 +460,136 @@ class PeleRenderer:
             self._ctx.eval(f"__opeWidths({json.dumps(json.dumps(widths))})")
         if data.get("error"):
             return PeleResult(error=str(data["error"]).strip())
-        return PeleResult(svg=finish_svg(str(data["svg"]), self.theme))
+        svg = str(data["svg"])
+        if measure and self._measurer is not None:
+            svg = self._show_missing(svg)
+        return PeleResult(svg=finish_svg(svg, self.theme))
+
+    def _show_missing(self, svg: str) -> str:
+        """Draw the characters no installed font has as :data:`MISSING`, as they were measured.
+
+        Pango gives such a character the width of a box from one of the
+        fonts, and which font depends on the text it laid out before. The
+        width in the PDF could then differ from the measured one, so these
+        characters are replaced in the labels and in the measured texts.
+        """
+        measurer = self._measurer
+        assert measurer is not None  # noqa: S101 - checked by the caller
+
+        def text(m: re.Match[str]) -> str:
+            content = html_lib.unescape(m.group(2))
+            missing = measurer.missing(content)
+            if not missing:
+                return m.group(0)
+            self.missing.update(missing)
+            return m.group(1) + html_lib.escape(measurer.shown(content), quote=False)
+
+        return _RE_SVG_TEXT.sub(text, svg)
 
 
 class _PangoMeasurer:
-    """Measure text with Pango in the fonts WeasyPrint uses for the PDF."""
+    """Measure text the way WeasyPrint lays out SVG text, in the fonts of the PDF.
+
+    Each text is laid out with WeasyPrint's own line layout, in a new Pango
+    context, as WeasyPrint does when it draws the text. A shared context would
+    remember which fonts it used before, and a character that no installed
+    font has would then get a different width than in the PDF.
+    """
 
     def __init__(self, theme: PeleTheme) -> None:
         self.families = {
-            False: _pango_family(theme.font_family),
-            True: _pango_family(theme.font_mono),
+            False: _pango_family(theme.font_family).split(","),
+            True: _pango_family(theme.font_mono).split(","),
         }
-        self._context: Any = None
+        self._fonts: Any = None
         self._failed = False
+        self._coverage: dict[str, bool] = {}
 
     def available(self) -> bool:
-        if self._context is None and not self._failed:
+        if self._fonts is None and not self._failed:
             try:
-                from weasyprint.text.ffi import gobject
-                from weasyprint.text.ffi import pango
                 from weasyprint.text.fonts import FontConfiguration
 
                 self._fonts = FontConfiguration()
-                context = pango.pango_font_map_create_context(self._fonts.font_map)
-                self._context = _gc(context, gobject.g_object_unref)
-                pango.pango_context_set_round_glyph_positions(self._context, 0)
             except Exception:  # noqa: BLE001 - any failure falls back to Pele's table
                 self._failed = True
-        return self._context is not None
+        return self._fonts is not None
 
     def widths(self, keys: list[str]) -> dict[str, float]:
-        """Return the width per pixel of font size of every ``"style|text"`` key."""
+        """Return the width in pixels of every ``"style|size|text"`` key."""
         if not self.available():
             return {}
         out = {}
         for key in keys:
-            style, _, text = key.partition("|")
-            out[key] = self._width(text, int(style) if style.isdigit() else 0) / _MEASURE_SIZE
+            style, _, rest = key.partition("|")
+            size, _, text = rest.partition("|")
+            try:
+                pixels = float(size)
+            except ValueError:
+                pixels = 16.0
+            out[key] = self._width(text, int(style) if style.isdigit() else 0, pixels)
         return out
 
-    def _width(self, text: str, style: int) -> float:
+    def _width(self, text: str, style: int, pixels: float) -> float:
+        if not text:
+            return 0.0
+        return float(self._layout(self.shown(text), style, pixels)[0][3])
+
+    def _layout(self, text: str, style: int, pixels: float = _COVERAGE_SIZE) -> Any:  # noqa: ANN401
+        """Return WeasyPrint's ``split_first_line`` result for ``text`` and the style it used."""
+        from weasyprint.css.properties import INITIAL_VALUES
+        from weasyprint.text.line_break import split_first_line
+
+        values = _Style(INITIAL_VALUES)
+        values.font_config = self._fonts
+        values["font_family"] = self.families[bool(style & _MONO)]
+        values["font_size"] = pixels
+        values["font_weight"] = 700 if style & _BOLD else 400
+        values["font_style"] = "italic" if style & _ITALIC else "normal"
+        return split_first_line(text, values, None, float("inf"), 0), values
+
+    def covered(self, char: str) -> bool:
+        """Return True when an installed font has a glyph for ``char``."""
+        if char.isascii() or not self.available():
+            return True
+        if char not in self._coverage:
+            self._coverage[char] = not self._has_unknown_glyph(char)
+        return self._coverage[char]
+
+    def _has_unknown_glyph(self, text: str) -> bool:
         from weasyprint.text.ffi import ffi
-        from weasyprint.text.ffi import gobject
         from weasyprint.text.ffi import pango
 
-        layout = _gc(pango.pango_layout_new(self._context), gobject.g_object_unref)
-        description = _gc(pango.pango_font_description_new(), pango.pango_font_description_free)
-        family = self.families[bool(style & _MONO)]
-        pango.pango_font_description_set_family(description, family.encode("utf-8"))
-        size = pango.pango_units_from_double(_MEASURE_SIZE)
-        pango.pango_font_description_set_absolute_size(description, size)
-        if style & _BOLD:
-            pango.pango_font_description_set_weight(description, 700)
-        if style & _ITALIC:
-            pango.pango_font_description_set_style(description, 2)  # PANGO_STYLE_ITALIC
-        pango.pango_layout_set_font_description(layout, description)
-        data = text.encode("utf-8")
-        pango.pango_layout_set_text(layout, data, len(data))
-        line = pango.pango_layout_get_line_readonly(layout, 0)
-        rect = ffi.new("PangoRectangle *")
-        pango.pango_layout_line_get_extents(line, ffi.NULL, rect)
-        return pango.pango_units_to_double(rect.width)
+        result, values = self._layout(text, 0)
+        layout = result[0]
+        layout.reactivate(values)
+        line, _ = layout.get_first_line()
+        run = line.runs[0] if line is not None else ffi.NULL
+        while run != ffi.NULL:
+            glyphs = run.data.glyphs
+            for i in range(glyphs.num_glyphs):
+                if glyphs.glyphs[i].glyph & pango.PANGO_GLYPH_UNKNOWN_FLAG:
+                    return True
+            run = run.next
+        return False
+
+    def missing(self, text: str) -> str:
+        """Return the characters of ``text`` that no installed font has, each once."""
+        return "".join(dict.fromkeys(c for c in text if not self.covered(c)))
+
+    def shown(self, text: str) -> str:
+        """Return ``text`` with the characters that no font has replaced by :data:`MISSING`."""
+        missing = self.missing(text)
+        if not missing:
+            return text
+        mark = next((c for c in MISSING if self.covered(c)), "?")
+        return "".join(mark if c in missing else c for c in text)
+
+
+class _Style(dict):
+    """The computed style WeasyPrint's line layout reads, like ``weasyprint.svg.text.Style``."""
+
+    font_config: Any = None
 
 
 def _gc(pointer: Any, free: Any) -> Any:  # noqa: ANN401 - cffi objects
