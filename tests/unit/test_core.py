@@ -27,6 +27,23 @@ def test_slugify_basic() -> None:
     assert slugify("  Multi   Space  ") == "multi-space"
 
 
+def test_slugify_keeps_letters_of_other_scripts() -> None:
+    assert slugify("中文 日本語") == "中文-日本語"
+    assert slugify("مستند") == "مستند"
+    # Vowel signs are marks, which pandoc leaves out of heading ids too.
+    assert slugify("देवनागरी") == "दवनगर"
+    # Text with ASCII letters keeps the ASCII slug.
+    assert slugify("Notes 笔记") == "notes"
+    assert slugify("🚀") == ""
+
+
+def test_page_without_slug_gets_an_anchor(tmp_path: Path) -> None:
+    from obsidian_pdf_exporter.core.tree import PageNode
+
+    assert PageNode(folder=tmp_path, name="🚀").anchor == "page"
+    assert PageNode(folder=tmp_path, name="مستند").anchor == "مستند"
+
+
 def test_safe_filename_strips_punctuation() -> None:
     assert safe_filename("My Doc: v1.0") == "My_Doc_v10"
     assert safe_filename("") == "export"

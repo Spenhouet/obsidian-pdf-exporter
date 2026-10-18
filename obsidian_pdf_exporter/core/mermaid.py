@@ -241,6 +241,12 @@ def _render_with_pele(
                     log(f"  Warning: Pele could not draw a {kind} diagram: {first_line}")
                     continue
                 image.write_text(result.svg, encoding="utf-8")
+        if renderer.missing:
+            chars = " ".join(sorted(renderer.missing))
+            log(
+                f"  Warning: no installed font has these characters of Mermaid labels: {chars}. "
+                f"They are drawn as {mermaid_pele.MISSING[0]}. Install fonts that cover them."
+            )
     return {code: job[0] for code, job in jobs.items() if code not in failed and job[0].exists()}
 
 
