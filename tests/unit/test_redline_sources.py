@@ -505,3 +505,50 @@ def test_extract_commit_writes_the_files_the_zip_extraction_wrote(tmp_path: Path
     assert not (actual / "link.md").is_symlink()
     with pytest.raises(RuntimeError, match="git archive"):
         extract_commit("no-such-commit", tmp_path / "missing", repo)
+
+
+@pytest.mark.parametrize("debug", [True, False])
+def test_final_html_is_built_only_with_debug(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, debug: bool
+) -> None:
+    """Without --debug the build folder is deleted, so final.html with the image data is not built.
+
+    WeasyPrint gets the same HTML either way.
+    """
+    from obsidian_pdf_exporter.core.image_placeholders import ImagePlaceholders
+
+    root = tmp_path / "vault"
+    _write_vault(root, "red")
+    monkeypatch.chdir(root)
+    seen: list[str] = []
+
+    def fake_pdf(html: str, out: Path, **_kw: object) -> None:
+        seen.append(re.sub(r"_build_doc-images-[a-z0-9_]+", "X", html))
+        out.write_bytes(b"%PDF")
+
+    monkeypatch.setattr(exporter, "html_to_pdf", fake_pdf)
+    with_data = ImagePlaceholders.with_data
+    calls: list[int] = []
+
+    def counting(self: ImagePlaceholders, html: str) -> str:
+        calls.append(1)
+        return with_data(self, html)
+
+    monkeypatch.setattr(ImagePlaceholders, "with_data", counting)
+    outputs = {}
+    for run_debug in (True, debug):
+        output = tmp_path / f"out-{run_debug}-{len(outputs)}" / "doc.pdf"
+        output.parent.mkdir()
+        request = ExportRequest(
+            root=root / "Doc", output=output, template=load_template("default"), debug=run_debug
+        )
+        export_pdf(request, log=lambda _m: None)
+        outputs[len(outputs)] = output
+
+    assert (outputs[0].parent / "_build_doc" / "final.html").exists()
+    assert (outputs[1].parent / "_build_doc").exists() is debug
+    assert len(calls) == (2 if debug else 1)
+    first, second = (
+        s.replace(str(o.parent), "OUT") for s, o in zip(seen, outputs.values(), strict=True)
+    )
+    assert first == second
