@@ -231,7 +231,9 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
         html = unlink_missing_targets(html, lambda m: log(f"  Warning: {m}"))
         html = mark_long_words(mark_rtl_blocks(html))
 
-        (build_dir / "final.html").write_text(images.with_data(html), encoding="utf-8")
+        if request.debug:
+            # With the image data, as pandoc wrote it; only kept with --debug.
+            (build_dir / "final.html").write_text(images.with_data(html), encoding="utf-8")
         html = images.with_files(html)
         log.summary()
 
@@ -362,7 +364,10 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
             html = unlink_missing_targets(html, lambda m: log(f"  Warning: {m}"))
             html = mark_long_words(mark_rtl_blocks(html))
 
-            (build_dir / "redline_final.html").write_text(images.with_data(html), encoding="utf-8")
+            if request.debug:
+                (build_dir / "redline_final.html").write_text(
+                    images.with_data(html), encoding="utf-8"
+                )
             html = images.with_files(html)
             log.summary()
 
