@@ -23,8 +23,10 @@ jobs:
 
       - name: Crash loop
         run: |
-          uv run pytest -q tests/unit/test_scripts.py -k "test_export_runs and latin-only and blame" --basetemp=$PWD/bt
-          for mode in on nogc; do for w in 1 2 3 4; do ./ci_debug/loop.sh $mode 60 $w & done; wait; done
+          for i in $(seq 25); do
+            PYTHONFAULTHANDLER=1 uv run pytest -q -x tests/unit/test_scripts.py -p no:cacheprovider > loop.txt 2>&1 || { echo "FAIL iteration $i"; grep -E "Fatal|File |Thread|Current|Segmentation|returncode|FAILED|assert -" loop.txt | head -120; }
+            tail -1 loop.txt
+          done
 
       - name: Run linting with ruff
         run: uv run ruff check
