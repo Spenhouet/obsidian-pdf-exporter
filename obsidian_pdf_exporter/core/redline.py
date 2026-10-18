@@ -22,11 +22,12 @@ from __future__ import annotations
 import datetime
 import difflib
 import html
-import io
 import json
 import re
+import shutil
 import subprocess
-import zipfile
+import tarfile
+import tempfile
 from dataclasses import dataclass
 from functools import partial
 from typing import TYPE_CHECKING
@@ -85,18 +86,52 @@ def resolve_short_hash(commit: str, repo_root: Path) -> str:
 
 
 def extract_commit(commit: str, target_dir: Path, repo_root: Path) -> None:
-    """Extract a commit's tree into ``target_dir`` via ``git archive``."""
-    result = subprocess.run(  # noqa: S603 - argv is constructed from a known refspec
-        ["git", "archive", "--format=zip", commit],  # noqa: S607
-        capture_output=True,
-        cwd=str(repo_root),
-        check=False,
-    )
-    if result.returncode != 0:
-        msg = f"git archive {commit!r} failed:\n" + result.stderr.decode("utf-8", errors="replace")
-        raise RuntimeError(msg)
-    with zipfile.ZipFile(io.BytesIO(result.stdout)) as zf:
-        zf.extractall(target_dir)
+    """Extract a commit's tree into ``target_dir`` via ``git archive``.
+
+    The archive is a tar read as a stream: git does not compress it, and it is
+    never held in memory as a whole. Files are written without their modes or
+    times; a symbolic link becomes a file that holds its target.
+    """
+    with tempfile.TemporaryFile() as errors:
+        process = subprocess.Popen(  # noqa: S603 - argv is constructed from a known refspec
+            ["git", "archive", "--format=tar", commit],  # noqa: S607
+            stdout=subprocess.PIPE,
+            stderr=errors,
+            cwd=str(repo_root),
+        )
+        assert process.stdout is not None  # noqa: S101 - set by stdout=PIPE
+        try:
+            with tarfile.open(fileobj=process.stdout, mode="r|") as archive:
+                _extract_members(archive, target_dir.resolve())
+        except tarfile.ReadError:
+            pass  # git failed before writing an archive; reported below
+        finally:
+            process.stdout.close()
+            returncode = process.wait()
+        if returncode != 0:
+            errors.seek(0)
+            message = errors.read().decode("utf-8", errors="replace")
+            msg = f"git archive {commit!r} failed:\n" + message
+            raise RuntimeError(msg)
+
+
+def _extract_members(archive: tarfile.TarFile, target: Path) -> None:
+    """Write the files of a streamed tar ``archive`` below ``target``."""
+    for member in archive:
+        path = (target / member.name).resolve()
+        if not path.is_relative_to(target):
+            continue
+        if member.isdir():
+            path.mkdir(parents=True, exist_ok=True)
+        elif member.isfile():
+            source = archive.extractfile(member)
+            assert source is not None  # noqa: S101 - a regular file has data
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with path.open("wb") as out:
+                shutil.copyfileobj(source, out)
+        elif member.issym():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(member.linkname, encoding="utf-8")
 
 
 def redline_source_info(repo_root: Path, from_ref: str, to_ref: str, path: Path) -> dict[str, str]:
