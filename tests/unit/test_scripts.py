@@ -485,3 +485,28 @@ def test_short_words_in_tables_stay_whole(reports: dict, case: tuple[str, str, s
     """Only the long words of a narrow table break, not its headings."""
     texts = {box["text"].strip() for box in _report(reports, case)["boxes"]}
     assert {"Script", "Sample", "Long"} <= texts
+
+
+@pytest.mark.parametrize("case", EXPORTS, ids="-".join)
+def test_text_without_a_font_is_reported_per_page(
+    reports: dict, case: tuple[str, str, str]
+) -> None:
+    """Pages with characters no font has get a warning that names the page and the script."""
+    log = _report(reports, case)["log"]
+    warnings = [line for line in log if line.startswith("  Warning: Page ")]
+    scenario = SCENARIOS[case[0]]
+    if scenario.covers("devanagari") and scenario.covers("cjk"):
+        assert not warnings
+        return
+    assert warnings
+    assert any("Devanagari" in line and "Thai" in line for line in warnings)
+    assert all('("' in line and 'for example "' in line for line in warnings)
+    assert not [line for line in log if ".notdef" in line]
+
+
+@pytest.mark.parametrize("case", [c for c in EXPORTS if c[0] == "latin-only"], ids="-".join)
+def test_text_without_a_font_stays_searchable(reports: dict, case: tuple[str, str, str]) -> None:
+    """Characters drawn as empty boxes keep their text in the PDF."""
+    pdf_text = "".join("".join(page["text"] for page in _report(reports, case)["pages"]).split())
+    for word in ("中文段落", "日本語の段落", "مرحبا", "שלום", "नमस्ते", "พจนานุกรม"):
+        assert word in pdf_text
