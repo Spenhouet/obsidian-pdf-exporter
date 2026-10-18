@@ -18,7 +18,9 @@ from weasyprint import document as weasy_document
 from weasyprint import images as weasy_images
 from weasyprint import pdf as weasy_pdf
 from weasyprint.css import get_all_computed_styles
+from weasyprint.document import Page
 from weasyprint.layout import page as weasy_page
+from weasyprint.pdf.stream import Stream
 
 from obsidian_pdf_exporter.compat import weasyprint_patches
 from obsidian_pdf_exporter.compat.weasyprint_patches import FIRST_VERSION
@@ -82,7 +84,12 @@ def test_equal_style_attributes_share_one_computed_style() -> None:
 @supported
 def test_patch_is_applied_once_and_turned_off() -> None:
     def targets() -> tuple[Any, ...]:
-        return (css.find_style_attributes, weasy_pdf._use_references, weasyprint.HTML.render)
+        return (
+            css.find_style_attributes,
+            weasy_pdf._use_references,
+            weasyprint.HTML.render,
+            Stream.add_image,
+        )
 
     originals = targets()
     assert len(apply_weasyprint_patches({})) == len(PATCHES)
@@ -362,3 +369,33 @@ def test_page_styles_from_own_entries_give_the_same_styles_and_pdf(
     assert keys == unpatched_keys
     patched = _text_and_pixels(tmp_path / "patched.pdf")
     assert patched == _text_and_pixels(tmp_path / "unpatched.pdf")
+
+
+@supported
+def test_image_streams_start_while_the_pages_are_drawn(tmp_path: Path) -> None:
+    html = _image_page(tmp_path) + '<p style="break-before: page">text</p>' * 2
+    unpatched = _pdf(html, tmp_path)
+    apply_weasyprint_patches()
+    started = threading.Event()
+    original_x_object = weasy_images.RasterImage.get_x_object
+    original_paint = Page.paint
+    painted: list[Any] = []
+    waited: list[bool] = []
+
+    def get_x_object(self: Any, *args: Any) -> Any:  # noqa: ANN401
+        started.set()
+        return original_x_object(self, *args)
+
+    def paint(self: Any, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        if painted:  # the first page draws the images, the others wait for a stream
+            waited.append(started.wait(10))
+        painted.append(self)
+        return original_paint(self, *args, **kwargs)
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(weasy_images.RasterImage, "get_x_object", get_x_object)
+        monkeypatch.setattr(Page, "paint", paint)
+        patched = _pdf(html, tmp_path)
+    assert waited
+    assert all(waited)
+    assert patched == unpatched
