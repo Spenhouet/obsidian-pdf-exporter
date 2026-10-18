@@ -105,7 +105,7 @@ LAST_VERSION: tuple[int, ...] = (70, 0)
 _STYLE_SPECIFICITY = (1, 0, 0)
 
 #: Most threads that build image streams at once. Each thread holds one decoded
-#: image; four threads gave most of the speed of eight with half the extra memory.
+#: image, so more threads need more memory.
 IMAGE_THREADS = min(4, os.cpu_count() or 1)
 
 #: Attribute of a wrapper that holds the function it wraps.
