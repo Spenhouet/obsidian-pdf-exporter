@@ -399,3 +399,90 @@ def test_image_streams_start_while_the_pages_are_drawn(tmp_path: Path) -> None:
     assert waited
     assert all(waited)
     assert patched == unpatched
+
+
+_LOGO = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 40" width="120" height="40">'
+    '<defs><linearGradient id="g"><stop offset="0" stop-color="red"/>'
+    '<stop offset="1" stop-color="blue"/></linearGradient>'
+    '<pattern id="p" width="8" height="8" patternUnits="userSpaceOnUse">'
+    '<circle cx="4" cy="4" r="3" fill="green"/></pattern></defs>'
+    '<path d="M5 5 C 20 0, 40 40, 60 20 S 100 0, 115 35 Z" fill="url(#g)" stroke="black"/>'
+    '<rect x="70" y="5" width="40" height="30" fill="url(#p)" opacity="0.6"/>'
+    "</svg>"
+)
+
+
+def _svg_pages(folder: Path, logo: str = _LOGO) -> str:
+    (folder / "logo.svg").write_text(logo, encoding="utf-8")
+    pages = "".join(
+        f'<p style="break-before: page">Page {i} <img src="logo.svg" style="width: {w}px"></p>'
+        for i, w in enumerate((60, 60, 90, 60))
+    )
+    return (
+        "<style>@page { @top-right { content: element(logo) } }"
+        " .logo { position: running(logo) }</style>"
+        f'<div class="logo"><img src="logo.svg" style="width: 120px"></div>{pages}'
+    )
+
+
+def _svg_draws(monkeypatch: pytest.MonkeyPatch) -> list[tuple[float, float]]:
+    """Count the drawings of SVG images, under the patch if it is applied after this."""
+    calls: list[tuple[float, float]] = []
+    original = weasy_images.SVGImage.draw
+
+    def draw(
+        self: Any,  # noqa: ANN401
+        stream: Any,  # noqa: ANN401
+        concrete_width: float,
+        concrete_height: float,
+        _style: Any,  # noqa: ANN401
+    ) -> Any:  # noqa: ANN401  # noqa: ANN401
+        calls.append((concrete_width, concrete_height))
+        return original(self, stream, concrete_width, concrete_height, _style)
+
+    monkeypatch.setattr(weasy_images.SVGImage, "draw", draw)
+    return calls
+
+
+def _pages(pdf: bytes) -> tuple[list[str], list[bytes]]:
+    document = pypdfium2.PdfDocument(pdf)
+    text = [page.get_textpage().get_text_range() for page in document]
+    pixels = [page.render(scale=2).to_pil().tobytes() for page in document]
+    return text, pixels
+
+
+@supported
+def test_svg_image_used_again_is_drawn_once_and_looks_the_same(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    html = _svg_pages(tmp_path)
+    unpatched = _pdf(html, tmp_path)
+    draws = _svg_draws(monkeypatch)
+    _pdf(html, tmp_path)
+    # 4 pages, each with the header logo, and 4 logos in the text, at 3 sizes.
+    assert sorted(draws) == [(60, 20)] * 3 + [(90, 30)] + [(120, 40)] * 4
+    draws.clear()
+    apply_weasyprint_patches()
+    patched = _pdf(html, tmp_path)
+    # A size used again is drawn inline at its first use and once into a form.
+    assert sorted(draws) == [(60, 20)] * 2 + [(90, 30)] + [(120, 40)] * 2
+    assert patched != unpatched
+    assert _pages(patched) == _pages(unpatched)
+
+
+@supported
+@pytest.mark.parametrize(
+    "element",
+    ['<image href="dot.png" x="0" y="0" width="8" height="8"/>', '<text x="8" y="34">Logo</text>'],
+)
+def test_svg_image_with_a_raster_image_or_text_is_drawn_each_time(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, element: str
+) -> None:
+    Image.new("RGB", (4, 4), (0, 128, 255)).save(tmp_path / "dot.png")
+    logo = _LOGO.replace("</svg>", f"{element}</svg>")
+    html = _svg_pages(tmp_path, logo)
+    draws = _svg_draws(monkeypatch)
+    apply_weasyprint_patches()
+    _pdf(html, tmp_path)
+    assert len(draws) == 8
