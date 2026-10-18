@@ -7,6 +7,7 @@ import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
+from typing import Any
 
 from obsidian_pdf_exporter.core.diagram_fit import render_fitted
 from obsidian_pdf_exporter.core.html_postprocess import RE_EMBEDDED_IMAGE
@@ -51,9 +52,27 @@ def html_to_pdf(
 
     with tempfile.TemporaryDirectory(prefix="ope-images-") as folder:
         html = images_to_files(html, Path(folder))
+        cache = image_cache(Path(folder) / "cache")
         with svg_current_color():
-            document = render_fitted(HTML(string=html, base_url=base_url or None), fit)
+            document = render_fitted(HTML(string=html, base_url=base_url or None), fit, cache)
             document.write_pdf(str(output_path))
+
+
+def image_cache(folder: Path) -> Any:  # noqa: ANN401 - a WeasyPrint cache
+    """Return a WeasyPrint image cache that keeps image bytes in ``folder``.
+
+    WeasyPrint keeps the data of every image stream it builds in its image
+    cache until the PDF is written. With a dict, all of it stays in memory,
+    which on a document with many screenshots adds up to more than 100 MB at
+    the peak. WeasyPrint's ``DiskCache`` writes the bytes to files and reads
+    them back when the PDF is written, so the PDF is the same. If this
+    WeasyPrint has no ``DiskCache``, a dict is used.
+    """
+    try:
+        from weasyprint.document import DiskCache
+    except ImportError:
+        return {}
+    return DiskCache(folder)
 
 
 def images_to_files(html: str, folder: Path) -> str:
