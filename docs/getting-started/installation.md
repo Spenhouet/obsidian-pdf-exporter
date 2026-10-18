@@ -83,7 +83,13 @@ sudo apt-get install -y fonts-noto-core fonts-noto-cjk   # Debian, Ubuntu, CI ru
 
 What happens with other text:
 
-- A character that no installed font has is drawn as an empty box, the `.notdef` glyph of the font. The layout stays the same, and WeasyPrint prints a warning `.notdef glyph rendered for Unicode string unsupported by fonts` with the text. In Mermaid labels such a character is drawn as `□`, and the export lists these characters in a warning.
+- A character that no installed font has is drawn as an empty box, the `.notdef` glyph of the font. The layout stays the same, and the text stays in the text layer of the PDF, so it can still be searched and copied. The export prints one warning per page, with the section, the scripts and an example:
+
+    ```text
+    Warning: Page 4 ("6 Tables") has Devanagari, Thai text that no installed font can draw, for example "नमस्ते".
+    ```
+
+    In Mermaid labels such a character is drawn as `□` and the export lists these characters in a warning of its own. There they are not in the text layer.
 - Math is drawn in the math font of ziamath, which has Latin and Greek letters. A formula with other characters, such as Chinese in `\text{}`, stays as TeX source and the export prints a warning.
 - Paragraphs, headings, list items and table cells that start with Hebrew or Arabic text are laid out from right to left, the way a browser does it for `dir="auto"`.
 - Chinese and Japanese text breaks between characters, Thai text between words.
