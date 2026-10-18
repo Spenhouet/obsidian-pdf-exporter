@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gc
 import logging
 import shutil
 import threading
@@ -13,6 +14,7 @@ import pytest
 import weasyprint
 from PIL import Image
 from weasyprint import css
+from weasyprint import document as weasy_document
 from weasyprint import images as weasy_images
 from weasyprint import pdf as weasy_pdf
 from weasyprint.css import get_all_computed_styles
@@ -78,14 +80,17 @@ def test_equal_style_attributes_share_one_computed_style() -> None:
 
 @supported
 def test_patch_is_applied_once_and_turned_off() -> None:
-    originals = (css.find_style_attributes, weasy_pdf._use_references)
+    def targets() -> tuple[Any, ...]:
+        return (css.find_style_attributes, weasy_pdf._use_references, weasyprint.HTML.render)
+
+    originals = targets()
     assert len(apply_weasyprint_patches({})) == len(PATCHES)
-    patched = (css.find_style_attributes, weasy_pdf._use_references)
+    patched = targets()
     assert all(p is not o for p, o in zip(patched, originals, strict=True))
     assert len(apply_weasyprint_patches({})) == len(PATCHES)
-    assert (css.find_style_attributes, weasy_pdf._use_references) == patched
+    assert targets() == patched
     assert apply_weasyprint_patches(OFF) == []
-    assert (css.find_style_attributes, weasy_pdf._use_references) == originals
+    assert targets() == originals
 
 
 def test_patch_is_skipped_on_a_newer_weasyprint(
@@ -259,3 +264,55 @@ def test_a_failing_image_stream_is_built_again_by_weasyprint(
     patched = _pdf(html, tmp_path)
     apply_weasyprint_patches(OFF)
     assert patched == _pdf(html, tmp_path)
+
+
+def _spy_layout(monkeypatch: pytest.MonkeyPatch, *, fail: bool = False) -> list[bool]:
+    """Record whether the garbage collector is on each time WeasyPrint lays out a document."""
+    seen: list[bool] = []
+    original = weasy_document.Document._render.__func__
+
+    def _render(cls: Any, *args: Any) -> Any:  # noqa: ANN401
+        seen.append(gc.isenabled())
+        if fail:
+            raise RuntimeError
+        return original(cls, *args)
+
+    monkeypatch.setattr(weasy_document.Document, "_render", classmethod(_render))
+    return seen
+
+
+@supported
+def test_garbage_collector_is_off_during_layout_and_on_after(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen = _spy_layout(monkeypatch)
+    html = "<h1>Title</h1><p>Some text.</p>"
+    unpatched = weasyprint.HTML(string=html).write_pdf()
+    apply_weasyprint_patches()
+    patched = weasyprint.HTML(string=html).write_pdf()
+    assert seen == [True, False]
+    assert gc.isenabled()
+    assert patched == unpatched
+
+
+@supported
+def test_garbage_collector_is_on_after_a_failed_layout(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen = _spy_layout(monkeypatch, fail=True)
+    apply_weasyprint_patches()
+    with pytest.raises(RuntimeError):
+        weasyprint.HTML(string="<p>text</p>").render()
+    assert seen == [False]
+    assert gc.isenabled()
+
+
+@supported
+def test_garbage_collector_stays_off_when_it_was_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen = _spy_layout(monkeypatch)
+    apply_weasyprint_patches()
+    gc.disable()
+    try:
+        weasyprint.HTML(string="<p>text</p>").render()
+        assert not gc.isenabled()
+    finally:
+        gc.enable()
+    assert seen == [False]
