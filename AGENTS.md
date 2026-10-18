@@ -25,6 +25,8 @@ Templates (`obsidian_pdf_exporter/templates/`) only change the look: CSS, header
 
 Files that go into the build folder (images, rendered drawings, PDF pages) are named by their content (`core/build_files.py`), so a redline sees a file that was replaced under the same name.
 
+Pandoc embeds a short placeholder instead of each raster image of the build folder (`core/image_placeholders.py`). The steps see the small HTML; `final.html` gets the image data back, and WeasyPrint gets `file:` URLs of the images.
+
 `ope redline` diffs the assembled Markdown of two commits, or of two folders or notes with `--from-path` (`core/redline.py`), then lays the HTML out in the chosen style with the change summary (`core/redline_html.py`, `redline_side_by_side.py`, `redline_collapse.py`). `--blame` (`core/blame.py`) renders the PDF unchanged and adds a strip next to every page. The CSS of the change marks is in `core/assets/` and comes before the template CSS.
 
 Where new code goes:
