@@ -524,6 +524,8 @@ looks the same with and without them.
   document. The layout keeps all its styles and boxes alive until it ends, so
   full collections during the layout walk many objects and find little.
   Cyclic garbage made during the layout is freed after it.
+- The styles of a page and its margin boxes are computed from the entries of
+  that page, without walking the entries of all earlier pages.
 
 ## Testing
 

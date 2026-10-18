@@ -18,6 +18,7 @@ from weasyprint import document as weasy_document
 from weasyprint import images as weasy_images
 from weasyprint import pdf as weasy_pdf
 from weasyprint.css import get_all_computed_styles
+from weasyprint.layout import page as weasy_page
 
 from obsidian_pdf_exporter.compat import weasyprint_patches
 from obsidian_pdf_exporter.compat.weasyprint_patches import FIRST_VERSION
@@ -316,3 +317,48 @@ def test_garbage_collector_stays_off_when_it_was_off(monkeypatch: pytest.MonkeyP
     finally:
         gc.enable()
     assert seen == [False]
+
+
+_PAGED_HTML = """
+<style>
+  @page { size: A6; @top-center { content: "Title" } @bottom-right { content: counter(page) } }
+  @page :first { @top-left { content: "First" } }
+  @page :left { @bottom-left { content: "Left" } }
+  @page :blank { @top-center { content: none } }
+  @page wide { size: A6 landscape; @right-middle { content: "Wide" } }
+  p { break-after: page }
+  .wide { page: wide }
+  .right { break-before: right }
+</style>
+<p>One</p><p>Two</p><p class="wide">Three</p><p class="right">Four</p><p class="wide">Five</p>
+"""
+
+
+def _page_styles(monkeypatch: pytest.MonkeyPatch) -> list[set[Any]]:
+    """Record the keys of the page styles each time a page is laid out."""
+    keys: list[set[Any]] = []
+    original = weasy_page.make_page
+
+    def make_page(context: Any, *args: Any) -> Any:  # noqa: ANN401
+        styles = context.style_for.get_computed_styles()
+        keys.append({key for key in styles if isinstance(key[0], weasy_page.PageType)})
+        return original(context, *args)
+
+    monkeypatch.setattr(weasy_page, "make_page", make_page)
+    return keys
+
+
+@supported
+def test_page_styles_from_own_entries_give_the_same_styles_and_pdf(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    keys = _page_styles(monkeypatch)
+    (tmp_path / "unpatched.pdf").write_bytes(weasyprint.HTML(string=_PAGED_HTML).write_pdf())
+    unpatched_keys = list(keys)
+    keys.clear()
+    assert "page styles computed from their own entries" in apply_weasyprint_patches()
+    (tmp_path / "patched.pdf").write_bytes(weasyprint.HTML(string=_PAGED_HTML).write_pdf())
+    assert len(unpatched_keys) > 5
+    assert keys == unpatched_keys
+    patched = _text_and_pixels(tmp_path / "patched.pdf")
+    assert patched == _text_and_pixels(tmp_path / "unpatched.pdf")

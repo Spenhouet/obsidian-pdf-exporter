@@ -43,6 +43,17 @@ automatic collection off while it runs, then back on. Objects freed by
 reference counting are freed as before; only cyclic garbage made during the
 layout waits until the layout is done. The collector does not change any value,
 so the PDF is the same.
+
+Compute the styles of a page from its own entries only
+------------------------------------------------------
+
+For every page, WeasyPrint adds the declarations of the matching ``@page``
+rules to its cascaded styles, then looks for the margin boxes of the page by
+walking all cascaded entries of all pages laid out so far. The time per page
+grows with the number of pages. The patch wraps
+``weasyprint.layout.page.set_page_type_computed_styles`` and only checks the
+margin boxes that ``@page`` rules can create. It computes the styles of the
+same entries, so the PDF is the same.
 """
 
 from __future__ import annotations
@@ -203,6 +214,46 @@ def pause_garbage_collection(original: Callable[..., Any]) -> Callable[..., Any]
     return render
 
 
+def _page_pseudo_types(style_for: Any) -> tuple[Any, ...]:  # noqa: ANN401 - WeasyPrint object
+    """Return the margin boxes and other pseudo types that ``@page`` rules of ``style_for`` name."""
+    pseudo_types: dict[Any, None] = {}
+    for sheet, _origin, _specificity in style_for._sheets:
+        for _rule, selector_list, _declarations in sheet.page_rules:
+            for _selector_specificity, pseudo_type, _page_selector in selector_list:
+                if pseudo_type:
+                    pseudo_types[pseudo_type] = None
+    return tuple(pseudo_types)
+
+
+def page_styles_from_own_entries(original: Callable[..., None]) -> Callable[..., None]:
+    """Wrap ``set_page_type_computed_styles`` so it does not walk the entries of other pages.
+
+    The original computes the style of the page, then the style of every
+    cascaded entry ``(element, pseudo_type)`` with ``element == page_type``.
+    Such an entry only exists for a pseudo type named by an ``@page`` rule, so
+    the wrapper checks those few keys instead.
+    """
+
+    @functools.wraps(original)
+    def set_page_type_computed_styles(page_type: Any, html: Any, style_for: Any) -> None:  # noqa: ANN401
+        style_for.add_page_declarations(page_type)
+        style_for.set_computed_styles(
+            page_type, root=html.etree_element, parent=html.etree_element, base_url=html.base_url
+        )
+        cascaded = style_for.get_cascaded_styles()
+        for pseudo_type in _page_pseudo_types(style_for):
+            if (page_type, pseudo_type) in cascaded:
+                style_for.set_computed_styles(
+                    page_type,
+                    pseudo_type=pseudo_type,
+                    root=html.etree_element,
+                    parent=page_type,
+                    base_url=html.base_url,
+                )
+
+    return set_page_type_computed_styles
+
+
 @dataclass(frozen=True)
 class Patch:
     """A wrapper for one WeasyPrint function."""
@@ -236,6 +287,13 @@ PATCHES: tuple[Patch, ...] = (
         "HTML.render",
         ("self", "font_config", "counter_style", "color_profiles", "options"),
         pause_garbage_collection,
+    ),
+    Patch(
+        "page styles computed from their own entries",
+        "weasyprint.layout.page",
+        "set_page_type_computed_styles",
+        ("page_type", "html", "style_for"),
+        page_styles_from_own_entries,
     ),
 )
 
