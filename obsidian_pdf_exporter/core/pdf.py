@@ -63,8 +63,8 @@ def image_cache(folder: Path) -> Any:  # noqa: ANN401 - a WeasyPrint cache
 
     WeasyPrint keeps the data of every image stream it builds in its image
     cache until the PDF is written. With a dict, all of it stays in memory,
-    which on a document with many screenshots adds up to more than 100 MB at
-    the peak. WeasyPrint's ``DiskCache`` writes the bytes to files and reads
+    which on a document with many screenshots is a large part of the peak.
+    WeasyPrint's ``DiskCache`` writes the bytes to files and reads
     them back when the PDF is written, so the PDF is the same. If this
     WeasyPrint has no ``DiskCache``, a dict is used.
     """
