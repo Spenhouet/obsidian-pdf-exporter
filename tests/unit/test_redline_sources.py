@@ -460,3 +460,48 @@ def test_export_keeps_link_to_missing_heading_as_text(
     assert 'href="#no-such-heading"' not in page
     assert 'href="#data-flow"' in page
     assert any('link to "#no-such-heading" points outside the PDF' in m for m in messages)
+
+
+def _extract_with_zip(commit: str, target_dir: Path, repo_root: Path) -> None:
+    """The earlier extraction: a zip archive in memory, kept as the reference."""
+    import zipfile
+
+    result = subprocess.run(  # noqa: S603
+        ["git", "archive", "--format=zip", commit],  # noqa: S607
+        capture_output=True,
+        cwd=str(repo_root),
+        check=True,
+    )
+    with zipfile.ZipFile(io.BytesIO(result.stdout)) as zf:
+        zf.extractall(target_dir)
+
+
+def _tree(folder: Path) -> dict[str, bytes | None]:
+    return {
+        p.relative_to(folder).as_posix(): (p.read_bytes() if p.is_file() else None)
+        for p in sorted(folder.rglob("*"))
+    }
+
+
+def test_extract_commit_writes_the_files_the_zip_extraction_wrote(tmp_path: Path) -> None:
+    from obsidian_pdf_exporter.core.redline import extract_commit
+
+    repo = tmp_path / "repo"
+    (repo / "a" / "b c").mkdir(parents=True)
+    (repo / "note.md").write_text("# Note\n\nText.\n", encoding="utf-8")
+    (repo / "a" / "b c" / "Größe & (1).md").write_text("Ä ö ü\r\n", encoding="utf-8")
+    (repo / "a" / "image.png").write_bytes(_png("red"))
+    (repo / "a" / "empty.md").write_bytes(b"")
+    (repo / "link.md").symlink_to("note.md")
+    _git(repo.parent, "init", "-q", str(repo))
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "one")
+
+    expected, actual = tmp_path / "zip", tmp_path / "tar"
+    _extract_with_zip("HEAD", expected, repo)
+    extract_commit("HEAD", actual, repo)
+
+    assert _tree(actual) == _tree(expected)
+    assert not (actual / "link.md").is_symlink()
+    with pytest.raises(RuntimeError, match="git archive"):
+        extract_commit("no-such-commit", tmp_path / "missing", repo)
