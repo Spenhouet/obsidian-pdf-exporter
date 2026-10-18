@@ -19,8 +19,10 @@ RE_FENCE = re.compile(r"^[ \t]*(```|~~~)")
 
 #: An inline code span: a run of backticks, then the code, then a run of the
 #: same length. The code may wrap onto the next line but not across a blank
-#: line, as in CommonMark.
-RE_CODE_SPAN = re.compile(r"(?<![`\\])(`+)(?!`)((?:[^\n]|\n(?![ \t]*\n))+?)(?<!`)\1(?!`)")
+#: line, as in CommonMark. The run must not follow a backtick or a backslash;
+#: the pattern starts with the literal first backtick and checks that after it,
+#: so ``re`` only tries it where a backtick occurs.
+RE_CODE_SPAN = re.compile(r"(`(?<![`\\]`)`*)(?!`)((?:[^\n]|\n(?![ \t]*\n))+?)(?<!`)\1(?!`)")
 
 # Private use characters, so a placeholder never matches any syntax.
 _OPEN = ""
