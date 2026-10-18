@@ -67,7 +67,9 @@ Pele draws with its own neutral style. Its colors are the CSS variables listed u
 }
 ```
 
-Pele needs the width of every label to lay a diagram out. ope measures them with Pango, the text engine WeasyPrint uses, in the font of the PDF, so labels fit their boxes in any font.
+Pele needs the width of every label to lay a diagram out. ope measures them with Pango, the text engine WeasyPrint uses, in the font of the PDF and at the size they are drawn, so labels fit their boxes in any font. When the template font is not installed, labels are measured and drawn in the font that replaces it. Each label is drawn as one line of shaped text, so Arabic letters join, Arabic and Hebrew read from right to left and Hindi or Thai vowel signs stay on their letters.
+
+A character that no installed font has is drawn as `□` (or `?` when no font has `□` either), and the boxes of the diagram are sized for it. The export prints a warning that lists these characters. Install fonts that cover the scripts of the labels, for example Noto, see [Fonts and scripts](../getting-started/installation.md#fonts-and-scripts).
 
 ## Differences from Mermaid
 

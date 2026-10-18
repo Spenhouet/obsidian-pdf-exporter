@@ -1338,6 +1338,25 @@ ope setup --check   # report only, exit 1 if something is missing
 
 When WeasyPrint still cannot find the libraries, set `OBSIDIAN_PDF_GTK_PATH` to the folders that hold them, separated by `os.pathsep`.
 
+## Fonts and scripts
+
+The PDF uses the fonts installed on the machine that runs the export. Fontconfig picks them: first the fonts the template names (`default` asks for Arial or Helvetica, then any sans-serif font, and Courier New or any monospace font for code), then, for each character that font has no glyph for, another installed font that has one. Text, tables and [Mermaid](../obsidian/mermaid.md) diagrams are laid out with the fonts that draw them, so a missing template font changes the look but not the fit.
+
+Install fonts that cover the scripts of the notes. The [Noto](https://fonts.google.com/noto) fonts cover nearly all of them:
+
+```bash
+sudo apt-get install -y fonts-noto-core fonts-noto-cjk   # Debian, Ubuntu, CI runners
+```
+
+What happens with other text:
+
+- A character that no installed font has is drawn as an empty box, the `.notdef` glyph of the font. The layout stays the same, and WeasyPrint prints a warning `.notdef glyph rendered for Unicode string unsupported by fonts` with the text. In Mermaid labels such a character is drawn as `□`, and the export lists these characters in a warning.
+- Math is drawn in the math font of ziamath, which has Latin and Greek letters. A formula with other characters, such as Chinese in `\text{}`, stays as TeX source and the export prints a warning.
+- Paragraphs, headings, list items and table cells that start with Hebrew or Arabic text are laid out from right to left, the way a browser does it for `dir="auto"`.
+- Chinese and Japanese text breaks between characters, Thai text between words.
+- A word too long for its line, such as a URL, breaks at the end of the line. In a table cell, words of 24 or more characters may break so that the table fits the page.
+- Arabic or Hindi text copied out of the PDF can come out with wrong letters or in the wrong order. The printed text is right; the text layer of the PDF does not keep the letter order of shaped scripts.
+
 ## Optional tools
 
 | Tool | Needed for |
@@ -2799,7 +2818,9 @@ Pele draws with its own neutral style. Its colors are the CSS variables listed u
 }
 ```
 
-Pele needs the width of every label to lay a diagram out. ope measures them with Pango, the text engine WeasyPrint uses, in the font of the PDF, so labels fit their boxes in any font.
+Pele needs the width of every label to lay a diagram out. ope measures them with Pango, the text engine WeasyPrint uses, in the font of the PDF and at the size they are drawn, so labels fit their boxes in any font. When the template font is not installed, labels are measured and drawn in the font that replaces it. Each label is drawn as one line of shaped text, so Arabic letters join, Arabic and Hebrew read from right to left and Hindi or Thai vowel signs stay on their letters.
+
+A character that no installed font has is drawn as `□` (or `?` when no font has `□` either), and the boxes of the diagram are sized for it. The export prints a warning that lists these characters. Install fonts that cover the scripts of the labels, for example Noto, see [Fonts and scripts](../getting-started/installation.md#fonts-and-scripts).
 
 ## Differences from Mermaid
 
@@ -5445,7 +5466,9 @@ ul.task-list > li, ol.task-list > li { list-style: none; }
 span.math.display { display: block; text-align: center; margin: 0.6em 0; }
 svg.math-svg { display: inline; overflow: visible; }
 .math-source code { white-space: pre-wrap; }
+body { overflow-wrap: break-word; }
 td, th { overflow-wrap: break-word; }
+.long-word { overflow-wrap: anywhere; }
 .landscape-figure .landscape { margin-left: auto; margin-right: auto; }
 figure.pdf-embed { break-inside: auto; page-break-inside: auto; }
 img.pdf-embed-page {
