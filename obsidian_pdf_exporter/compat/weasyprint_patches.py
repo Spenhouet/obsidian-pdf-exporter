@@ -30,11 +30,25 @@ wraps ``weasyprint.pdf._use_references``: before the original runs, the
 streams of all images at their full size are built in a thread pool, and the
 original takes each one from there instead of building it. The same function
 builds each stream with the same arguments, so the streams are the same.
+
+Pause the cyclic garbage collector during layout
+------------------------------------------------
+
+Laying out a long document creates many Python objects (styles, boxes, text
+layouts) that all stay alive until the layout is done. Python's cyclic garbage
+collector runs a full collection each time the number of objects has grown by
+a quarter, and each full collection walks every object that is alive, finding
+almost no garbage. The patch wraps ``weasyprint.HTML.render`` and turns
+automatic collection off while it runs, then back on. Objects freed by
+reference counting are freed as before; only cyclic garbage made during the
+layout waits until the layout is done. The collector does not change any value,
+so the PDF is the same.
 """
 
 from __future__ import annotations
 
 import functools
+import gc
 import importlib
 import inspect
 import logging
@@ -169,6 +183,26 @@ def build_images_in_parallel(original: Callable[..., None]) -> Callable[..., Non
     return _use_references
 
 
+def pause_garbage_collection(original: Callable[..., Any]) -> Callable[..., Any]:
+    """Wrap ``HTML.render`` so the cyclic garbage collector does not run during layout.
+
+    The collector is turned back on afterwards, also when the layout fails. If
+    it was already off, it stays off.
+    """
+
+    @functools.wraps(original)
+    def render(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401 - WeasyPrint objects
+        if not gc.isenabled():
+            return original(*args, **kwargs)
+        gc.disable()
+        try:
+            return original(*args, **kwargs)
+        finally:
+            gc.enable()
+
+    return render
+
+
 @dataclass(frozen=True)
 class Patch:
     """A wrapper for one WeasyPrint function."""
@@ -196,16 +230,29 @@ PATCHES: tuple[Patch, ...] = (
         ("pdf", "resources", "images", "color_profiles"),
         build_images_in_parallel,
     ),
+    Patch(
+        "garbage collector paused during layout",
+        "weasyprint",
+        "HTML.render",
+        ("self", "font_config", "counter_style", "color_profiles", "options"),
+        pause_garbage_collection,
+    ),
 )
 
 
-def _target(patch: Patch) -> tuple[Any, Callable[..., Any]] | None:
-    """Return the module of ``patch`` and the original function, or None."""
+def _target(patch: Patch) -> tuple[Any, str, Callable[..., Any]] | None:
+    """Return the object that holds the patched function, its name and the original, or None.
+
+    ``patch.function`` is a function of the module, or a method such as ``HTML.render``.
+    """
     try:
-        module = importlib.import_module(patch.module)
+        owner = importlib.import_module(patch.module)
     except ImportError:
         return None
-    function = getattr(module, patch.function, None)
+    *path, name = patch.function.split(".")
+    for part in path:
+        owner = getattr(owner, part, None)
+    function = getattr(owner, name, None)
     function = getattr(function, _ORIGINAL, function)
     try:
         parameters = tuple(inspect.signature(function).parameters) if function else ()
@@ -214,7 +261,7 @@ def _target(patch: Patch) -> tuple[Any, Callable[..., Any]] | None:
     if function is None or parameters != patch.parameters:
         _log.debug("%s.%s is not as expected, patch skipped", patch.module, patch.function)
         return None
-    return module, function
+    return owner, name, function
 
 
 def _supported_version() -> bool:
@@ -248,16 +295,16 @@ def apply_weasyprint_patches(options: Mapping[str, str] | None = None) -> list[s
         target = _target(patch)
         if target is None:
             continue
-        module, original = target
-        patched = hasattr(getattr(module, patch.function), _ORIGINAL)
+        owner, name, original = target
+        patched = hasattr(getattr(owner, name), _ORIGINAL)
         if not enabled:
             if patched:
-                setattr(module, patch.function, original)
+                setattr(owner, name, original)
             continue
         if not patched:
             wrapper = patch.wrap(original)
             setattr(wrapper, _ORIGINAL, original)
-            setattr(module, patch.function, wrapper)
+            setattr(owner, name, wrapper)
             _log.debug("WeasyPrint patch applied: %s", patch.name)
         active.append(patch.name)
     if not enabled:

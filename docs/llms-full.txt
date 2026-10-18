@@ -936,6 +936,10 @@ looks the same with and without them.
 - The image streams of the PDF are built in a few threads instead of one
   after the other. Pillow decodes and encodes the images without holding the
   GIL. Each thread holds one decoded image, so peak memory grows a little.
+- Python's cyclic garbage collector is paused while WeasyPrint lays out the
+  document. The layout keeps all its styles and boxes alive until it ends, so
+  full collections during the layout walk many objects and find little.
+  Cyclic garbage made during the layout is freed after it.
 
 ## Testing
 
