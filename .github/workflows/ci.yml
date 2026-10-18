@@ -24,6 +24,11 @@ jobs:
       - name: Run linting with ruff
         run: uv run ruff check
 
+      - name: Crash loop
+        run: |
+          uv run pytest -q tests/unit/test_scripts.py -k "test_export_runs and latin-only and blame" --basetemp=$PWD/bt
+          for mode in on nogc; do for w in 1 2 3 4; do ./ci_debug/loop.sh $mode 60 $w & done; wait; done
+
       - name: Run tests with pytest
         run: uv run pytest
 
