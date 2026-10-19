@@ -53,9 +53,11 @@ figure.pdf-embed figcaption { break-before: avoid; page-break-before: avoid; }
 """
 
 #: ``src="data:image/...;base64,..."`` of a raster image that pandoc embedded.
-#: SVG is left out: steps read and inline it.
+#: SVG is left out: steps read and inline it. ``src`` must not follow a word
+#: character. The pattern starts with the literal ``src`` and checks that
+#: afterwards, so ``re`` only tries it where ``src`` occurs.
 RE_EMBEDDED_IMAGE = re.compile(
-    r'\bsrc="data:image/(?P<type>png|jpeg|gif|webp|bmp|tiff);base64,(?P<data>[A-Za-z0-9+/=]+)"'
+    r'src(?<!\wsrc)="data:image/(?P<type>png|jpeg|gif|webp|bmp|tiff);base64,(?P<data>[A-Za-z0-9+/=]+)"'
 )
 
 
