@@ -19,6 +19,8 @@ column alignments, so large tables spend much of their layout time there.
 The patch gives all elements with the same ``style`` string the same
 declarations by wrapping ``weasyprint.css.find_style_attributes``.
 
+Upstream issue: https://github.com/Kozea/WeasyPrint/issues/2980
+
 Build the image streams of the PDF in parallel
 ----------------------------------------------
 
@@ -30,6 +32,8 @@ wraps ``weasyprint.pdf._use_references``: before the original runs, the
 streams of all images at their full size are built in a thread pool, and the
 original takes each one from there instead of building it. The same function
 builds each stream with the same arguments, so the streams are the same.
+
+Upstream issue: https://github.com/Kozea/WeasyPrint/issues/2982
 
 Pause the cyclic garbage collector during layout
 ------------------------------------------------
@@ -44,6 +48,8 @@ reference counting are freed as before; only cyclic garbage made during the
 layout waits until the layout is done. The collector does not change any value,
 so the PDF is the same.
 
+Upstream issue: https://github.com/Kozea/WeasyPrint/issues/2985
+
 Compute the styles of a page from its own entries only
 ------------------------------------------------------
 
@@ -55,6 +61,8 @@ grows with the number of pages. The patch wraps
 margin boxes that ``@page`` rules can create. It computes the styles of the
 same entries, so the PDF is the same.
 
+Upstream issue: https://github.com/Kozea/WeasyPrint/issues/2984
+
 Start the image streams while the pages are drawn
 -------------------------------------------------
 
@@ -65,6 +73,8 @@ at full size, its stream is started in the thread pool of the patch above,
 which then takes the started streams instead of building them again. Drawing
 runs Python code and the image threads mostly run Pillow code without the
 GIL, so both make progress at the same time.
+
+Upstream issue: https://github.com/Kozea/WeasyPrint/issues/2982
 
 Draw an SVG image that is used again at the same size once
 -----------------------------------------------------------
@@ -78,6 +88,8 @@ XObject that every further use paints. The operators in the form are the
 ones that were written into each page before, so the pages look the same.
 SVG images with raster images or text inside, and tagged PDFs, are left as
 they are.
+
+Upstream issue: https://github.com/Kozea/WeasyPrint/issues/1978
 """
 
 from __future__ import annotations
