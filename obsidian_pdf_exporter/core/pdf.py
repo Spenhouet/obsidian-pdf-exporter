@@ -117,6 +117,8 @@ def svg_current_color() -> Iterator[None]:
     ``color`` attribute gets the computed text color as its ``color``
     attribute, so math in a colored callout has the callout's color. If
     WeasyPrint has no such handler, nothing changes.
+
+    Upstream issue: https://github.com/Kozea/WeasyPrint/issues/1497
     """
     try:
         from weasyprint import html as weasy_html
