@@ -1992,7 +1992,7 @@ PDF:
 - A path that starts with `/` is looked up from the vault root. When the path does not exist, the file name is looked up in the whole vault, as for `![[image.png]]`.
 - Encoded characters (`my%20chart.png`) and paths in angle brackets (`![alt](<my chart.png>)`) work. A title (`![alt](path "Title")`) is kept.
 - A width or a width and height after the alt text, `![alt|300](path)` or `![alt|300x200](path)`, sets the size, as in Obsidian.
-- Images with a URL, such as `https://...` or `data:...`, stay as written.
+- Images with a URL, such as `https://...` or `data:...`, stay as written. The image of an `http` or `https` URL is downloaded once per export and put into the PDF, however often it is used.
 - A Markdown image that cannot be found becomes the italic text *[Image: path]*, an HTML image stays as written. Both give a warning.
 
 ---
