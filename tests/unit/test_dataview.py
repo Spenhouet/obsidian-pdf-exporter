@@ -804,3 +804,47 @@ def test_index_cache_follows_the_vault_index_object(tmp_path: Path) -> None:
         ("| " + s + " |") in out
         for s, out in zip(("active", "done", "archived"), outputs, strict=True)
     ] == [True] * 3
+
+
+def test_parsing_in_worker_processes_gives_the_pages_of_parsing_in_order(
+    vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Forked workers give the same pages, tags and inlinks as parsing one note after the other."""
+    import sys
+
+    from obsidian_pdf_exporter.plugins.dataview import index as index_module
+
+    if sys.platform != "linux":
+        pytest.skip("notes are parsed in worker processes on Linux only")
+    for k in range(40):
+        (vault / "Many" / f"Note {k}.md").parent.mkdir(exist_ok=True)
+        (vault / "Many" / f"Note {k}.md").write_text(
+            f"---\ntags: [many, n{k % 3}]\ndue: 2024-01-{k % 28 + 1:02d}\n---\n"
+            f"# Note {k}\n\nsee [[Alpha]] and [[Note {(k + 1) % 40}]] #inline/t{k % 2}\n\n"
+            f"- [ ] task {k} [due:: 2024-02-0{k % 9 + 1}]\n  - child [[Beta]]\n"
+            f"- rating:: {k}\n\nfield:: [[People/Ana]]\n",
+            encoding="utf-8",
+        )
+
+    def build(min_notes: int) -> DataviewIndex:
+        monkeypatch.setattr(index_module, "PARALLEL_MIN_NOTES", min_notes)
+        index = DataviewIndex(VaultIndex(vault))
+        index.pages  # noqa: B018 - builds the index
+        return index
+
+    def plain(value: object) -> object:
+        if isinstance(value, Link):
+            return (value.path, value.display, value.subpath, value.embed, value.type)
+        if isinstance(value, dict):
+            return {k: plain(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [plain(v) for v in value]
+        return value
+
+    serial = build(10**9)
+    parallel = build(1)
+    assert list(parallel.pages) == list(serial.pages)
+    for rel in serial.md_paths:
+        assert plain(parallel.page(rel)) == plain(serial.page(rel)), rel
+    assert parallel._tags == serial._tags
+    assert parallel._inverse == serial._inverse
