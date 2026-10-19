@@ -398,8 +398,10 @@ def _drop_svg_size(svg_text: str) -> str:
     return svg_text.replace(root.group(0), tag, 1)
 
 
-_RE_ID = re.compile(r"""\bid=["']([^"']+)["']""")
-_RE_LOCAL_HREF = re.compile(r"""\bhref=["']#([^"']+)["']""")
+# The word boundary before the attribute name is a lookbehind after it, so the
+# patterns start with a literal and ``re`` only tries them where it occurs.
+_RE_ID = re.compile(r"""id(?<!\wid)=["']([^"']+)["']""")
+_RE_LOCAL_HREF = re.compile(r"""href(?<!\whref)=["']#([^"']+)["']""")
 
 
 def unlink_missing_targets(html: str, warn: Callable[[str], None] | None = None) -> str:
