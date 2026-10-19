@@ -90,6 +90,17 @@ SVG images with raster images or text inside, and tagged PDFs, are left as
 they are.
 
 Upstream issue: https://github.com/Kozea/WeasyPrint/issues/1978
+
+Pause the cyclic garbage collector while the PDF is written
+-----------------------------------------------------------
+
+After the layout, all its objects are still alive, and drawing the pages
+creates many more. The first collections while the PDF is written walk the
+whole laid-out document and find almost no garbage. The patch wraps
+``weasyprint.Document.write_pdf`` like ``HTML.render`` above and turns
+automatic collection off while it runs, then back on.
+
+Upstream issue: https://github.com/Kozea/WeasyPrint/issues/2985
 """
 
 from __future__ import annotations
@@ -356,9 +367,9 @@ def build_images_in_parallel(original: Callable[..., None]) -> Callable[..., Non
 
 
 def pause_garbage_collection(original: Callable[..., Any]) -> Callable[..., Any]:
-    """Wrap ``HTML.render`` so the cyclic garbage collector does not run during layout.
+    """Wrap ``HTML.render`` or ``Document.write_pdf`` so the cyclic garbage collector does not run.
 
-    The collector is turned back on afterwards, also when the layout fails. If
+    The collector is turned back on afterwards, also when the wrapped function fails. If
     it was already off, it stays off.
     """
 
@@ -447,6 +458,13 @@ PATCHES: tuple[Patch, ...] = (
         "weasyprint",
         "HTML.render",
         ("self", "font_config", "counter_style", "color_profiles", "options"),
+        pause_garbage_collection,
+    ),
+    Patch(
+        "garbage collector paused while the PDF is written",
+        "weasyprint.document",
+        "Document.write_pdf",
+        ("self", "target", "zoom", "finisher", "options"),
         pause_garbage_collection,
     ),
     Patch(
