@@ -65,6 +65,19 @@ at full size, its stream is started in the thread pool of the patch above,
 which then takes the started streams instead of building them again. Drawing
 runs Python code and the image threads mostly run Pillow code without the
 GIL, so both make progress at the same time.
+
+Draw an SVG image that is used again at the same size once
+-----------------------------------------------------------
+
+WeasyPrint parses and draws an SVG image again each time it is used. A logo
+in a running header is drawn on every page, with all its path operators
+written into every page. The patch wraps
+``weasyprint.images.SVGImage.draw``: the first use is drawn as before; from
+the second use at the same size on, the image is drawn once into a form
+XObject that every further use paints. The operators in the form are the
+ones that were written into each page before, so the pages look the same.
+SVG images with raster images or text inside, and tagged PDFs, are left as
+they are.
 """
 
 from __future__ import annotations
@@ -76,6 +89,7 @@ import inspect
 import logging
 import os
 import re
+import weakref
 from concurrent.futures import Future
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -212,6 +226,69 @@ def start_images_while_drawing(original: Callable[..., str]) -> Callable[..., st
         return name
 
     return add_image
+
+
+@dataclass
+class _SvgForms:
+    """Form XObjects of one SVG image, and the uses seen so far."""
+
+    forms: weakref.WeakValueDictionary[tuple[int, float, float], Any]
+    seen: set[tuple[int, float, float]]
+
+
+#: Forms of the SVG images, dropped with the image.
+_SVG_FORMS: weakref.WeakKeyDictionary[Any, _SvgForms] = weakref.WeakKeyDictionary()
+
+
+#: SVG elements that keep an image out of the patch: raster images depend on
+#: where they are drawn, and text in a form is extracted in another order.
+_SVG_KEEP_INLINE = frozenset({"image", "text", "foreignObject"})
+
+
+def _drawn_inline(image: Any) -> bool:  # noqa: ANN401 - a WeasyPrint SVGImage
+    tree = getattr(getattr(image, "_svg", None), "tree", None)
+    etree = getattr(tree, "_etree_node", None)
+    return etree is None or any(
+        str(node.tag).rpartition("}")[2] in _SVG_KEEP_INLINE for node in etree.iter()
+    )
+
+
+def draw_svg_images_once(original: Callable[..., None]) -> Callable[..., None]:
+    """Wrap ``SVGImage.draw`` so an image used again at the same size is drawn once.
+
+    The form is a group of the stream's resources without a transparency
+    group, so painting it is the same as painting its operators in place. It
+    belongs to the resources of the stream it was made for, the key holds
+    their ``id`` and the form is kept only as long as the resources keep it.
+    """
+
+    @functools.wraps(original)
+    def draw(
+        self: Any,  # noqa: ANN401 - a WeasyPrint SVGImage
+        stream: Any,  # noqa: ANN401 - a WeasyPrint stream
+        concrete_width: float,
+        concrete_height: float,
+        _style: Any,  # noqa: ANN401 - a WeasyPrint style
+    ) -> None:
+        if getattr(stream, "_tags", None) is not None or _drawn_inline(self):
+            return original(self, stream, concrete_width, concrete_height, _style)
+        state = _SVG_FORMS.get(self)
+        if state is None:
+            state = _SVG_FORMS[self] = _SvgForms(weakref.WeakValueDictionary(), set())
+        key = (id(stream._resources), concrete_width, concrete_height)
+        form = state.forms.get(key)
+        if form is None:
+            if key not in state.seen:
+                state.seen.add(key)
+                return original(self, stream, concrete_width, concrete_height, _style)
+            form = stream.add_group(-1e4, -1e4, 2e4, 2e4)
+            del form.extra["Group"]
+            original(self, form, concrete_width, concrete_height, _style)
+            state.forms[key] = form
+        stream.draw_x_object(form.id)
+        return None
+
+    return draw
 
 
 def build_images_in_parallel(original: Callable[..., None]) -> Callable[..., None]:
@@ -373,6 +450,13 @@ PATCHES: tuple[Patch, ...] = (
         "Stream.add_image",
         ("self", "image", "interpolate", "ratio"),
         start_images_while_drawing,
+    ),
+    Patch(
+        "SVG images used again drawn once",
+        "weasyprint.images",
+        "SVGImage.draw",
+        ("self", "stream", "concrete_width", "concrete_height", "_style"),
+        draw_svg_images_once,
     ),
 )
 
