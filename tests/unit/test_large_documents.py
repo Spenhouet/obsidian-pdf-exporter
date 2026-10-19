@@ -257,3 +257,29 @@ def test_embedded_image_pattern_matches_where_the_word_boundary_form_matches() -
 
     assert spans(RE_EMBEDDED_IMAGE) == spans(reference)
     assert spans(reference)
+
+
+def test_id_and_href_patterns_match_where_the_word_boundary_forms_match() -> None:
+    """The id and local link patterns find the same values as the forms with a word boundary."""
+    import itertools
+    import re
+
+    from obsidian_pdf_exporter.core.html_postprocess import _RE_ID
+    from obsidian_pdf_exporter.core.html_postprocess import _RE_LOCAL_HREF
+
+    references = {
+        _RE_ID: re.compile(r"""\bid=["']([^"']+)["']"""),
+        _RE_LOCAL_HREF: re.compile(r"""\bhref=["']#([^"']+)["']"""),
+    }
+    before = ["", " ", "\n", "<a ", "x", "_", "1", "é", "-", "data-", ">", '"', "'", "id"]
+    before += ["href", chr(0xA0), "aria-"]
+    names = ["id", "href", "xid", "ID"]
+    values = ['"a"', "'b c'", '"#t"', "'#u'", '""', '"#"', "\"x'", "'y\"", '"#v w"']
+    after = ["", " />", "id", ">"]
+    html = "".join(
+        f"{b}{n}={v}{a}" for b, n, v, a in itertools.product(before, names, values, after)
+    )
+    for pattern, reference in references.items():
+        found = [(m.span(), m.groups()) for m in pattern.finditer(html)]
+        assert found == [(m.span(), m.groups()) for m in reference.finditer(html)]
+        assert found
