@@ -89,6 +89,7 @@ def test_patch_is_applied_once_and_turned_off() -> None:
             weasy_pdf._use_references,
             weasyprint.HTML.render,
             Stream.add_image,
+            weasy_document.Document.write_pdf,
         )
 
     originals = targets()
@@ -298,6 +299,27 @@ def test_garbage_collector_is_off_during_layout_and_on_after(
     unpatched = weasyprint.HTML(string=html).write_pdf()
     apply_weasyprint_patches()
     patched = weasyprint.HTML(string=html).write_pdf()
+    assert seen == [True, False]
+    assert gc.isenabled()
+    assert patched == unpatched
+
+
+@supported
+def test_garbage_collector_is_off_while_the_pdf_is_written(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: list[bool] = []
+    original = weasy_pdf.generate_pdf
+
+    def generate_pdf(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        seen.append(gc.isenabled())
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(weasy_document, "generate_pdf", generate_pdf)
+    document = weasyprint.HTML(string="<h1>Title</h1><p>Some text.</p>").render()
+    unpatched = document.write_pdf()
+    apply_weasyprint_patches()
+    patched = document.write_pdf()
     assert seen == [True, False]
     assert gc.isenabled()
     assert patched == unpatched
