@@ -23,6 +23,8 @@ text out as one run, like text in HTML. Text with a position list, ``rotate``,
 
 The fix wraps WeasyPrint's SVG text function only when it still draws one
 character at a time, so it turns itself off once WeasyPrint draws whole runs.
+
+Upstream issue: https://github.com/Kozea/WeasyPrint/issues/2249
 """
 
 from __future__ import annotations
