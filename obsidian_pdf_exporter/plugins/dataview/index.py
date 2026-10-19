@@ -18,7 +18,11 @@ from __future__ import annotations
 import csv
 import io
 import json
+import multiprocessing
+import os
 import re
+import sys
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from dataclasses import field
 from typing import TYPE_CHECKING
@@ -1012,7 +1016,7 @@ class DataviewIndex:
         return self._pages  # type: ignore[return-value]
 
     def _build(self) -> None:
-        self._pages = {}
+        notes: list[_Note] = []
         for rel in self.md_paths:
             path = self._paths[rel]
             try:
@@ -1021,20 +1025,39 @@ class DataviewIndex:
             except OSError:
                 continue
             text = text.replace("\r\n", "\n")
-            page = parse_page(
-                rel,
-                text,
-                getattr(stat, "st_birthtime", stat.st_ctime),
-                stat.st_mtime,
-                stat.st_size,
-                lambda target, origin=rel: self.normalize(target, origin),
-            )
-            self._pages[rel] = page
+            ctime = getattr(stat, "st_birthtime", stat.st_ctime)
+            notes.append((rel, text, ctime, stat.st_mtime, stat.st_size))
+        self._pages = {note[0]: page for note, page in zip(notes, self._parse(notes), strict=True)}
         for rel, page in self._pages.items():
             for tag in page.full_tags():
                 self._tags.setdefault(tag.lower(), []).append(rel)
             for target in dict.fromkeys(lk.path for lk in page.links):
                 self._inverse.setdefault(target, []).append(rel)
+
+    def parse_note(self, note: _Note) -> PageMetadata:
+        """The page metadata of one note, its links resolved against this vault."""
+        rel, text, ctime, mtime, size = note
+        return parse_page(rel, text, ctime, mtime, size, lambda target: self.normalize(target, rel))
+
+    def _parse(self, notes: list[_Note]) -> list[PageMetadata]:
+        """Parse ``notes`` in order; a large vault in forked worker processes.
+
+        A forked worker starts with a copy of this index, so it resolves links
+        as this process would. Parsing a note depends only on the note and the
+        vault, so the pages are the same either way. Only Linux forks; other
+        platforms parse in this process.
+        """
+        workers = min(PARSE_WORKERS, os.cpu_count() or 1)
+        if sys.platform != "linux" or len(notes) < PARALLEL_MIN_NOTES or workers < 2:
+            return [self.parse_note(note) for note in notes]
+        with ProcessPoolExecutor(
+            workers,
+            mp_context=multiprocessing.get_context("fork"),
+            initializer=_set_worker_index,
+            initargs=(self,),
+        ) as pool:
+            chunk = -(-len(notes) // (workers * 4))
+            return list(pool.map(_parse_in_worker, notes, chunksize=chunk))
 
     def page(self, path: str) -> dict | None:
         """The page object of ``path``, serialised once."""
@@ -1148,6 +1171,27 @@ class DataviewIndex:
         rows = parse_csv(text)
         self.csv_cache[path] = rows
         return rows
+
+
+#: A note to parse: vault path, text, birth time, modification time and size.
+_Note = tuple[str, str, float, float, int]
+
+#: Vaults with at least this many notes are parsed in worker processes.
+PARALLEL_MIN_NOTES = 200
+
+#: The most worker processes that parse notes.
+PARSE_WORKERS = 8
+
+#: The index a forked worker parses for, under ``"index"``; set in the worker only.
+_WORKER: dict[str, DataviewIndex] = {}
+
+
+def _set_worker_index(index: DataviewIndex) -> None:
+    _WORKER["index"] = index
+
+
+def _parse_in_worker(note: _Note) -> PageMetadata:
+    return _WORKER["index"].parse_note(note)
 
 
 def _path_order(rel: str) -> tuple:
