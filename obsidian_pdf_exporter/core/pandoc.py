@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import os
 import subprocess
+import tempfile
 from pathlib import Path
 
 from obsidian_pdf_exporter.core.dialect import TOC_ARGS
 from obsidian_pdf_exporter.core.dialect import Dialect
+from obsidian_pdf_exporter.core.remote_images import prefetch_filter
 
 
 def default_dialect(*, hard_line_breaks: bool = False) -> Dialect:
@@ -40,7 +42,9 @@ def render_html(
     renders every newline inside a paragraph as a line break, as Obsidian
     does unless "Strict line breaks" is on. Set ``toc=False`` to leave out
     the table of contents. Pandoc looks for images and other files in
-    ``resource_path`` first, then in ``build_dir``.
+    ``resource_path`` first, then in ``build_dir``. Remote images are
+    downloaded once each before pandoc runs (see
+    :mod:`obsidian_pdf_exporter.core.remote_images`).
     """
     import pypandoc
 
@@ -62,11 +66,14 @@ def render_html(
     pandoc_path = pypandoc.get_pandoc_path()
     html_path = build_dir / "output.html"
 
-    result = _run(pandoc_path, argv(dialect), markdown, build_dir)
-    rejected = [e for e in dialect.optional if e.encode() in result.stderr]
-    if result.returncode != 0 and rejected:
-        # An older pandoc does not know the extension (``mark`` needs 3.0).
-        result = _run(pandoc_path, argv(dialect.without(rejected)), markdown, build_dir)
+    with tempfile.TemporaryDirectory(prefix="ope-remote-images-") as folder:
+        remote = prefetch_filter(markdown, Path(folder))
+        result = _run(pandoc_path, [*remote, *argv(dialect)], markdown, build_dir)
+        rejected = [e for e in dialect.optional if e.encode() in result.stderr]
+        if result.returncode != 0 and rejected:
+            # An older pandoc does not know the extension (``mark`` needs 3.0).
+            args = [*remote, *argv(dialect.without(rejected))]
+            result = _run(pandoc_path, args, markdown, build_dir)
     if result.returncode != 0:
         stderr = result.stderr.decode("utf-8", errors="replace")
         msg = f"Pandoc failed:\n{stderr}"
