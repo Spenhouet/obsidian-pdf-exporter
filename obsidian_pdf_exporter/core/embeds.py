@@ -63,6 +63,7 @@ RE_OBSIDIAN_COMMENT = re.compile(r"%%.*?%%", re.DOTALL)
 RE_HEADING = re.compile(r"^(#{1,6})[ \t]+(.*?)[ \t]*$")
 RE_LIST_ITEM = re.compile(r"^([ \t]*)(?:[-*+]|\d+[.)])[ \t]")
 RE_EMBED_LINE_PREFIX = re.compile(r"^[ \t>]*$")
+RE_EMBED_LIST_PREFIX = re.compile(r"^(?P<outer>[ \t>]*)(?P<marker>(?:[-*+]|\d{1,9}[.)])[ \t]+)$")
 
 
 def expand_note_embeds(content: str, source_file: Path, ctx: PageContext) -> str:
@@ -101,14 +102,19 @@ def _expand_line(
     if not matches:
         return [line]
 
-    # A note embed alone on its line (optionally indented or quoted) becomes
-    # block content. Otherwise it is inlined.
+    # A note embed alone on its line (optionally indented, quoted or after a
+    # list marker) becomes block content. Otherwise it is inlined.
     if len(matches) == 1:
         m = matches[0]
         prefix = line[: m.start()]
-        if RE_EMBED_LINE_PREFIX.match(prefix) and not line[m.end() :].strip():
+        alone = not line[m.end() :].strip()
+        if alone and RE_EMBED_LINE_PREFIX.match(prefix):
             body = _render_embed(m, source_file, ctx, context_level, stack)
             return _prefixed_block(body, prefix)
+        list_prefix = RE_EMBED_LIST_PREFIX.match(prefix)
+        if alone and list_prefix:
+            body = _render_embed(m, source_file, ctx, context_level, stack)
+            return _list_item_block(body, list_prefix)
 
     def replace(m: re.Match) -> str:
         if not _is_note_embed(m, ctx, source_file):
@@ -123,6 +129,20 @@ def _prefixed_block(body: str, prefix: str) -> list[str]:
     blank = prefix.rstrip()
     body_lines = [prefix + part if part.strip() else blank for part in body.split("\n")]
     return [blank, *body_lines, blank]
+
+
+def _list_item_block(body: str, prefix: re.Match) -> list[str]:
+    """Put ``body`` into the list item that ``prefix`` starts, as Obsidian does.
+
+    The first line follows the list marker. The other lines are indented to
+    the content of the item, so callouts, lists and paragraphs stay blocks
+    of that item.
+    """
+    outer = prefix.group("outer")
+    indent = outer + " " * len(prefix.group("marker").expandtabs(4))
+    lines = body.strip("\n").split("\n")
+    rest = [indent + part if part.strip() else indent.rstrip() for part in lines[1:]]
+    return [prefix.group(0) + lines[0], *rest]
 
 
 def _split_target(raw: str) -> tuple[str, str]:
