@@ -71,7 +71,7 @@ def test_canvas_embed_warns_and_becomes_text(tmp_path: Path) -> None:
     assert "in Page.md" in messages[0]
     assert "kept as a link" not in messages[0]
     assert messages[1] == (
-        '  Warning: link to "Board.canvas" in Page.md points outside the PDF, kept as text'
+        '  Warning: Link to note outside the PDF: "Board.canvas" in Page.md, kept as text'
     )
 
 

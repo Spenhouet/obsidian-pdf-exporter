@@ -50,7 +50,7 @@ ope export ./Vault/Handbook --disable-plugin dataview
 - Other `-O` keys: `line_breaks=hard|soft`, `links.outside=text|italic`, `footnotes=page|end`, `mermaid=off`, `mermaid.config=mermaid.json`, `mermaid.landscape=off`, `excalidraw.auto_export=off`, `citations.bibliography=refs.bib`, `citations.csl=style.csl`, `tables.landscape_min_cols=N`. List: https://spenhouet.com/obsidian-pdf-exporter/reference/cli/
 - Exit codes: `0` ok, `1` export failed, `2` bad arguments (for example an unknown template).
 
-Lines starting with `Warning:` name content that could not be rendered: an embed that was not found, a canvas embed or a PDF that cannot be opened (kept as a link), a plugin code block nobody renders (`tasks`, `ad-note`, ...), a Dataview query or DataviewJS script that failed. `Warning: link to "Note" ... points outside the PDF, kept as text` names a link to a note that is not part of the PDF; it is plain text in the PDF (`-O links.outside=italic` shows it in italics). Report them to the user.
+Lines starting with `Warning:` name content that could not be rendered: an embed that was not found, a canvas embed or a PDF that cannot be opened (kept as a link), a plugin code block nobody renders (`tasks`, `ad-note`, ...), a Dataview query or DataviewJS script that failed. `Warning: Link to note outside the PDF: "Note" ...` and `Warning: Link to heading outside the PDF: "#heading" ...` name a link whose target is not part of the PDF; nothing is missing, the link text is plain text in the PDF (`-O links.outside=italic` shows it in italics). Report them to the user. All messages: https://spenhouet.com/obsidian-pdf-exporter/reference/warnings/
 
 ## Redline (tracked changes)
 

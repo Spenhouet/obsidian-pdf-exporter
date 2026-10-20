@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import shutil
 from typing import TYPE_CHECKING
 
+import pypdfium2
 import pytest
 
 from obsidian_pdf_exporter.core.assemble import process_page
+from obsidian_pdf_exporter.core.exporter import ExportRequest
+from obsidian_pdf_exporter.core.exporter import export_pdf
 from obsidian_pdf_exporter.core.html_postprocess import unlink_missing_targets
 from obsidian_pdf_exporter.core.outside_links import OutsideLinkCounter
 from obsidian_pdf_exporter.core.outside_links import outside_label
@@ -15,6 +19,7 @@ from obsidian_pdf_exporter.core.outside_links import outside_mode
 from obsidian_pdf_exporter.core.tree import PageNode
 from obsidian_pdf_exporter.core.vault_index import VaultIndex
 from obsidian_pdf_exporter.plugins import active_plugins
+from obsidian_pdf_exporter.templates import load_template
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -56,8 +61,8 @@ def test_outside_link_is_plain_text_and_reported_once(vault: Path) -> None:
     out, messages = _export_page(vault, text)
     assert out == "See Outside, again, Outside > Setup and [Page](#page)."
     assert messages == [
-        '  Warning: link to "Outside" in Page.md points outside the PDF, kept as text',
-        '  Warning: link to "Outside#Setup" in Page.md points outside the PDF, kept as text',
+        '  Warning: Link to note outside the PDF: "Outside" in Page.md, kept as text',
+        '  Warning: Link to note outside the PDF: "Outside#Setup" in Page.md, kept as text',
     ]
 
 
@@ -71,7 +76,7 @@ def test_markdown_link_to_a_note_outside(vault: Path) -> None:
     out, messages = _export_page(vault, "Read [the notes](Outside.md#Setup).\n")
     assert out == "Read the notes."
     assert messages == [
-        '  Warning: link to "Outside#Setup" in Page.md points outside the PDF, kept as text'
+        '  Warning: Link to note outside the PDF: "Outside#Setup" in Page.md, kept as text'
     ]
 
 
@@ -79,7 +84,7 @@ def test_dataview_link_outside_is_plain_text(vault: Path) -> None:
     out, messages = _export_page(vault, '```dataview\nLIST FROM ""\n```\n')
     assert "- Outside" in out
     assert "*Outside*" not in out
-    assert any('link to "Outside"' in m for m in messages)
+    assert any('Link to note outside the PDF: "Outside"' in m for m in messages)
 
 
 def test_italic_option_keeps_the_old_look(vault: Path) -> None:
@@ -98,7 +103,9 @@ def test_unknown_mode_is_an_error() -> None:
 def test_label_follows_obsidian() -> None:
     assert outside_label("Note") == "Note"
     assert outside_label("Note", "A#B") == "Note > A > B"
-    assert outside_label("Note", "^id") == "Note > ^id"
+    assert outside_label("Note", "^id") == "Note"
+    assert outside_label("Note", "Setup#^id") == "Note > Setup"
+    assert outside_label("", "^id") == "id"
 
 
 def test_unlinked_heading_uses_the_same_message() -> None:
@@ -121,3 +128,40 @@ def test_counter_prints_a_summary() -> None:
     assert lines[-1] == (
         "  3 links to 2 targets outside the PDF kept as text (see the warnings above)"
     )
+
+
+@pytest.mark.skipif(shutil.which("pandoc") is None, reason="pandoc not installed")
+def test_pdf_shows_only_the_labels_of_links_outside(tmp_path: Path) -> None:
+    vault = tmp_path / "vault"
+    (vault / "Doc").mkdir(parents=True)
+    (vault / "Outside.md").write_text("Text. ^block-id\n\n## Setup\n", encoding="utf-8")
+    (vault / "Doc" / "Doc.md").write_text(
+        "See [[Outside#^block-id]], [[Outside#^block-id|the rule]], [[Outside#Setup]] "
+        "and [[#Nowhere]].\n",
+        encoding="utf-8",
+    )
+    output = tmp_path / "doc.pdf"
+    messages: list[str] = []
+    export_pdf(
+        ExportRequest(
+            root=vault / "Doc",
+            output=output,
+            template=load_template("default"),
+            date="2026-01-01",
+            toc=False,
+        ),
+        log=messages.append,
+    )
+    document = pypdfium2.PdfDocument(str(output))
+    text = " ".join(page.get_textpage().get_text_range() for page in document)
+    text = " ".join(text.split())
+    assert "See Outside, the rule, Outside > Setup and Nowhere." in text
+    assert "^" not in text
+    assert "outside the PDF" not in text
+    assert "Warning" not in text
+    warnings = [m.strip() for m in messages if "outside the PDF:" in m]
+    assert warnings == [
+        'Warning: Link to note outside the PDF: "Outside#^block-id" in Doc.md, kept as text',
+        'Warning: Link to note outside the PDF: "Outside#Setup" in Doc.md, kept as text',
+        'Warning: Link to heading outside the PDF: "#nowhere", kept as text',
+    ]
