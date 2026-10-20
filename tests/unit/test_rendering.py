@@ -100,6 +100,50 @@ def test_callout_in_list_item_renders_as_a_box(tmp_path: Path) -> None:
     assert "&gt;" not in html
 
 
+@pytest.mark.parametrize("spaces", [1, 2, 3])
+def test_callout_with_up_to_three_spaces_after_a_paragraph(spaces: int) -> None:
+    pad = " " * spaces
+    out = convert_callouts(f"Para.\n\n{pad}> [!INFORMATION]\n> Body.\n\nAfter.\n")
+    assert out.startswith('Para.\n\n\n::: {.callout .callout-information')
+    assert "\nBody.\n:::" in out
+    assert ">" not in out
+
+
+def test_callout_with_four_spaces_after_a_paragraph_is_code() -> None:
+    src = "Para.\n\n    > [!note]\n    > Body.\n"
+    assert convert_callouts(src) == src
+
+
+@pytest.mark.parametrize(
+    ("spaces", "indent"),
+    [(1, ""), (2, "  "), (3, "  "), (4, "  ")],
+)
+def test_callout_after_a_list_follows_the_item_content(spaces: int, indent: str) -> None:
+    """Left of the item content the callout ends the list, else it belongs to the item."""
+    pad = " " * spaces
+    out = convert_callouts(f"- item one\n- item two\n\n{pad}> [!INFORMATION]\n> Body.\n")
+    assert f"\n{indent}::: {{.callout .callout-information" in out
+    assert f"\n{indent}Body.\n{indent}:::" in out
+    assert ">" not in out
+
+
+@needs_pandoc
+@pytest.mark.parametrize("spaces", [0, 1, 2, 3, 4])
+@pytest.mark.parametrize("before", ["Para.", "- item one\n- item two"])
+def test_indented_callout_renders_as_a_box(
+    tmp_path: Path, spaces: int, before: str
+) -> None:
+    pad = " " * spaces
+    md = convert_callouts(f"{before}\n\n{pad}> [!INFORMATION]\n> Body.\n\nText.\n")
+    html = _pandoc(md, tmp_path)
+    if spaces == 4 and before == "Para.":  # an indented code block
+        assert "<pre" in html
+        return
+    assert '<div class="callout callout-information callout-note"' in html
+    assert ":::" not in html
+    assert "&gt;" not in html
+
+
 def test_callout_title_only() -> None:
     out = convert_callouts("> [!note] Just a title\n")
     assert "**Just a title**" in out
