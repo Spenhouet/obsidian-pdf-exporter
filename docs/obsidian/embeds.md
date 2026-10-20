@@ -135,7 +135,7 @@ Embedded content is processed like the note it comes from:
 - Images and wiki links resolve from the source note's folder.
 - Embeds inside embedded content are expanded too, up to 10 levels. An embed that would include itself again is skipped.
 - Headings are shifted so the topmost one sits one level below the heading the embed is under. Without a heading above it, the page title counts. Nested headings keep their relative levels.
-- An embed alone on its line (it may be indented, or in a quote or callout) becomes block content. An embed inside other text is inserted inline, with its lines joined.
+- An embed alone on its line (it may be indented, or in a quote or callout) becomes block content. An embed alone in a list item (`- ![[Note#^id]]`) becomes block content of that item, so an embedded callout, list or table keeps its form. An embed inside other text is inserted inline, with its lines joined.
 - A note, heading or block that cannot be found shows as italic text, such as _Note#^id_, and the export prints a warning.
 
 The target is looked up in the whole vault. `![[Note]]` picks the closest note of that name. A path such as `![[Folder/Note#^id]]` is matched against the end of each note's path.
