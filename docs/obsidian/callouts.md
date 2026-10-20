@@ -68,6 +68,7 @@ Any other type, such as `[!information]`, looks like a note unless the template 
 - Callouts nest with `> >`.
 - Blank `>` lines stay inside the callout.
 - A line right after a callout without `>` still belongs to it (lazy continuation), as in Obsidian.
+- A callout can start a list item (`- > [!note]`) or be indented under one. It stays a callout box inside that item.
 - A single-line callout inside other text, for example in a table cell, becomes an inline callout.
 
 ## HTML and CSS

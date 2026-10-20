@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pytest
+
 from obsidian_pdf_exporter.core.assemble import process_page
+from obsidian_pdf_exporter.core.callouts import convert_callouts
 from obsidian_pdf_exporter.core.embeds import MAX_EMBED_DEPTH
 from obsidian_pdf_exporter.core.embeds import expand_note_embeds
 from obsidian_pdf_exporter.core.embeds import extract_block
@@ -172,6 +175,24 @@ def test_inline_embed_is_joined_into_line(tmp_path: Path) -> None:
     page = _write(vault / "Page.md", "Value: ![[Note#^s]] (see note)\n")
     out = expand_note_embeds(page.read_text(), page, _ctx(vault, tmp_path / "b"))
     assert out.strip() == "Value: Short text. ^s (see note)"
+
+
+@pytest.mark.parametrize(
+    ("line", "first", "indent"),
+    [("* ![[Src#^risk]]", "* ", "  "), ("  1. ![[Src#^risk]]", "  1. ", "     ")],
+)
+def test_block_embed_of_a_callout_in_a_list_item_stays_a_block(
+    tmp_path: Path, line: str, first: str, indent: str
+) -> None:
+    vault = tmp_path / "vault"
+    _write(vault / "Src.md", "# Src\n\n> [!WARNING] Risk\n> Body text.\n^risk\n")
+    page = _write(vault / "Doc" / "Doc.md", f"List:\n\n{line}\n")
+    out = expand_note_embeds(page.read_text(), page, _ctx(vault, tmp_path / "b"))
+    assert f"{first}> [!WARNING] Risk\n{indent}> Body text." in out
+    converted = convert_callouts(out)
+    assert f"{first}::: {{.callout .callout-warning" in converted
+    assert f"{indent}Body text." in converted
+    assert "> " not in converted
 
 
 def test_embedded_headings_sit_below_context(tmp_path: Path) -> None:
