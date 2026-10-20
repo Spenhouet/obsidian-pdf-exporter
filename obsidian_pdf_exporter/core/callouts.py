@@ -40,8 +40,15 @@ _CALLOUT_TYPES: dict[str, tuple[str, str]] = {
     "cite": ("quote", "Cite"),
 }
 
-# ``> [!type]``, ``> [!type]+``, ``> [!type]- Custom title``
-_HEADER = re.compile(r"^ {0,3}>[ \t]?\[!([\w-]+)\][+-]?[ \t]*(.*)$")
+# ``> [!type]``, ``> [!type]+``, ``> [!type]- Custom title``. The lead is the
+# indentation and an optional list marker, for a callout inside a list item.
+_HEADER = re.compile(
+    r"^(?P<lead>(?P<indent>[ \t]*)(?:(?:[-*+]|\d{1,9}[.)])[ \t]+)?)"
+    r">[ \t]?\[!(?P<type>[\w-]+)\][+-]?[ \t]*(?P<title>.*)$"
+)
+# Four spaces of indentation outside a list start an indented code block.
+_CODE_INDENT = 4
+_LIST_ITEM = re.compile(r"^[ \t]*(?:[-*+]|\d{1,9}[.)])(?:[ \t]|$)")
 _QUOTE_LINE = re.compile(r"^ {0,3}>")
 _FENCE = re.compile(r"^\s*(```|~~~)")
 _BLOCK_START = re.compile(
@@ -79,34 +86,74 @@ def _convert_blocks(content: str) -> str:
 
     The callout runs until the first line that does not start with ``>``, so
     blank ``>`` lines keep the following paragraphs inside it. The body is
-    converted again, which handles nested callouts (``> > [!note]``).
+    converted again, which handles nested callouts (``> > [!note]``). A
+    callout that starts a list item (``- > [!note]``) or is indented under
+    one stays inside that list item.
     """
     lines = content.split("\n")
     out: list[str] = []
     in_fence = False
+    in_list = False
+    previous_blank = True
     i = 0
     while i < len(lines):
         line = lines[i]
         if _FENCE.match(line):
             in_fence = not in_fence
-        header = None if in_fence else _HEADER.match(line)
+        header = None if in_fence else _header(line, in_list=in_list)
         if header is None or "<br" in line.lower():
+            in_list = _still_in_list(line, in_list=in_list, previous_blank=previous_blank)
+            previous_blank = not line.strip()
             out.append(line)
             i += 1
             continue
+        lead = header.group("lead")
+        indent = " " * len(lead.expandtabs(4))
         j = i + 1
         body: list[str] = []
         while j < len(lines):
-            if _QUOTE_LINE.match(lines[j]):
-                body.append(_unquote(lines[j]))
-            elif _is_lazy_continuation(lines[j], body[-1] if body else line):
-                body.append(lines[j])
+            rest = lines[j].removeprefix(indent)
+            if _QUOTE_LINE.match(rest):
+                body.append(_unquote(rest))
+            elif _is_lazy_continuation(rest, body[-1] if body else line):
+                body.append(rest)
             else:
                 break
             j += 1
-        out.append(_render_block(header, body))
+        out.extend(_in_container(_render_block(header, body), lead, indent))
+        in_list = in_list or lead.strip() != ""
+        previous_blank = not lead.strip()
         i = j
     return "\n".join(out)
+
+
+def _header(line: str, *, in_list: bool) -> re.Match | None:
+    """Match a callout header; indented ones only where a list allows them."""
+    header = _HEADER.match(line)
+    if header is None:
+        return None
+    if len(header.group("indent").expandtabs(4)) >= _CODE_INDENT and not in_list:
+        return None  # an indented code block
+    return header
+
+
+def _still_in_list(line: str, *, in_list: bool, previous_blank: bool) -> bool:
+    if _LIST_ITEM.match(line):
+        return True
+    if line.strip() and not line[0].isspace() and previous_blank:
+        return False
+    return in_list
+
+
+def _in_container(block: str, lead: str, indent: str) -> list[str]:
+    """Place the lines of a rendered callout after ``lead``, indented by ``indent``."""
+    if not lead:
+        return [block]
+    lines = block.strip("\n").split("\n")
+    rest = [indent + line if line.strip() else "" for line in lines[1:]]
+    if lead.strip():  # a list marker: the callout is the start of the item
+        return [lead + lines[0], *rest]
+    return ["", indent + lines[0], *rest, ""]
 
 
 def _is_lazy_continuation(line: str, previous: str) -> bool:
@@ -128,9 +175,9 @@ def _unquote(line: str) -> str:
 
 
 def _render_block(header: re.Match, body: list[str]) -> str:
-    raw_type = header.group(1).lower()
+    raw_type = header.group("type").lower()
     classes, default_title = callout_classes(raw_type)
-    title = header.group(2).strip() or default_title
+    title = header.group("title").strip() or default_title
     attrs = " ".join(f".{c}" for c in classes.split())
     inner = _convert_blocks("\n".join(body)).strip("\n")
     parts = [f'\n::: {{{attrs} data-callout="{raw_type}"}}', f"[**{title}**]{{.callout-title}}"]
