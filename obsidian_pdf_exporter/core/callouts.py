@@ -48,7 +48,7 @@ _HEADER = re.compile(
 )
 # Four spaces of indentation outside a list start an indented code block.
 _CODE_INDENT = 4
-_LIST_ITEM = re.compile(r"^[ \t]*(?:[-*+]|\d{1,9}[.)])(?:[ \t]|$)")
+_LIST_ITEM = re.compile(r"^[ \t]*(?:[-*+]|\d{1,9}[.)])(?:[ \t]+|$)")
 _QUOTE_LINE = re.compile(r"^ {0,3}>")
 _FENCE = re.compile(r"^\s*(```|~~~)")
 _BLOCK_START = re.compile(
@@ -87,28 +87,34 @@ def _convert_blocks(content: str) -> str:
     The callout runs until the first line that does not start with ``>``, so
     blank ``>`` lines keep the following paragraphs inside it. The body is
     converted again, which handles nested callouts (``> > [!note]``). A
-    callout that starts a list item (``- > [!note]``) or is indented under
-    one stays inside that list item.
+    callout that starts a list item (``- > [!note]``) or is indented to the
+    content of one stays inside that list item.
+
+    Indentation follows CommonMark: outside a list, up to three spaces before
+    ``>`` still start a callout and four start a code block. Inside a list it
+    counts from the content of the item.
     """
     lines = content.split("\n")
     out: list[str] = []
     in_fence = False
-    in_list = False
+    items: list[int] = []  # content columns of the open list items, innermost last
     previous_blank = True
     i = 0
     while i < len(lines):
         line = lines[i]
         if _FENCE.match(line):
             in_fence = not in_fence
-        header = None if in_fence else _header(line, in_list=in_list)
-        if header is None or "<br" in line.lower():
-            in_list = _still_in_list(line, in_list=in_list, previous_blank=previous_blank)
+        if previous_blank and line.strip():
+            _close_items(items, _width(line))
+        header = None if in_fence or "<br" in line.lower() else _HEADER.match(line)
+        place = None if header is None else _place(header, items)
+        if header is None or place is None:
+            _open_item(items, line)
             previous_blank = not line.strip()
             out.append(line)
             i += 1
             continue
-        lead = header.group("lead")
-        indent = " " * len(lead.expandtabs(4))
+        lead, indent = place
         j = i + 1
         body: list[str] = []
         while j < len(lines):
@@ -121,28 +127,49 @@ def _convert_blocks(content: str) -> str:
                 break
             j += 1
         out.extend(_in_container(_render_block(header, body), lead, indent))
-        in_list = in_list or lead.strip() != ""
+        if lead.strip():
+            _open_item(items, header.group("lead"))
         previous_blank = not lead.strip()
         i = j
     return "\n".join(out)
 
 
-def _header(line: str, *, in_list: bool) -> re.Match | None:
-    """Match a callout header; indented ones only where a list allows them."""
-    header = _HEADER.match(line)
-    if header is None:
-        return None
-    if len(header.group("indent").expandtabs(4)) >= _CODE_INDENT and not in_list:
-        return None  # an indented code block
-    return header
+def _width(text: str) -> int:
+    """The column of the first character of ``text`` that is not a space."""
+    return len(text.expandtabs(4)) - len(text.expandtabs(4).lstrip())
 
 
-def _still_in_list(line: str, *, in_list: bool, previous_blank: bool) -> bool:
-    if _LIST_ITEM.match(line):
-        return True
-    if line.strip() and not line[0].isspace() and previous_blank:
-        return False
-    return in_list
+def _close_items(items: list[int], column: int) -> None:
+    """After a blank line, a line left of an item's content ends that item."""
+    while items and items[-1] > column:
+        items.pop()
+
+
+def _open_item(items: list[int], line: str) -> None:
+    m = _LIST_ITEM.match(line)
+    if m is None:
+        return
+    _close_items(items, _width(line))
+    items.append(len(m.group(0).expandtabs(4)))
+
+
+def _place(header: re.Match, items: list[int]) -> tuple[str, str] | None:
+    """Where a callout header goes: the lead to write and the indent of its other lines.
+
+    None when the header is an indented code block.
+    """
+    column = len(header.group("indent").expandtabs(4))
+    lead = header.group("lead").expandtabs(4)
+    inside = [c for c in items if c <= column]
+    if lead.strip():  # a list marker: the callout starts a list item
+        if column - (inside[-1] if inside else 0) >= _CODE_INDENT:
+            return None
+        return lead, " " * len(lead)
+    if inside and column - inside[-1] < _CODE_INDENT:
+        return " " * inside[-1], " " * inside[-1]
+    if not inside and column < _CODE_INDENT:
+        return "", ""
+    return None
 
 
 def _in_container(block: str, lead: str, indent: str) -> list[str]:
