@@ -143,12 +143,50 @@ def render_redline(html_text: str, options: dict[str, str]) -> str:
     early = asset("redline.css") + (
         asset("redline-side-by-side.css") if style == SIDE_BY_SIDE else ""
     )
-    out = out.replace("<head>", f"<head>\n<style>{early}</style>", 1)
-    if style == SIDE_BY_SIDE:
-        out = out.replace(
-            "</head>", f"<style>{asset('redline-side-by-side-page.css')}</style>\n</head>", 1
-        )
-    return out
+    return out.replace("<head>", f"<head>\n<style>{early}</style>", 1)
+
+
+def landscape_pages(html: str, template_css: str) -> str:
+    """Turn the pages of a side-by-side redline to landscape.
+
+    The page size of the template (the last ``size`` of a plain ``@page``
+    rule in ``template_css``) is kept and rotated, A4 when it sets none. The
+    rule goes at the end of ``<head>``, after the template's page CSS, so it
+    wins over a template that sets a portrait size.
+    """
+    size = landscape_size(template_css)
+    rule = asset("redline-side-by-side-page.css").replace("landscape", size)
+    return html.replace("</head>", f"<style>{rule}</style>\n</head>", 1)
+
+
+_RE_PAGE_SIZE = re.compile(r"@page\s*(?::[\w-]+\s*)*\{[^{}]*?\bsize\s*:\s*([^;{}]+)", re.IGNORECASE)
+_RE_LENGTH = re.compile(r"^(\d+(?:\.\d+)?|\.\d+)(mm|cm|in|pt|pc|px|q)$", re.IGNORECASE)
+_PER_INCH = {"mm": 25.4, "cm": 2.54, "q": 101.6, "in": 1.0, "pt": 72.0, "pc": 6.0, "px": 96.0}
+
+
+def landscape_size(css: str) -> str:
+    """The landscape version of the page ``size`` in ``css``, for ``@page { size: ... }``.
+
+    A named size (``A4``, ``letter`` ...) gets ``landscape``. Two lengths are
+    put in the order width, height with the longer one first.
+    """
+    found = _RE_PAGE_SIZE.findall(css)
+    words = found[-1].replace("!important", "").split() if found else []
+    words = [w for w in words if w.lower() not in {"portrait", "landscape"}]
+    lengths = [length for w in words if (length := _inches(w)) is not None]
+    if len(words) == len(lengths) == 2:  # noqa: PLR2004 - width and height
+        width, height = words
+        return f"{height} {width}" if lengths[1] > lengths[0] else f"{width} {height}"
+    if len(words) == 1 and not lengths and words[0].lower() != "auto":
+        return f"{words[0]} landscape"
+    return "A4 landscape"
+
+
+def _inches(word: str) -> float | None:
+    m = _RE_LENGTH.match(word)
+    if m is None:
+        return None
+    return float(m.group(1)) / _PER_INCH[m.group(2).lower()]
 
 
 def asset(name: str) -> str:
