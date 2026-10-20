@@ -67,6 +67,39 @@ def test_callout_foldable_with_custom_title(marker: str) -> None:
     assert marker + " My" not in out
 
 
+def test_callout_starting_a_list_item_stays_in_the_item() -> None:
+    out = convert_callouts("* > [!WARNING]\n  > Body.\n* Next\n")
+    assert out.splitlines() == [
+        '* ::: {.callout .callout-warning data-callout="warning"}',
+        "  [**Warning**]{.callout-title}",
+        "",
+        "  Body.",
+        "  :::",
+        "* Next",
+    ]
+
+
+def test_callout_in_nested_list_item_keeps_its_indentation() -> None:
+    out = convert_callouts("- Item\n  1. > [!note] Title\n     > Body.\n")
+    assert "  1. ::: {.callout .callout-note" in out
+    assert "     [**Title**]{.callout-title}" in out
+    assert "     Body." in out
+    assert ">" not in out
+
+
+def test_indented_callout_outside_a_list_is_code() -> None:
+    src = "Text\n\n    > [!note]\n    > Body.\n"
+    assert convert_callouts(src) == src
+
+
+@needs_pandoc
+def test_callout_in_list_item_renders_as_a_box(tmp_path: Path) -> None:
+    md = convert_callouts("* > [!WARNING] Risk\n  > Body.\n")
+    html = _pandoc(md, tmp_path)
+    assert '<li><div class="callout callout-warning"' in html
+    assert "&gt;" not in html
+
+
 def test_callout_title_only() -> None:
     out = convert_callouts("> [!note] Just a title\n")
     assert "**Just a title**" in out
