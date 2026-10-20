@@ -44,7 +44,7 @@ The colours are CSS variables on `:root`. Override them in your template:
 | `.rl-ctx`, `li.rl-ctx-item`, `tr.rl-ctx-row` | Collapsed lines (`-O redline.collapse=on`). |
 | `body.rl-blackline`, `body.rl-side-by-side`, `body.rl-collapse` | The style and the collapse option, on `body`. |
 
-The side-by-side style puts the text in `table.rl-sbs`, one `tr.rl-sbs-row` per block with `td.rl-sbs-old`, `td.rl-sbs-gutter` and `td.rl-sbs-new`. The row has the kind of change as `rl-sbs-equal`, `rl-sbs-mod`, `rl-sbs-ins`, `rl-sbs-del`, `rl-sbs-move-from`, `rl-sbs-move-to` or `rl-sbs-ctx`; an empty side is `td.rl-empty` with a `div.rl-gap`. Side-by-side pages are landscape (`@page { size: landscape }`, added after the template).
+The side-by-side style puts the text in `table.rl-sbs`, one `tr.rl-sbs-row` per block with `td.rl-sbs-old`, `td.rl-sbs-gutter` and `td.rl-sbs-new`. The row has the kind of change as `rl-sbs-equal`, `rl-sbs-mod`, `rl-sbs-ins`, `rl-sbs-del`, `rl-sbs-move-from`, `rl-sbs-move-to` or `rl-sbs-ctx`; an empty side is `td.rl-empty` with a `div.rl-gap`. Side-by-side pages are landscape: the page size of the template (the last `size` of a plain `@page` rule in its CSS or page CSS) turned on its side, A4 landscape when the template sets none. The rule is added after the template's page CSS, so it also wins over a template that sets a portrait size. Images and drawings in a column are at most as wide as the column.
 
 The full CSS is in [`core/assets/`](https://github.com/Spenhouet/obsidian-pdf-exporter/tree/main/obsidian_pdf_exporter/core/assets). To check what was emitted, run with `--debug` and open `redline_final.html` in the build folder next to the PDF.
 

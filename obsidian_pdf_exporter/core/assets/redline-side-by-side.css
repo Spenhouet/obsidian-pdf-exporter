@@ -40,3 +40,6 @@ td.rl-sbs-old h1, td.rl-sbs-old h2, td.rl-sbs-old h3, td.rl-sbs-old h4, td.rl-sb
 .rl-sbs ul.rl-li-row, .rl-sbs ol.rl-li-row { margin-top: 0; margin-bottom: 0.2em; }
 .rl-sbs li > ul, .rl-sbs li > ol { margin-bottom: 0; }
 .rl-lg-bar { border-left: none; padding-left: 0; }
+/* Images and drawings never get wider than their column. */
+.rl-sbs img, .rl-sbs svg, .rl-sbs figure { max-width: 100%; }
+.rl-sbs img { height: auto; }
