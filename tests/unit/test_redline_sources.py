@@ -434,7 +434,7 @@ def test_every_link_has_a_target(
     assert targets <= ids
     assert "data-flow" in targets
     assert "No such heading" in doc.text_content()
-    assert any('link to "#no-such-heading" points outside the PDF' in m for m in messages)
+    assert any('Link to heading outside the PDF: "#no-such-heading"' in m for m in messages)
     if collapse == "on":
         holder = doc.xpath("//*[@id='data-flow']")[0]
         assert holder.get("class") == "rl-anchor"
@@ -459,7 +459,7 @@ def test_export_keeps_link_to_missing_heading_as_text(
     page = (output.parent / "_build_doc" / "final.html").read_text(encoding="utf-8")
     assert 'href="#no-such-heading"' not in page
     assert 'href="#data-flow"' in page
-    assert any('link to "#no-such-heading" points outside the PDF' in m for m in messages)
+    assert any('Link to heading outside the PDF: "#no-such-heading"' in m for m in messages)
 
 
 def _extract_with_zip(commit: str, target_dir: Path, repo_root: Path) -> None:

@@ -152,7 +152,7 @@ def test_broken_pdf_falls_back_to_a_link(tmp_path: Path) -> None:
     assert "*Broken*" not in out
     assert "could not render PDF embed ![[Broken.pdf]]" in messages[0]
     assert messages[1] == (
-        '  Warning: link to "Broken.pdf" in Page/Page.md points outside the PDF, kept as text'
+        '  Warning: Link to note outside the PDF: "Broken.pdf" in Page/Page.md, kept as text'
     )
 
 
