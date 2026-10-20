@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import base64
+import logging
+import re
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
@@ -13,15 +15,23 @@ from obsidian_pdf_exporter.core.diagram_fit import render_fitted
 from obsidian_pdf_exporter.core.html_postprocess import RE_EMBEDDED_IMAGE
 
 if TYPE_CHECKING:
-    import re
     from collections.abc import Iterator
 
     from obsidian_pdf_exporter.core.diagram_fit import FitSettings
     from obsidian_pdf_exporter.templates.base import Decorations
 
+_log = logging.getLogger(__name__)
+
+# The opening body tag, with or without attributes (a redline adds classes).
+RE_BODY_OPEN = re.compile(r"<body\b[^>]*>", re.IGNORECASE)
+
 
 def apply_decorations(html: str, decorations: Decorations | None) -> str:
-    """Inject template-supplied ``running_html`` and ``page_css`` into the HTML."""
+    """Inject template-supplied ``running_html`` and ``page_css`` into the HTML.
+
+    ``running_html`` goes right after the opening ``<body>`` tag, whatever
+    attributes the tag has. Without a body tag it is left out with a warning.
+    """
     if decorations is None:
         return html
     if decorations.page_css:
@@ -31,7 +41,12 @@ def apply_decorations(html: str, decorations: Decorations | None) -> str:
             1,
         )
     if decorations.running_html:
-        html = html.replace("<body>", f"<body>\n{decorations.running_html}", 1)
+        match = RE_BODY_OPEN.search(html)
+        if match is None:
+            _log.warning("No <body> tag in the HTML, the template header and footer are left out")
+        else:
+            end = match.end()
+            html = f"{html[:end]}\n{decorations.running_html}{html[end:]}"
     return html
 
 
