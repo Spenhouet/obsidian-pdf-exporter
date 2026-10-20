@@ -2,9 +2,11 @@
 
 A wiki link or Markdown link to a note outside the export (or to a note that
 does not exist) cannot become a link inside the PDF. It is written as plain
-text: the alias, else the note name as Obsidian shows it (``Note > Heading``).
-The export prints one warning per target and page instead, and a count at the
-end (see :class:`OutsideLinkCounter`).
+text: the alias, else the note name as Obsidian shows it (``Note > Heading``,
+and only ``Note`` for a block). The export prints one warning per target and
+page instead, and a count at the end (see :class:`OutsideLinkCounter`). The
+warnings start with :data:`NOTE_PREFIX` or :data:`HEADING_PREFIX`, so they can
+be told apart from warnings about missing content.
 
 ``-O links.outside=italic`` writes the text in italics, as older versions did.
 """
@@ -22,7 +24,12 @@ OPTION = "links.outside"
 #: Its values. The first one is the default.
 MODES = ("text", "italic")
 
-_RE_MESSAGE = re.compile(r'Warning: link to "(.+?)" (?:in .+ )?points outside the PDF')
+#: The start of the warning for a link to a note that is not part of the PDF.
+NOTE_PREFIX = "Link to note outside the PDF: "
+#: The start of the warning for a link to a heading or block that is not in the PDF.
+HEADING_PREFIX = "Link to heading outside the PDF: "
+
+_RE_MESSAGE = re.compile(r'Warning: Link to (?:note|heading) outside the PDF: "(.+?)"')
 
 
 def outside_mode(options: dict[str, str]) -> str:
@@ -46,19 +53,29 @@ def outside_text(label: str, mode: str = MODES[0]) -> str:
 
 
 def outside_label(page: str, section: str = "") -> str:
-    """The label Obsidian shows for ``[[page#section]]``: ``page > section``.
+    """The label for ``[[page#section]]``: ``page > section``, as Obsidian shows it.
 
-    ``section`` may name nested headings (``A#B``) or a block (``^id``).
+    ``section`` may name nested headings (``A#B``) or a block (``^id``). A
+    block ID means nothing to a reader, so it is left out: ``[[page#^id]]``
+    shows ``page``.
     """
     parts = [page.strip()] if page.strip() else []
-    parts += [s.strip() for s in section.split("#") if s.strip()]
+    headings = [s.strip() for s in section.split("#") if s.strip()]
+    parts += [h for h in headings if not h.startswith("^")]
+    if not parts:  # a link to a block of the same page: nothing else to show
+        parts = [h.lstrip("^") for h in headings]
     return " > ".join(parts)
 
 
 def outside_message(target: str, where: str = "") -> str:
-    """The warning for a link to ``target`` that points outside the PDF."""
+    """The warning for a link to ``target`` that points outside the PDF.
+
+    A target that starts with ``#`` is a heading or block that is not in the
+    PDF, any other target a note.
+    """
+    prefix = HEADING_PREFIX if target.startswith("#") else NOTE_PREFIX
     place = f" in {where}" if where else ""
-    return f'link to "{target}"{place} points outside the PDF, kept as text'
+    return f'{prefix}"{target}"{place}, kept as text'
 
 
 class OutsideLinkCounter:
