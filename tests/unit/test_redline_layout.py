@@ -21,10 +21,14 @@ from obsidian_pdf_exporter.core.exporter import ExportRequest
 from obsidian_pdf_exporter.core.exporter import RedlineRequest
 from obsidian_pdf_exporter.core.exporter import export_pdf
 from obsidian_pdf_exporter.core.exporter import export_redline
+from obsidian_pdf_exporter.core.pdf import apply_decorations
 from obsidian_pdf_exporter.core.redline import diff_markdown
+from obsidian_pdf_exporter.core.redline_html import STYLES
 from obsidian_pdf_exporter.core.redline_html import parse_style
+from obsidian_pdf_exporter.core.redline_html import render_redline
 from obsidian_pdf_exporter.main import default_title
 from obsidian_pdf_exporter.templates import load_template
+from obsidian_pdf_exporter.templates.base import Decorations
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -417,3 +421,29 @@ def test_export_with_blame_adds_strip_and_tooltips(
     assert any(
         "Alex Example <author@example.com>" in t and "Version 1 of the document" in t for t in tips
     )
+
+
+HEADER = '<div id="tpl-header"><img src="logo.png"> Example Inc.</div>'
+
+
+@pytest.mark.parametrize("style", STYLES)
+def test_template_header_is_kept_in_redline_styles(style: str) -> None:
+    html = (
+        "<html><head><title>T</title></head><body>"
+        '<p>Old <del class="rl-del">text</del><ins class="rl-ins">words</ins>.</p>'
+        "</body></html>"
+    )
+    redlined = render_redline(html, {"redline.style": style})
+    assert "<body>" not in redlined
+    decorated = apply_decorations(redlined, Decorations(running_html=HEADER))
+    body = lxml_html.fromstring(decorated).body
+    assert body.get("class") is not None
+    assert "rl-doc" in body.get("class")
+    assert body[0].get("id") == "tpl-header"
+
+
+def test_missing_body_tag_is_logged(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level("WARNING"):
+        out = apply_decorations("<p>No body</p>", Decorations(running_html=HEADER))
+    assert out == "<p>No body</p>"
+    assert "No <body> tag" in caplog.text
