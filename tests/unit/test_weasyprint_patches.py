@@ -47,6 +47,17 @@ needs_pandoc = pytest.mark.skipif(shutil.which("pandoc") is None, reason="pandoc
 
 
 @pytest.fixture(autouse=True)
+def _fixed_font_timestamp(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Give every font the same ``head.modified`` time, so PDFs can be compared byte by byte.
+
+    fontTools writes the current time into each font it saves (subset or
+    instanced). Two PDFs written across a second boundary then differ.
+    fontTools uses ``SOURCE_DATE_EPOCH`` instead of the clock when it is set.
+    """
+    monkeypatch.setenv("SOURCE_DATE_EPOCH", "0")
+
+
+@pytest.fixture(autouse=True)
 def _unpatched() -> Iterator[None]:
     apply_weasyprint_patches(OFF)
     yield
