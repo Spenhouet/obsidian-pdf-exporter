@@ -37,7 +37,7 @@ The colours are chosen so that inserted and removed text stay apart for readers 
 
 ## Side by side
 
-The old and the new document in two columns on landscape pages. Every block of the document sits on its own row, so the old and the new version of a paragraph, a list item or a table always start at the same height. A block that exists in only one version faces a hatched gap ("not in the old version", "deleted", "moved"). Every list item has a row of its own, so a long list stays aligned and can break between pages.
+The old and the new document in two columns on landscape pages, in the page size of the template turned on its side (A4 landscape by default). Images are scaled down to the width of their column. Every block of the document sits on its own row, so the old and the new version of a paragraph, a list item or a table always start at the same height. A block that exists in only one version faces a hatched gap ("not in the old version", "deleted", "moved"). Every list item has a row of its own, so a long list stays aligned and can break between pages.
 
 A thin bar between the columns marks the rows that changed; a moved block has a dashed purple bar. Word changes are marked in both columns: removed words in the old column, inserted words in the new one.
 

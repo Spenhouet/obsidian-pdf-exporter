@@ -38,6 +38,8 @@ from obsidian_pdf_exporter.core.redline import extract_commit
 from obsidian_pdf_exporter.core.redline import redline_path_info
 from obsidian_pdf_exporter.core.redline import redline_source_info
 from obsidian_pdf_exporter.core.redline import resolve_short_hash
+from obsidian_pdf_exporter.core.redline_html import SIDE_BY_SIDE
+from obsidian_pdf_exporter.core.redline_html import landscape_pages
 from obsidian_pdf_exporter.core.redline_html import parse_style
 from obsidian_pdf_exporter.core.redline_html import render_redline
 from obsidian_pdf_exporter.core.steps import core_steps
@@ -360,7 +362,11 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
             html = without_image_data(html, partial(run_html, context=doc_ctx, steps=steps))
             html = render_redline(html, options)
             html = request.template.process_html(html, ctx)
-            html = apply_decorations(html, request.template.decorations(ctx))
+            decorations = request.template.decorations(ctx)
+            html = apply_decorations(html, decorations)
+            if parse_style(options) == SIDE_BY_SIDE:
+                page_css = decorations.page_css if decorations else ""
+                html = landscape_pages(html, f"{request.template.get_css()}\n{page_css}")
             html = unlink_missing_targets(html, lambda m: log(f"  Warning: {m}"))
             html = mark_long_words(mark_rtl_blocks(html))
 

@@ -6,9 +6,12 @@ import io
 import re
 import subprocess
 from typing import TYPE_CHECKING
+from typing import Any
 
 import pytest
+import weasyprint
 from lxml import html as lxml_html
+from PIL import Image
 
 from obsidian_pdf_exporter.core import exporter
 from obsidian_pdf_exporter.core.blame import BlameIndex
@@ -24,14 +27,19 @@ from obsidian_pdf_exporter.core.exporter import export_redline
 from obsidian_pdf_exporter.core.pdf import apply_decorations
 from obsidian_pdf_exporter.core.redline import diff_markdown
 from obsidian_pdf_exporter.core.redline_html import STYLES
+from obsidian_pdf_exporter.core.redline_html import landscape_size
 from obsidian_pdf_exporter.core.redline_html import parse_style
 from obsidian_pdf_exporter.core.redline_html import render_redline
 from obsidian_pdf_exporter.main import default_title
+from obsidian_pdf_exporter.templates import load_from_path
 from obsidian_pdf_exporter.templates import load_template
 from obsidian_pdf_exporter.templates.base import Decorations
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from pathlib import Path
+
+    from obsidian_pdf_exporter.templates.base import Template
 
 
 def _git(repo: Path, *args: str, author: str = "Test Author") -> None:
@@ -59,7 +67,9 @@ def _vault(tmp_path: Path, versions: list[tuple[str, str]]) -> Path:
     return repo
 
 
-def _redline_html(repo: Path, monkeypatch: pytest.MonkeyPatch, **options: str) -> str:
+def _redline_html(
+    repo: Path, monkeypatch: pytest.MonkeyPatch, template: Template | None = None, **options: str
+) -> str:
     """Run ``ope redline Doc --from-commit HEAD~1`` without the PDF step; return the HTML."""
     monkeypatch.chdir(repo)
     monkeypatch.setattr(exporter, "html_to_pdf", lambda _html, out, **_kw: out.write_bytes(b"%PDF"))
@@ -69,7 +79,7 @@ def _redline_html(repo: Path, monkeypatch: pytest.MonkeyPatch, **options: str) -
         RedlineRequest(
             root=repo / "Doc",
             output=output,
-            template=load_template("redline"),
+            template=template or load_template("redline"),
             from_commit="HEAD~1",
             options={f"redline.{k}": v for k, v in options.items()},
             debug=True,
@@ -447,3 +457,80 @@ def test_missing_body_tag_is_logged(caplog: pytest.LogCaptureFixture) -> None:
         out = apply_decorations("<p>No body</p>", Decorations(running_html=HEADER))
     assert out == "<p>No body</p>"
     assert "No <body> tag" in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("css", "size"),
+    [
+        ("", "A4 landscape"),
+        ("@page { size: A4 portrait; margin: 2cm; }", "A4 landscape"),
+        ("@page{size:letter;@top-left{content:'x'}}", "letter landscape"),
+        ("@page { size: 210mm 297mm }", "297mm 210mm"),
+        ("@page { size: 11in 8.5in }", "11in 8.5in"),
+        ("@page { size: A5 } @page :first { size: A3 }", "A3 landscape"),
+        ("@page { size: auto }", "A4 landscape"),
+        ("@page wide { size: A3 }", "A4 landscape"),
+    ],
+)
+def test_landscape_size_rotates_the_template_size(css: str, size: str) -> None:
+    assert landscape_size(css) == size
+
+
+def _portrait_template(tmp_path: Path) -> Template:
+    folder = tmp_path / "tpl"
+    folder.mkdir()
+    (folder / "template.yaml").write_text(
+        "name: portrait\nrunning_html: header.html\npage_css: page.css\n", encoding="utf-8"
+    )
+    (folder / "template.css").write_text("body { font-size: 10pt; }\n", encoding="utf-8")
+    (folder / "header.html").write_text('<div class="hdr">Header</div>\n', encoding="utf-8")
+    (folder / "page.css").write_text(
+        ".hdr { position: running(hdr); }\n"
+        "@page { size: A4; margin: 20mm; @top-left { content: element(hdr); } }\n",
+        encoding="utf-8",
+    )
+    return load_from_path(folder)
+
+
+@pytest.mark.parametrize(("style", "landscape"), [("side-by-side", True), ("blackline", False)])
+def test_side_by_side_pages_are_landscape_with_a_portrait_template(
+    two_versions: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    style: str,
+    landscape: bool,
+) -> None:
+    template = _portrait_template(tmp_path)
+    html = _redline_html(two_versions, monkeypatch, template=template, style=style)
+    page = weasyprint.HTML(string=html).render().pages[0]
+    assert (page.width > page.height) is landscape
+    assert "Header" in html
+
+
+def test_side_by_side_images_fit_their_column(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    old = "# Doc\n\nText one.\n\n![[wide.png|1200]]\n"
+    repo = _vault(tmp_path, [("Alex Example", old)])
+    Image.new("RGB", (1600, 400), (40, 90, 160)).save(repo / "Doc" / "wide.png")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "Add the image")
+    (repo / "Doc" / "Doc.md").write_text(old.replace("one", "two") + "\nMore.\n", encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "Second version")
+    template = _portrait_template(tmp_path)  # a template without rules for images
+    html = _redline_html(repo, monkeypatch, template=template, style="side-by-side")
+    pages = weasyprint.HTML(string=html).render().pages
+    fits = [fit for page in pages for fit in _images_fit(page._page_box, None)]
+    assert len(fits) == 2
+    assert all(fits)
+
+
+def _images_fit(box: Any, cell: Any) -> Iterator[bool]:  # noqa: ANN401
+    """For every image below ``box``, whether it is at most as wide as its table cell."""
+    if box.element_tag == "td":
+        cell = box
+    if box.element_tag == "img" and cell is not None:
+        yield box.width <= cell.width + 0.5
+    for child in getattr(box, "children", ()):
+        yield from _images_fit(child, cell)
