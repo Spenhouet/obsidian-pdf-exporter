@@ -2820,6 +2820,7 @@ Pele draws with its own neutral style. Its colors are the CSS variables listed u
 - The label font is the `font-family` of `body`, the monospace font the one of `code` or `pre`, and the text color the `color` of `body`. Diagrams use the font of the document.
 - `themeVariables.fontFamily` in the Mermaid config sets the label font too.
 - `themeVariables.fontSize` in the Mermaid config or in the front matter of a diagram sets the base font size.
+- `themeVariables.xyChart.plotColorPalette` sets the colors of the bars and lines of an XY chart, and `themeVariables.pie1` to `pie8` the colors of the slices of a pie chart. They become `--pele-series-1` to `--pele-series-8` for that diagram only, and win over the template's values. The Mermaid config and the front matter of a diagram can set them.
 - `--pele-*` variables in a rule for `:root`, `html`, `body` or `.pele` set any color. They may use `var()` of other custom properties of those rules.
 
 ```css
@@ -2839,7 +2840,7 @@ A character that no installed font has is drawn as `□` (or `?` when no font ha
 Pele reads the same syntax as Mermaid, but it is not mermaid.js. A diagram can look different from the one in Obsidian:
 
 - Pele has its own layout, so boxes and lines can be placed differently.
-- Mermaid themes (`theme`, `themeVariables` colors, `themeCSS`) and `%%{init}%%` theme settings are not used. Map colors with `--pele-*` variables in the template instead, see [Colors and fonts](#colors-and-fonts).
+- Mermaid themes (`theme`, `themeVariables` colors other than the chart palettes above, `themeCSS`) and `%%{init}%%` theme settings are not used. Map colors with `--pele-*` variables in the template instead, see [Colors and fonts](#colors-and-fonts).
 - `layout: elk` is not used. Pele always lays a diagram out on its own.
 - Links and images in diagrams are turned off.
 - `<br>` and `</br>` both break a label into lines.

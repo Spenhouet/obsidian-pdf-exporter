@@ -219,8 +219,14 @@ def _render_with_pele(
         size = mermaid_pele.diagram_font_size(code, settings.config)
         if size:
             options["fontSize"] = size
-        digest = mermaid_pele.pele_digest(code, options, theme)
-        jobs[code] = (build_dir / f"mermaid-{digest}.svg", options)
+        colors = mermaid_pele.series_colors(code, diagram_type(code), settings.config)
+        diagram_theme = mermaid_pele.PeleTheme(
+            variables={**theme.variables, **colors},
+            font_family=theme.font_family,
+            font_mono=theme.font_mono,
+        )
+        digest = mermaid_pele.pele_digest(code, options, diagram_theme)
+        jobs[code] = (build_dir / f"mermaid-{digest}.svg", options, diagram_theme)
 
     todo = {code: job for code, job in jobs.items() if not job[0].exists()}
     failed: set[str] = set()
@@ -232,8 +238,8 @@ def _render_with_pele(
             log(f"  Warning: {e}")
             return {code: job[0] for code, job in jobs.items() if code not in todo}
         with renderer:
-            for code, (image, options) in todo.items():
-                result = renderer.render(code, options)
+            for code, (image, options, diagram_theme) in todo.items():
+                result = renderer.render(code, options, diagram_theme)
                 if result.error:
                     failed.add(code)
                     first_line = result.error.splitlines()[0]

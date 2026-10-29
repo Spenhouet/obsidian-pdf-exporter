@@ -19,6 +19,7 @@ from obsidian_pdf_exporter.core.mermaid_pele import diagram_font_size
 from obsidian_pdf_exporter.core.mermaid_pele import finish_svg
 from obsidian_pdf_exporter.core.mermaid_pele import pele_theme
 from obsidian_pdf_exporter.core.mermaid_pele import resolve_vars
+from obsidian_pdf_exporter.core.mermaid_pele import series_colors
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -120,6 +121,50 @@ def test_wide_pele_diagram_goes_to_landscape(tmp_path: Path) -> None:
     out = render_mermaid_blocks(_block(f"flowchart LR\n  {chain}"), tmp_path, PELE)
     [(_name, attrs)] = _images(out)
     assert ".landscape" in attrs
+
+
+XY_CHART = 'xychart-beta horizontal\n  x-axis ["A", "B", "C"]\n  bar [3, 5, 2]\n  bar [1, 4, 6]\n'
+
+
+def _bar_colors(svg: str) -> list[str]:
+    return re.findall(r'class="pele-series pele-bars" fill="([^"]+)"', svg)
+
+
+def test_xychart_uses_plot_color_palette(tmp_path: Path) -> None:
+    config = {"themeVariables": {"xyChart": {"plotColorPalette": "#112233, #445566"}}}
+    out = render_mermaid_blocks(_block(XY_CHART), tmp_path, MermaidSettings(config=config))
+    [(name, _attrs)] = _images(out)
+    assert _bar_colors((tmp_path / name).read_text(encoding="utf-8")) == ["#112233", "#445566"]
+
+
+def test_short_palette_starts_again() -> None:
+    colors = series_colors(
+        "", "xychart", {"themeVariables": {"xyChart": {"plotColorPalette": "#111"}}}
+    )
+    assert colors["--pele-series-1"] == colors["--pele-series-3"] == "#111"
+
+
+def test_palette_from_front_matter_wins() -> None:
+    code = "---\nconfig:\n  themeVariables:\n    xyChart:\n      plotColorPalette: '#abcdef'\n---\n"
+    config = {"themeVariables": {"xyChart": {"plotColorPalette": "#111111, #222222"}}}
+    colors = series_colors(code + XY_CHART, "xychart-beta", config)
+    assert colors["--pele-series-1"] == colors["--pele-series-2"] == "#abcdef"
+
+
+def test_pie_colors() -> None:
+    config = {"themeVariables": {"pie1": "#aa0000", "pie3": "#00aa00", "xyChart": {}}}
+    assert series_colors("pie\n", "pie", config) == {
+        "--pele-series-1": "#aa0000",
+        "--pele-series-3": "#00aa00",
+    }
+    assert series_colors("flowchart LR\n", "flowchart", config) == {}
+
+
+def test_palette_changes_the_image_name(tmp_path: Path) -> None:
+    plain = render_mermaid_blocks(_block(XY_CHART), tmp_path, PELE)
+    config = {"themeVariables": {"xyChart": {"plotColorPalette": "#112233"}}}
+    colored = render_mermaid_blocks(_block(XY_CHART), tmp_path, MermaidSettings(config=config))
+    assert _images(plain)[0][0] != _images(colored)[0][0]
 
 
 def test_font_size_from_front_matter(tmp_path: Path) -> None:
