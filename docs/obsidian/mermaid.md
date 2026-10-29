@@ -33,7 +33,7 @@ The output is SVG, so text stays sharp and can be searched.
 | `-O mermaid=off` | Keep Mermaid blocks as code. | on |
 | `-O mermaid.config=PATH` | JSON [Mermaid config](https://mermaid.js.org/config/schema-docs/config.html), such as `themeVariables.fontSize`. | none |
 | `-O mermaid.max_height=LENGTH` | Largest height, such as `10cm`. Taller diagrams are scaled down. | none |
-| `-O mermaid.landscape=on\|off` | Put wide diagrams on landscape pages. | `on` |
+| `-O mermaid.landscape=on\|off` | Put wide diagrams on landscape pages. | `off` |
 | `-O mermaid.landscape_ratio=R` | Width to height ratio from which a diagram that has to shrink goes to landscape. | `1.4` |
 | `-O mermaid.landscape_min_font=PT` | Smallest text size a diagram may shrink to on a portrait page before it goes to landscape, or to fit a tall diagram on one page. | `7` |
 | `-O mermaid.fit=on\|off` | Scale or split diagrams that are taller than the page. | `on` |
@@ -57,6 +57,7 @@ Pele draws with its own neutral style. Its colors are the CSS variables listed u
 - The label font is the `font-family` of `body`, the monospace font the one of `code` or `pre`, and the text color the `color` of `body`. Diagrams use the font of the document.
 - `themeVariables.fontFamily` in the Mermaid config sets the label font too.
 - `themeVariables.fontSize` in the Mermaid config or in the front matter of a diagram sets the base font size.
+- `themeVariables.xyChart.plotColorPalette` sets the colors of the bars and lines of an XY chart, and `themeVariables.pie1` to `pie8` the colors of the slices of a pie chart. They become `--pele-series-1` to `--pele-series-8` for that diagram only, and win over the template's values. The Mermaid config and the front matter of a diagram can set them.
 - `--pele-*` variables in a rule for `:root`, `html`, `body` or `.pele` set any color. They may use `var()` of other custom properties of those rules.
 
 ```css
@@ -76,7 +77,7 @@ A character that no installed font has is drawn as `□` (or `?` when no font ha
 Pele reads the same syntax as Mermaid, but it is not mermaid.js. A diagram can look different from the one in Obsidian:
 
 - Pele has its own layout, so boxes and lines can be placed differently.
-- Mermaid themes (`theme`, `themeVariables` colors, `themeCSS`) and `%%{init}%%` theme settings are not used. Map colors with `--pele-*` variables in the template instead, see [Colors and fonts](#colors-and-fonts).
+- Mermaid themes (`theme`, `themeVariables` colors other than the chart palettes above, `themeCSS`) and `%%{init}%%` theme settings are not used. Map colors with `--pele-*` variables in the template instead, see [Colors and fonts](#colors-and-fonts).
 - `layout: elk` is not used. Pele always lays a diagram out on its own.
 - Links and images in diagrams are turned off.
 - `<br>` and `</br>` both break a label into lines.
@@ -93,7 +94,7 @@ Pele gives every diagram an exact size with a margin of 8 px, so there is no emp
 
 ## Wide diagrams
 
-A diagram wider than the text shrinks, and so does its text. When that makes it hard to read, the diagram goes to its own landscape page, like a [wide table](../markdown/tables.md#wide-tables).
+A diagram wider than the text shrinks, and so does its text. Diagrams stay on portrait pages by default. With `-O mermaid.landscape=on`, a diagram that gets hard to read goes to its own landscape page, like a [wide table](../markdown/tables.md#wide-tables).
 
 <div class="ope-example" markdown>
 <div markdown>
@@ -112,13 +113,13 @@ A diagram wider than the text shrinks, and so does its text. When that makes it 
 </div>
 </div>
 
-A diagram moves when it has to shrink to fit a portrait page and either its width is at least `mermaid.landscape_ratio` times its height, or its text would get smaller than `mermaid.landscape_min_font` points. It only moves when the landscape page shows it larger, so a tall diagram stays where it is. On the landscape page it is sized to fit the page height, with room for a caption.
+With `mermaid.landscape=on`, a diagram moves when it has to shrink to fit a portrait page and either its width is at least `mermaid.landscape_ratio` times its height, or its text would get smaller than `mermaid.landscape_min_font` points. It only moves when the landscape page shows it larger, so a tall diagram stays where it is. On the landscape page it is sized to fit the page height, with room for a caption.
 
 A short paragraph right below the diagram that starts with a word and a number, such as `Figure 1: Overview`, is its caption and moves with it. The diagram gets the class `landscape`, its wrapper `wide-table-section landscape-figure`, so a template's landscape page for tables applies to diagrams too.
 
 ```bash
-ope export ./Notes -O mermaid.landscape_ratio=2
-ope export ./Notes -O mermaid.landscape=off
+ope export ./Notes -O mermaid.landscape=on
+ope export ./Notes -O mermaid.landscape=on -O mermaid.landscape_ratio=2
 ```
 
 ## Tall diagrams
