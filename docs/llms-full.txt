@@ -1371,7 +1371,7 @@ A template is a CSS file or a folder with CSS, header and footer. See [Templates
 `-O key=value` passes settings to the steps, plugins and the template:
 
 ```bash
-ope export ./MyVault/Handbook -O mermaid.landscape=off -O tables.landscape=off
+ope export ./MyVault/Handbook -O mermaid.landscape=on -O tables.landscape=off
 ope export ./MyVault/Handbook --disable-plugin dataview
 ```
 
@@ -1517,7 +1517,7 @@ ope export ./Vault/Handbook \
   --version 3.1.0 --date 2026-05-07 \
   --include "Chapter A" --include "Chapter B" \
   --disable-plugin meta_bind \
-  -O mermaid.landscape=off -O tables.landscape=off
+  -O mermaid.landscape=on -O tables.landscape=off
 ```
 
 ## `redline`
@@ -1567,7 +1567,7 @@ the template. These keys are read by ope itself:
 | `mermaid` | `off` | on | [Mermaid](../obsidian/mermaid.md) |
 | `mermaid.config` | path to JSON | none | [Mermaid](../obsidian/mermaid.md#options) |
 | `mermaid.max_height` | CSS length | none | [Mermaid](../obsidian/mermaid.md#options) |
-| `mermaid.landscape` | `on`, `off` | `on` | [Mermaid](../obsidian/mermaid.md#wide-diagrams) |
+| `mermaid.landscape` | `on`, `off` | `off` | [Mermaid](../obsidian/mermaid.md#wide-diagrams) |
 | `mermaid.landscape_ratio` | number | `1.4` | [Mermaid](../obsidian/mermaid.md#wide-diagrams) |
 | `mermaid.landscape_min_font` | points | `7` | [Mermaid](../obsidian/mermaid.md#wide-diagrams) |
 | `mermaid.fit` | `on`, `off` | `on` | [Mermaid](../obsidian/mermaid.md#tall-diagrams) |
@@ -2796,7 +2796,7 @@ The output is SVG, so text stays sharp and can be searched.
 | `-O mermaid=off` | Keep Mermaid blocks as code. | on |
 | `-O mermaid.config=PATH` | JSON [Mermaid config](https://mermaid.js.org/config/schema-docs/config.html), such as `themeVariables.fontSize`. | none |
 | `-O mermaid.max_height=LENGTH` | Largest height, such as `10cm`. Taller diagrams are scaled down. | none |
-| `-O mermaid.landscape=on\|off` | Put wide diagrams on landscape pages. | `on` |
+| `-O mermaid.landscape=on\|off` | Put wide diagrams on landscape pages. | `off` |
 | `-O mermaid.landscape_ratio=R` | Width to height ratio from which a diagram that has to shrink goes to landscape. | `1.4` |
 | `-O mermaid.landscape_min_font=PT` | Smallest text size a diagram may shrink to on a portrait page before it goes to landscape, or to fit a tall diagram on one page. | `7` |
 | `-O mermaid.fit=on\|off` | Scale or split diagrams that are taller than the page. | `on` |
@@ -2857,7 +2857,7 @@ Pele gives every diagram an exact size with a margin of 8 px, so there is no emp
 
 ## Wide diagrams
 
-A diagram wider than the text shrinks, and so does its text. When that makes it hard to read, the diagram goes to its own landscape page, like a [wide table](../markdown/tables.md#wide-tables).
+A diagram wider than the text shrinks, and so does its text. Diagrams stay on portrait pages by default. With `-O mermaid.landscape=on`, a diagram that gets hard to read goes to its own landscape page, like a [wide table](../markdown/tables.md#wide-tables).
 
 Markdown:
 
@@ -2878,13 +2878,13 @@ PDF:
 
 ![A wide flowchart on a landscape page, with its caption](../img/features/mermaid-landscape.png)
 
-A diagram moves when it has to shrink to fit a portrait page and either its width is at least `mermaid.landscape_ratio` times its height, or its text would get smaller than `mermaid.landscape_min_font` points. It only moves when the landscape page shows it larger, so a tall diagram stays where it is. On the landscape page it is sized to fit the page height, with room for a caption.
+With `mermaid.landscape=on`, a diagram moves when it has to shrink to fit a portrait page and either its width is at least `mermaid.landscape_ratio` times its height, or its text would get smaller than `mermaid.landscape_min_font` points. It only moves when the landscape page shows it larger, so a tall diagram stays where it is. On the landscape page it is sized to fit the page height, with room for a caption.
 
 A short paragraph right below the diagram that starts with a word and a number, such as `Figure 1: Overview`, is its caption and moves with it. The diagram gets the class `landscape`, its wrapper `wide-table-section landscape-figure`, so a template's landscape page for tables applies to diagrams too.
 
 ```bash
-ope export ./Notes -O mermaid.landscape_ratio=2
-ope export ./Notes -O mermaid.landscape=off
+ope export ./Notes -O mermaid.landscape=on
+ope export ./Notes -O mermaid.landscape=on -O mermaid.landscape_ratio=2
 ```
 
 ## Tall diagrams

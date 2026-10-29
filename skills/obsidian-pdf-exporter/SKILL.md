@@ -40,14 +40,14 @@ ope export ./Vault/Handbook                       # -> ./.export/Handbook.pdf
 ope export ./Vault/Handbook -o out/handbook.pdf \
   --title "Team handbook" --subtitle "How we work" --version 1.2.0 --date 2026-04-01
 ope export ./Vault/Handbook --include "Part A" --exclude Drafts --no-toc
-ope export ./Vault/Handbook -O tables.landscape=off -O mermaid.landscape=off
+ope export ./Vault/Handbook -O tables.landscape=off -O mermaid.landscape=on
 ope export ./Vault/Handbook --disable-plugin dataview
 ```
 
 - `ROOT` is a folder. Every subfolder becomes a numbered section, and `Folder/Folder.md` (the folder note) is its text. `ROOT/ROOT.md` is the first text. To export a single note, put it in its own folder named like the note.
 - Links and embeds are looked up in the whole vault (the folder with `.obsidian`, else the git root).
 - Without `--version`, a folder in a git repository shows the short commit hash as version.
-- Other `-O` keys: `line_breaks=hard|soft`, `links.outside=text|italic`, `footnotes=page|end`, `mermaid=off`, `mermaid.config=mermaid.json`, `mermaid.landscape=off`, `excalidraw.auto_export=off`, `citations.bibliography=refs.bib`, `citations.csl=style.csl`, `tables.landscape_min_cols=N`. List: https://spenhouet.com/obsidian-pdf-exporter/reference/cli/
+- Other `-O` keys: `line_breaks=hard|soft`, `links.outside=text|italic`, `footnotes=page|end`, `mermaid=off`, `mermaid.config=mermaid.json`, `mermaid.landscape=on`, `excalidraw.auto_export=off`, `citations.bibliography=refs.bib`, `citations.csl=style.csl`, `tables.landscape_min_cols=N`. List: https://spenhouet.com/obsidian-pdf-exporter/reference/cli/
 - Exit codes: `0` ok, `1` export failed, `2` bad arguments (for example an unknown template).
 
 Lines starting with `Warning:` name content that could not be rendered: an embed that was not found, a canvas embed or a PDF that cannot be opened (kept as a link), a plugin code block nobody renders (`tasks`, `ad-note`, ...), a Dataview query or DataviewJS script that failed. `Warning: Link to note outside the PDF: "Note" ...` and `Warning: Link to heading outside the PDF: "#heading" ...` name a link whose target is not part of the PDF; nothing is missing, the link text is plain text in the PDF (`-O links.outside=italic` shows it in italics). Report them to the user. All messages: https://spenhouet.com/obsidian-pdf-exporter/reference/warnings/

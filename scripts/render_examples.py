@@ -80,6 +80,7 @@ SETTINGS: dict[str, Example] = {
     "wiki-links": Example(pages=[1]),
     "folder-notes": Example(toc=True),
     "footnotes": Example(collapse=True),
+    "mermaid-landscape": Example(args=["-O", "mermaid.landscape=on"]),
     # Dataview examples use a fixed "today", so the pictures do not change every day.
     **{
         name: Example(args=["-O", "dataview.now=2026-04-01T09:00"])
