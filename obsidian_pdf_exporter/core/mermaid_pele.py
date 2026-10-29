@@ -43,6 +43,8 @@ if TYPE_CHECKING:
 PELE_VERSION = "1.6.0"
 
 _ASSET = Path(__file__).resolve().parent / "assets" / "pele.js"
+#: Number of series colors Pele has, ``--pele-series-1`` to ``--pele-series-8``.
+_SERIES = 8
 #: Most layout passes per diagram while text widths are measured.
 _MAX_PASSES = 4
 #: Characters drawn instead of the ones no installed font has, the first one a font has.
@@ -376,16 +378,61 @@ def diagram_font_size(code: str, config: Mapping[str, Any]) -> float | None:
     Pele's ``fontSize``.
     """
     sizes = [_theme_font_size(config)]
-    match = _RE_FENCE_FRONT_MATTER.match(code)
-    if match:
-        try:
-            front = yaml.safe_load(match.group("yaml"))
-        except yaml.YAMLError:
-            front = None
-        if isinstance(front, dict) and isinstance(front.get("config"), dict):
-            sizes.append(_theme_font_size(front["config"]))
+    front = _front_matter_config(code)
+    if front:
+        sizes.append(_theme_font_size(front))
     found = [s for s in sizes if s]
     return found[-1] if found else None
+
+
+def _front_matter_config(code: str) -> dict[str, Any]:
+    """Return the ``config`` of the front matter of a diagram, or an empty dict."""
+    match = _RE_FENCE_FRONT_MATTER.match(code)
+    if not match:
+        return {}
+    try:
+        front = yaml.safe_load(match.group("yaml"))
+    except yaml.YAMLError:
+        return {}
+    if isinstance(front, dict) and isinstance(front.get("config"), dict):
+        return front["config"]
+    return {}
+
+
+def series_colors(code: str, kind: str, config: Mapping[str, Any]) -> dict[str, str]:
+    """Return the ``--pele-series-N`` values for the Mermaid palette of a diagram.
+
+    Pele draws the bars and lines of an XY chart and the slices of a pie with
+    the colors ``--pele-series-1`` to ``--pele-series-8``. Mermaid takes them
+    from ``themeVariables.xyChart.plotColorPalette``, a comma separated list,
+    and from ``themeVariables.pie1`` to ``pie12``. A palette shorter than the
+    series of an XY chart starts again from its first color, as in Mermaid.
+    The front matter of the diagram wins over ``config``. Returns an empty
+    dict when no palette is set.
+    """
+    colors: dict[int, str] = {}
+    for source in (config, _front_matter_config(code)):
+        theme_vars = source.get("themeVariables")
+        if isinstance(theme_vars, dict):
+            colors.update(_palette(kind, theme_vars))
+    return {f"--pele-series-{index}": color.replace('"', "'") for index, color in colors.items()}
+
+
+def _palette(kind: str, theme_vars: Mapping[str, Any]) -> dict[int, str]:
+    """Return the series colors of ``theme_vars`` for a diagram type, by series number."""
+    if kind in {"xychart", "xychart-beta"}:
+        xy = theme_vars.get("xyChart")
+        raw = xy.get("plotColorPalette") if isinstance(xy, dict) else None
+        if not isinstance(raw, str):
+            return {}
+        palette = [c.strip() for c in raw.split(",") if c.strip()]
+        if not palette:
+            return {}
+        return {i + 1: palette[i % len(palette)] for i in range(_SERIES)}
+    if kind == "pie":
+        found = {i: theme_vars.get(f"pie{i}") for i in range(1, _SERIES + 1)}
+        return {i: str(c).strip() for i, c in found.items() if isinstance(c, str) and c.strip()}
+    return {}
 
 
 def _theme_font_size(config: Mapping[str, Any]) -> float | None:
@@ -438,8 +485,14 @@ class PeleRenderer:
     def __exit__(self, *_exc: object) -> None:
         self.close()
 
-    def render(self, code: str, options: dict[str, object]) -> PeleResult:
-        """Draw one diagram. ``options`` are Pele's render options."""
+    def render(
+        self, code: str, options: dict[str, object], theme: PeleTheme | None = None
+    ) -> PeleResult:
+        """Draw one diagram. ``options`` are Pele's render options.
+
+        ``theme`` sets the colors of this diagram, by default the theme of the
+        renderer. Text is measured in the fonts of the renderer's theme.
+        """
         # Mermaid breaks lines at ``</br>`` too; Pele only at ``<br>``.
         code = _RE_BR_CLOSE.sub("<br>", code)
         measure = self._measurer is not None and self._measurer.available()
@@ -463,7 +516,7 @@ class PeleRenderer:
         svg = str(data["svg"])
         if measure and self._measurer is not None:
             svg = self._show_missing(svg)
-        return PeleResult(svg=finish_svg(svg, self.theme))
+        return PeleResult(svg=finish_svg(svg, theme or self.theme))
 
     def _show_missing(self, svg: str) -> str:
         """Draw the characters no installed font has as :data:`MISSING`, as they were measured.
