@@ -2892,7 +2892,7 @@ Per diagram type, a list such as `taskTextOutsideColor`, `taskTextDarkColor` mea
 
 The colors become `--pele-*` variables of that diagram or CSS rules for Pele's class names in the SVG. They never change sizes, so labels keep the width they were measured with.
 
-Pele reads most of the per-diagram config itself, for example `gantt.barHeight`, `gantt.fontSize`, `gantt.useWidth`, `quadrantChart.chartWidth`, `quadrantChart.chartHeight`, `quadrantChart.pointRadius`, `xyChart.width`, `xyChart.chartOrientation`, `timeline.disableMulticolor`, `pie.textPosition` and `sequence.mirrorActors`. It derives the size of the other text from `fontSize`, so keys such as `quadrantChart.pointLabelFontSize`, `quadrantChart.titleFontSize`, `xyChart.titleFontSize` or `themeVariables.pieTitleTextSize` have no effect.
+Pele reads most of the per-diagram config itself, for example `gantt.barHeight`, `gantt.fontSize`, `gantt.useWidth`, `quadrantChart.chartWidth`, `quadrantChart.chartHeight`, `quadrantChart.pointRadius`, `xyChart.width`, `xyChart.chartOrientation`, `timeline.disableMulticolor`, `pie.textPosition` and `sequence.mirrorActors`. The font sizes of a quadrant chart come from `quadrantChart.titleFontSize`, `quadrantLabelFontSize`, `xAxisLabelFontSize`, `yAxisLabelFontSize` and `pointLabelFontSize`. Pele derives the size of other text from `fontSize`, so keys such as `xyChart.titleFontSize` or `themeVariables.pieTitleTextSize` have no effect.
 
 The export prints one warning that lists every key of the Mermaid config with no effect: `theme` other than `default` or `base`, `themeCSS`, theme variables without a counterpart (such as `pieOuterStrokeColor`, `cScaleInv0` or `cScale8` to `cScale11`) and keys of the `gantt`, `quadrantChart`, `xyChart`, `timeline`, `pie` and `sequence` sections that Pele does not read.
 
@@ -2906,12 +2906,12 @@ Pele reads the same syntax as Mermaid, but it is not mermaid.js. A diagram can l
 
 - Pele has its own layout, so boxes and lines can be placed differently.
 - Mermaid's built-in themes (`theme: dark`, `forest`, `neutral`), `themeCSS` and `%%{init}%%` theme settings are not used. Theme variables are mapped where Pele has a counterpart, see [Mermaid theme variables](#mermaid-theme-variables). Other colors can be set with `--pele-*` variables in the template, see [Colors and fonts](#colors-and-fonts).
-- Pele wraps a quadrant chart point label after 200 px and moves labels to avoid overlap, so labels can sit in other places than in Mermaid.
+- Pele moves quadrant chart point labels to avoid overlap, so labels can sit in other places than in Mermaid. A point label only wraps when it is wider than the plot area.
 - `layout: elk` is not used. Pele always lays a diagram out on its own.
 - Links and images in diagrams are turned off.
 - `<br>` and `</br>` both break a label into lines.
 
-The Pele build is part of ope (version 1.6.0, MIT license, see the license header of `obsidian_pdf_exporter/core/assets/pele.js`). `scripts/update_pele.py` in the repository replaces it with another version and checks it against the hash the npm registry publishes. CI checks that the stored build is the pinned one.
+The Pele build is part of ope (version 1.6.0, MIT license, see the license header of `obsidian_pdf_exporter/core/assets/pele.js`). ope applies a few small changes to it when it loads, listed in `PELE_PATCHES` in `obsidian_pdf_exporter/core/mermaid_pele.py`. `scripts/update_pele.py` in the repository replaces it with another version and checks it against the hash the npm registry publishes. CI checks that the stored build is the pinned one.
 
 ## Diagram size
 

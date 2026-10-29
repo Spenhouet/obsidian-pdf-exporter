@@ -18,6 +18,9 @@ Three things make Pele's SVG fit a PDF made by WeasyPrint:
   value. The values come from the template's CSS (see :func:`pele_theme`).
 * Size. The SVG has a fixed size and a margin of ``padding`` pixels, so it
   needs no trimming.
+
+A few changes to the Pele build bring it closer to mermaid.js, see
+:data:`PELE_PATCHES`. They are applied when the build is loaded.
 """
 
 from __future__ import annotations
@@ -45,6 +48,39 @@ if TYPE_CHECKING:
 PELE_VERSION = "1.6.0"
 
 _ASSET = Path(__file__).resolve().parent / "assets" / "pele.js"
+
+#: Changes to the Pele build, as ``(old, new)`` texts. Each ``old`` occurs once in the build.
+#:
+#: Quadrant chart: the point labels wrap at the width of the plot area, not
+#: at 200 px. The ``quadrantChart`` config keys ``titleFontSize``,
+#: ``quadrantLabelFontSize``, ``xAxisLabelFontSize``, ``yAxisLabelFontSize``
+#: and ``pointLabelFontSize`` set the font sizes, as in mermaid.js. Without
+#: them the sizes follow ``fontSize`` as before.
+PELE_PATCHES: tuple[tuple[str, str], ...] = (
+    (
+        "o=Math.round(r*.875),s=Math.round(r*.75),a=n.measurer??et(n.fontFamily),"
+        'i=Math.round(Math.max(100,Mr(t,"chartWidth"',
+        'o=Mr(t,"xAxisLabelFontSize",Math.round(r*.875),128),'
+        '$qy=Mr(t,"yAxisLabelFontSize",Math.round(r*.875),128),'
+        '$qt=Mr(t,"titleFontSize",r,128),$qq=Mr(t,"quadrantLabelFontSize",r,128),'
+        's=Mr(t,"pointLabelFontSize",Math.round(r*.75),128),a=n.measurer??et(n.fontFamily),'
+        'i=Math.round(Math.max(100,Mr(t,"chartWidth"',
+    ),
+    ("g=Oe(e.title,!1,a,r,Math.max(c-2*f,40),1)", "g=Oe(e.title,!1,a,$qt,Math.max(c-2*f,40),1)"),
+    (
+        'B=Ne(g,c/2,x/2+g.height/2,\' class="pele-title"',
+        'B=Ne(g,c/2,x/2+g.height/2,\' class="pele-title" font-size="\'+$qt+\'"',
+    ),
+    ("J=h(e.quadrants[K],r,A-16)", "J=h(e.quadrants[K],$qq,A-16)"),
+    (
+        'Ne(J,se,ge,\' class="pele-label" fill="var(--_fg)" stroke="none"\')',
+        'Ne(J,se,ge,\' class="pele-label" font-size="\'+$qq+\'" fill="var(--_fg)" stroke="none"\')',
+    ),
+    ("q=h(e.yAxisBottom,o,", "q=h(e.yAxisBottom,$qy,"),
+    ("Y=h(e.yAxisTop,o,", "Y=h(e.yAxisTop,$qy,"),
+    ('rotate(-90)">${Ne(ce,0,0,"")}', 'rotate(-90)" font-size="${$qy}">${Ne(ce,0,0,"")}'),
+    ("text:h(K.text,s,200)", "text:h(K.text,s,E)"),
+)
 #: Number of series colors Pele has, ``--pele-series-1`` to ``--pele-series-8``.
 _SERIES = 8
 #: Most layout passes per diagram while text widths are measured.
@@ -701,10 +737,27 @@ def _pango_family(css_family: str) -> str:
 
 @cache
 def _asset() -> str:
-    return _ASSET.read_text(encoding="utf-8")
+    return patch_pele(_ASSET.read_text(encoding="utf-8"))
+
+
+def patch_pele(code: str) -> str:
+    """Return the Pele build ``code`` with :data:`PELE_PATCHES` applied.
+
+    Raises:
+        PeleUnavailableError: When a text to replace does not occur exactly
+            once, for example in another version of Pele.
+    """
+    for old, new in PELE_PATCHES:
+        if code.count(old) != 1:
+            msg = f"Pele build does not match ope's changes: {old[:60]!r}"
+            raise PeleUnavailableError(msg)
+        code = code.replace(old, new, 1)
+    return code
 
 
 def pele_digest(code: str, options: dict[str, object], theme: PeleTheme) -> str:
     """Return the name part of the image file of a diagram drawn by Pele."""
-    key = json.dumps(["pele", PELE_VERSION, code, options, theme.key()], sort_keys=True)
+    key = json.dumps(
+        ["pele", PELE_VERSION, PELE_PATCHES, code, options, theme.key()], sort_keys=True
+    )
     return hashlib.sha256(key.encode("utf-8")).hexdigest()[:12]

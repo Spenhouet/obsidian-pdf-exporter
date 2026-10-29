@@ -151,7 +151,6 @@ def test_unused_keys() -> None:
         "themeVariables.milestoneBkgColor",
         "themeVariables.cScale9",
         "themeVariables.xyChart.backgroundColor",
-        "quadrantChart.pointLabelFontSize",
         "xyChart.titleFontSize",
     ]
     assert unused_keys({"theme": "dark"}) == ["theme"]
