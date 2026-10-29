@@ -25,6 +25,7 @@ from dataclasses import field
 from pathlib import Path
 
 from obsidian_pdf_exporter.core import mermaid_pele
+from obsidian_pdf_exporter.core import mermaid_theme
 
 RE_MERMAID_BLOCK = re.compile(
     r"^(?P<fence>`{3,}|~{3,})[ \t]*mermaid[ \t]*\n(?P<code>.*?)\n(?P=fence)[ \t]*$",
@@ -178,6 +179,12 @@ def render_mermaid_blocks(
     if not blocks or not settings.enabled:
         return markdown
 
+    unused = mermaid_theme.unused_keys(settings.config)
+    if unused:
+        log(
+            "  Warning: these Mermaid config keys have no effect, Pele has nothing to map "
+            f"them to: {', '.join(unused)}."
+        )
     codes = list(dict.fromkeys(strip_comments(m.group("code")) for m in blocks))
     images = _render_with_pele(codes, build_dir, settings, css, log)
     failed = 0
@@ -222,12 +229,7 @@ def _render_with_pele(
         size = mermaid_pele.diagram_font_size(code, settings.config)
         if size:
             options["fontSize"] = size
-        colors = mermaid_pele.series_colors(code, diagram_type(code), settings.config)
-        diagram_theme = mermaid_pele.PeleTheme(
-            variables={**theme.variables, **colors},
-            font_family=theme.font_family,
-            font_mono=theme.font_mono,
-        )
+        diagram_theme = mermaid_pele.diagram_theme(code, diagram_type(code), settings.config, theme)
         digest = mermaid_pele.pele_digest(code, options, diagram_theme)
         jobs[code] = (build_dir / f"mermaid-{digest}.svg", options, diagram_theme)
 

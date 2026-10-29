@@ -36,6 +36,8 @@ from typing import Any
 
 import yaml
 
+from obsidian_pdf_exporter.core import mermaid_theme
+
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
@@ -122,10 +124,18 @@ class PeleTheme:
     variables: dict[str, str] = field(default_factory=dict)
     font_family: str = "sans-serif"
     font_mono: str = "monospace"
+    #: CSS rules of one diagram, as selector and declarations, see
+    #: :func:`obsidian_pdf_exporter.core.mermaid_theme.diagram_css`.
+    rules: tuple[tuple[str, str], ...] = ()
 
     def key(self) -> list[object]:
         """Return a JSON-able value that changes whenever the theme changes."""
-        return [sorted(self.variables.items()), self.font_family, self.font_mono]
+        return [
+            sorted(self.variables.items()),
+            self.font_family,
+            self.font_mono,
+            [list(rule) for rule in self.rules],
+        ]
 
 
 @dataclass
@@ -327,8 +337,12 @@ def finish_svg(svg: str, theme: PeleTheme) -> str:
     every attribute. The root ``style`` becomes presentation attributes, since
     the exporter gives the inlined SVG a ``style`` of its own. The ``height``
     attribute is removed, the height follows from the ``viewBox`` when the
-    diagram is scaled.
+    diagram is scaled. The CSS rules of ``theme`` go into a ``<style>``
+    element. Their selectors start with an id that only this diagram has,
+    since the SVG ends up inline in the HTML next to other diagrams.
     """
+    if theme.rules:
+        svg = mermaid_theme.mark_svg(svg)
     root = _RE_ROOT.search(svg)
     if not root:
         return svg
@@ -363,8 +377,14 @@ def finish_svg(svg: str, theme: PeleTheme) -> str:
     new_tag = tag.replace(style.group(0), "", 1) if style else tag
     new_tag = _RE_HEIGHT_ATTR.sub("", new_tag, count=1)
     extra = "".join(f' {k}="{v}"' for k, v in attributes.items())
+    style_element = ""
+    if theme.rules and not tag.endswith("/>") and " id=" not in tag:
+        scope = "ope-" + hashlib.sha256(repr(theme.rules).encode("utf-8")).hexdigest()[:10]
+        extra += f' id="{scope}"'
+        css = "".join(f"#{scope} {selector} {{ {decl} }}" for selector, decl in theme.rules)
+        style_element = f"<style>{css}</style>"
     new_tag = new_tag[:-1].rstrip("/") + extra + (" />" if tag.endswith("/>") else ">")
-    svg = svg.replace(tag, new_tag, 1)
+    svg = svg.replace(tag, new_tag + style_element, 1)
     svg = _RE_RX_STYLE.sub(r' rx="\1"', svg)
     svg = _RE_ATTR_WITH_VAR.sub(lambda m: f'="{resolve(m.group(1))}"', svg)
     return svg.replace("currentColor", attributes["color"])
@@ -416,6 +436,28 @@ def series_colors(code: str, kind: str, config: Mapping[str, Any]) -> dict[str, 
         if isinstance(theme_vars, dict):
             colors.update(_palette(kind, theme_vars))
     return {f"--pele-series-{index}": color.replace('"', "'") for index, color in colors.items()}
+
+
+def diagram_theme(code: str, kind: str, config: Mapping[str, Any], theme: PeleTheme) -> PeleTheme:
+    """Return the theme of one diagram: ``theme`` with the Mermaid theme of the diagram.
+
+    The ``themeVariables`` of ``config`` and of the front matter of the
+    diagram (which wins) become ``--pele-*`` variables and CSS rules, see
+    :mod:`obsidian_pdf_exporter.core.mermaid_theme`. They win over the
+    template's values.
+    """
+    flat = mermaid_theme.flat_theme(config, _front_matter_config(code))
+    variables = {
+        **theme.variables,
+        **mermaid_theme.diagram_variables(kind, flat),
+        **series_colors(code, kind, config),
+    }
+    return PeleTheme(
+        variables=variables,
+        font_family=theme.font_family,
+        font_mono=theme.font_mono,
+        rules=mermaid_theme.diagram_css(kind, flat),
+    )
 
 
 def _palette(kind: str, theme_vars: Mapping[str, Any]) -> dict[int, str]:

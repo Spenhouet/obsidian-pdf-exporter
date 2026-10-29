@@ -2820,7 +2820,7 @@ Pele draws with its own neutral style. Its colors are the CSS variables listed u
 - The label font is the `font-family` of `body`, the monospace font the one of `code` or `pre`, and the text color the `color` of `body`. Diagrams use the font of the document.
 - `themeVariables.fontFamily` in the Mermaid config sets the label font too.
 - `themeVariables.fontSize` in the Mermaid config or in the front matter of a diagram sets the base font size.
-- `themeVariables.xyChart.plotColorPalette` sets the colors of the bars and lines of an XY chart, and `themeVariables.pie1` to `pie8` the colors of the slices of a pie chart. They become `--pele-series-1` to `--pele-series-8` for that diagram only, and win over the template's values. The Mermaid config and the front matter of a diagram can set them.
+- The other `themeVariables` of the Mermaid config or of the front matter of a diagram set the colors of that diagram, see [Mermaid theme variables](#mermaid-theme-variables). They win over the template's values.
 - `--pele-*` variables in a rule for `:root`, `html`, `body` or `.pele` set any color. They may use `var()` of other custom properties of those rules.
 
 ```css
@@ -2831,6 +2831,71 @@ Pele draws with its own neutral style. Its colors are the CSS variables listed u
 }
 ```
 
+### Mermaid theme variables
+
+Pele does not read Mermaid's `themeVariables`. ope maps each variable that has a counterpart in Pele's drawing, so a diagram looks as it does in Obsidian. A variable in the front matter of a diagram wins over the Mermaid config. These variables apply to every diagram type:
+
+| Theme variable | Effect |
+| -------------- | ------ |
+| `fontFamily` | Font of the labels. |
+| `fontSize` | Base font size. Pele derives the size of every label from it. |
+| `textColor`, else `primaryTextColor` | Text color (`--pele-fg`). |
+| `lineColor` | Lines and arrows (`--pele-line`). |
+| `background` | Background color, also used for text on dark bars (`--pele-bg`). |
+| `titleColor` | Diagram title, unless a variable below sets it. |
+
+Per diagram type, a list such as `taskTextOutsideColor`, `taskTextDarkColor` means the first one that is set wins, as in Mermaid:
+
+| Diagram | Theme variable | Effect |
+| ------- | -------------- | ------ |
+| Flowchart | `mainBkg`, `primaryColor` | Node fill. |
+| | `nodeBorder`, `primaryBorderColor` | Node border. |
+| | `nodeTextColor`, `primaryTextColor` | Node text. |
+| | `clusterBkg`, `clusterBorder` | Subgraph fill and border. |
+| | `titleColor` | Subgraph title. |
+| | `edgeLabelBackground` | Background of edge labels. |
+| Sequence | `actorBkg`, `mainBkg`, `primaryColor` | Participant fill. |
+| | `actorBorder`, `primaryBorderColor` | Participant border. |
+| | `actorTextColor`, `primaryTextColor` | Participant text. |
+| | `actorLineColor` | Lifelines. |
+| | `signalColor`, `textColor` | Message lines and arrows. |
+| | `signalTextColor`, `textColor` | Message text. |
+| | `noteBkgColor`, `noteBorderColor`, `noteTextColor` | Notes. |
+| | `activationBkgColor`, `activationBorderColor` | Activation bars. |
+| | `labelBoxBkgColor`, `labelBoxBorderColor` | Loop and alt frames, and the box of their keyword. |
+| | `labelTextColor`, `loopTextColor` | Frame keyword and frame label. |
+| Gantt | `taskBkgColor`, `taskBorderColor` | Tasks and milestones. |
+| | `activeTaskBkgColor`, `activeTaskBorderColor` | Active tasks. |
+| | `doneTaskBkgColor`, `doneTaskBorderColor` | Done tasks. |
+| | `critBkgColor`, `critBorderColor` | Critical tasks. |
+| | `taskTextColor` | Label on a bar. |
+| | `taskTextDarkColor` | Label on a done or active bar. |
+| | `taskTextOutsideColor`, `taskTextDarkColor` | Label next to a bar or milestone. |
+| | `sectionBkgColor`, `altSectionBkgColor`, `sectionBkgColor2` | Section bands. |
+| | `gridColor`, `todayLineColor`, `excludeBkgColor`, `vertLineColor` | Grid, today marker, excluded days, vertical markers. |
+| Timeline | `cScale0` to `cScale7` | Color of each period and its events (`--pele-series-1` to `8`). |
+| | `cScaleLabel0` to `cScaleLabel7` | Text of each period and its events. |
+| Quadrant chart | `quadrant1Fill` to `quadrant4Fill` | Quadrant fills. |
+| | `quadrant1TextFill` to `quadrant4TextFill` | Quadrant labels. |
+| | `quadrantPointFill`, `quadrantPointTextFill` | Points and their labels. |
+| | `quadrantXAxisTextFill`, `quadrantYAxisTextFill` | Axis labels. |
+| | `quadrantInternalBorderStrokeFill`, `quadrantExternalBorderStrokeFill` | Quadrant borders. Pele draws one kind of border. |
+| | `quadrantTitleFill` | Title. |
+| Pie | `pie1` to `pie8` | Slice colors (`--pele-series-1` to `8`). |
+| | `pieStrokeColor`, `pieStrokeWidth`, `pieOpacity` | Slice border and opacity. |
+| | `pieSectionTextColor`, `pieLegendTextColor`, `pieTitleTextColor` | Slice labels, legend and title. |
+| XY chart | `xyChart.plotColorPalette` | Colors of bars and lines (`--pele-series-1` to `8`). A shorter list starts again from its first color. |
+| | `xyChart.titleColor` | Title. |
+| | `xyChart.xAxisLabelColor`, `xyChart.yAxisLabelColor` | Axis labels. Pele draws both axes in one color. |
+| | `xyChart.xAxisTitleColor`, `xyChart.yAxisTitleColor` | Axis titles. |
+| | `xyChart.xAxisLineColor`, `xyChart.yAxisLineColor` | Axis lines and ticks. |
+
+The colors become `--pele-*` variables of that diagram or CSS rules for Pele's class names in the SVG. They never change sizes, so labels keep the width they were measured with.
+
+Pele reads most of the per-diagram config itself, for example `gantt.barHeight`, `gantt.fontSize`, `gantt.useWidth`, `quadrantChart.chartWidth`, `quadrantChart.chartHeight`, `quadrantChart.pointRadius`, `xyChart.width`, `xyChart.chartOrientation`, `timeline.disableMulticolor`, `pie.textPosition` and `sequence.mirrorActors`. It derives the size of the other text from `fontSize`, so keys such as `quadrantChart.pointLabelFontSize`, `quadrantChart.titleFontSize`, `xyChart.titleFontSize` or `themeVariables.pieTitleTextSize` have no effect.
+
+The export prints one warning that lists every key of the Mermaid config with no effect: `theme` other than `default` or `base`, `themeCSS`, theme variables without a counterpart (such as `pieOuterStrokeColor`, `cScaleInv0` or `cScale8` to `cScale11`) and keys of the `gantt`, `quadrantChart`, `xyChart`, `timeline`, `pie` and `sequence` sections that Pele does not read.
+
 Pele needs the width of every label to lay a diagram out. ope measures them with Pango, the text engine WeasyPrint uses, in the font of the PDF and at the size they are drawn, so labels fit their boxes in any font. When the template font is not installed, labels are measured and drawn in the font that replaces it. Each label is drawn as one line of shaped text, so Arabic letters join, Arabic and Hebrew read from right to left and Hindi or Thai vowel signs stay on their letters.
 
 A character that no installed font has is drawn as `□` (or `?` when no font has `□` either), and the boxes of the diagram are sized for it. The export prints a warning that lists these characters. Install fonts that cover the scripts of the labels, for example Noto, see [Fonts and scripts](../getting-started/installation.md#fonts-and-scripts).
@@ -2840,7 +2905,8 @@ A character that no installed font has is drawn as `□` (or `?` when no font ha
 Pele reads the same syntax as Mermaid, but it is not mermaid.js. A diagram can look different from the one in Obsidian:
 
 - Pele has its own layout, so boxes and lines can be placed differently.
-- Mermaid themes (`theme`, `themeVariables` colors other than the chart palettes above, `themeCSS`) and `%%{init}%%` theme settings are not used. Map colors with `--pele-*` variables in the template instead, see [Colors and fonts](#colors-and-fonts).
+- Mermaid's built-in themes (`theme: dark`, `forest`, `neutral`), `themeCSS` and `%%{init}%%` theme settings are not used. Theme variables are mapped where Pele has a counterpart, see [Mermaid theme variables](#mermaid-theme-variables). Other colors can be set with `--pele-*` variables in the template, see [Colors and fonts](#colors-and-fonts).
+- Pele wraps a quadrant chart point label after 200 px and moves labels to avoid overlap, so labels can sit in other places than in Mermaid.
 - `layout: elk` is not used. Pele always lays a diagram out on its own.
 - Links and images in diagrams are turned off.
 - `<br>` and `</br>` both break a label into lines.
