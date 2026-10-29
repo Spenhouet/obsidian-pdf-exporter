@@ -8,9 +8,11 @@ block Pele can not draw stays a code block and a warning is logged.
 ``%%`` comment lines are removed before rendering, so they do not change the
 diagram or its cache key.
 
-A wide diagram whose text would be too small on a portrait page gets the
-``landscape`` class (see :func:`needs_landscape`). The ``landscape_figures``
-step then moves it to a landscape page, like a wide table.
+With ``-O mermaid.landscape=on``, a wide diagram whose text would be too
+small on a portrait page gets the ``landscape`` class (see
+:func:`needs_landscape`). The ``landscape_figures`` step then moves it to a
+landscape page, like a wide table. By default every diagram stays on a
+portrait page.
 """
 
 from __future__ import annotations
@@ -71,7 +73,7 @@ class MermaidSettings:
     enabled: bool = True
     config: dict[str, object] = field(default_factory=dict)
     max_height: str = ""
-    landscape: bool = True
+    landscape: bool = False
     landscape_ratio: float = 1.4
     landscape_min_font: float = 7.0
     fit: bool = True
@@ -89,7 +91,8 @@ def mermaid_settings(
     * ``mermaid=off``: keep Mermaid blocks as code.
     * ``mermaid.config=PATH``: JSON Mermaid config merged over the template's.
     * ``mermaid.max_height=LENGTH``: largest height of a diagram, e.g. ``10cm``.
-    * ``mermaid.landscape=off``: keep wide diagrams on portrait pages.
+    * ``mermaid.landscape=on``: put wide diagrams on landscape pages. By
+      default every diagram stays on a portrait page.
     * ``mermaid.landscape_ratio=R``: width to height ratio from which a
       diagram that is scaled down goes to a landscape page (default ``1.4``).
     * ``mermaid.landscape_min_font=PT``: smallest font size in points a
@@ -121,7 +124,7 @@ def mermaid_settings(
         enabled=options.get("mermaid", "on").strip().lower() not in _OFF_VALUES,
         config=config,
         max_height=_checked_length("mermaid.max_height", options.get("mermaid.max_height", "")),
-        landscape=options.get("mermaid.landscape", "on").strip().lower() not in _OFF_VALUES,
+        landscape=options.get("mermaid.landscape", "off").strip().lower() not in _OFF_VALUES,
         landscape_ratio=_checked_number(options, "mermaid.landscape_ratio", 1.4),
         landscape_min_font=_checked_number(options, "mermaid.landscape_min_font", 7.0),
         fit=options.get("mermaid.fit", "on").strip().lower() not in _OFF_VALUES,
@@ -330,6 +333,8 @@ def _default_width(image: Path, settings: MermaidSettings) -> str:
 
 def needs_landscape(image: Path, settings: MermaidSettings) -> bool:
     """Return True when a diagram is easier to read on a landscape page.
+
+    Always False unless ``mermaid.landscape`` is on.
 
     The diagram is shown at its natural size, or smaller to fit the width of
     the page and ``mermaid.max_height``. On a portrait page it goes to

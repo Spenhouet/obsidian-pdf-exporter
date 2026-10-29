@@ -120,7 +120,7 @@ ope export ./Vault/Handbook \
   --version 3.1.0 --date 2026-05-07 \
   --include "Chapter A" --include "Chapter B" \
   --disable-plugin meta_bind \
-  -O mermaid.landscape=off -O tables.landscape=off
+  -O mermaid.landscape=on -O tables.landscape=off
 ```
 
 ## `redline`
@@ -170,7 +170,7 @@ the template. These keys are read by ope itself:
 | `mermaid` | `off` | on | [Mermaid](../obsidian/mermaid.md) |
 | `mermaid.config` | path to JSON | none | [Mermaid](../obsidian/mermaid.md#options) |
 | `mermaid.max_height` | CSS length | none | [Mermaid](../obsidian/mermaid.md#options) |
-| `mermaid.landscape` | `on`, `off` | `on` | [Mermaid](../obsidian/mermaid.md#wide-diagrams) |
+| `mermaid.landscape` | `on`, `off` | `off` | [Mermaid](../obsidian/mermaid.md#wide-diagrams) |
 | `mermaid.landscape_ratio` | number | `1.4` | [Mermaid](../obsidian/mermaid.md#wide-diagrams) |
 | `mermaid.landscape_min_font` | points | `7` | [Mermaid](../obsidian/mermaid.md#wide-diagrams) |
 | `mermaid.fit` | `on`, `off` | `on` | [Mermaid](../obsidian/mermaid.md#tall-diagrams) |

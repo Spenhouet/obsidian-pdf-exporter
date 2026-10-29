@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import shutil
 from typing import TYPE_CHECKING
 
 import pytest
@@ -12,6 +13,7 @@ from obsidian_pdf_exporter.core import mermaid
 from obsidian_pdf_exporter.core import mermaid_pele
 from obsidian_pdf_exporter.core.html_postprocess import inline_svg_images
 from obsidian_pdf_exporter.core.mermaid import MermaidSettings
+from obsidian_pdf_exporter.core.mermaid import mermaid_settings
 from obsidian_pdf_exporter.core.mermaid import render_mermaid_blocks
 from obsidian_pdf_exporter.core.mermaid_pele import PeleRenderer
 from obsidian_pdf_exporter.core.mermaid_pele import PeleTheme
@@ -116,10 +118,13 @@ def test_closing_br_tag_breaks_the_line() -> None:
     assert "LocalDatabase" not in result.svg
 
 
-def test_wide_pele_diagram_goes_to_landscape(tmp_path: Path) -> None:
+def test_wide_pele_diagram_goes_to_landscape_when_asked(tmp_path: Path) -> None:
     chain = " --> ".join(f"N{i}[Step number {i}]" for i in range(12))
-    out = render_mermaid_blocks(_block(f"flowchart LR\n  {chain}"), tmp_path, PELE)
-    [(_name, attrs)] = _images(out)
+    block = _block(f"flowchart LR\n  {chain}")
+    [(_name, attrs)] = _images(render_mermaid_blocks(block, tmp_path, PELE))
+    assert ".landscape" not in attrs
+    on = mermaid_settings({"mermaid.landscape": "on"})
+    [(_name, attrs)] = _images(render_mermaid_blocks(block, tmp_path, on))
     assert ".landscape" in attrs
 
 
@@ -347,3 +352,35 @@ def test_vendored_build_carries_its_license() -> None:
     assert "MIT License" in header
     assert "Lucide" in header
     assert "ISC License" in header
+
+
+@pytest.mark.skipif(shutil.which("pandoc") is None, reason="pandoc not installed")
+def test_wide_chart_stays_on_a_portrait_page_with_its_heading(tmp_path: Path) -> None:
+    import json
+
+    import pypdfium2
+    from typer.testing import CliRunner
+
+    from obsidian_pdf_exporter.main import app
+
+    vault = tmp_path / "Report"
+    vault.mkdir()
+    filler = "\n\n".join(f"Paragraph {i} " + "with some words " * 12 for i in range(8))
+    chart = (
+        'xychart-beta horizontal\n  x-axis ["Alpha", "Beta", "Gamma", "Delta"]\n'
+        "  bar [23, 53, 55, 168]\n  bar [51, 42, 38, 31]"
+    )
+    note = f"# Report\n\n{filler}\n\n## Results\n\n{_block(chart)}\n"
+    (vault / "Report.md").write_text(note, encoding="utf-8")
+    config = tmp_path / "mermaid.json"
+    config.write_text(json.dumps({"xyChart": {"width": 700, "height": 420}}), encoding="utf-8")
+    pdf = tmp_path / "out.pdf"
+    args = ["export", str(vault), "-o", str(pdf), "--no-toc", "-O", f"mermaid.config={config}"]
+    result = CliRunner().invoke(app, args)
+    assert result.exit_code == 0, result.output
+
+    document = pypdfium2.PdfDocument(str(pdf))
+    pages = [page.get_textpage().get_text_range() for page in document]
+    assert all(page.get_height() > page.get_width() for page in document)
+    [with_heading] = [text for text in pages if "Results" in text]
+    assert "Delta" in with_heading
