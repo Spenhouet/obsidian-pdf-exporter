@@ -342,6 +342,59 @@ def test_font_pt_reads_the_root_font_size() -> None:
     assert diagram_fit.font_pt(element, 100) == pytest.approx(9)
 
 
+QUADRANT = """quadrantChart
+    title Garden projects
+    x-axis Low effort --> High effort
+    y-axis Low value --> High value
+    quadrant-1 Big bets
+    Drip irrigation for the orchard 90 h: [0.7, 0.8]
+    Herb spiral: [0.2, 0.3]"""
+
+
+def _font_sizes(svg: str, cls: str) -> list[str]:
+    return re.findall(rf'<(?:text|g) class="{cls}"[^>]*font-size="([\d.]+)"', svg)
+
+
+def test_quadrant_point_labels_stay_on_one_line() -> None:
+    with PeleRenderer(PeleTheme()) as renderer:
+        svg = renderer.render(QUADRANT, {"responsive": False, "fontSize": 22}).svg
+    labels = svg[svg.index('class="pele-point-labels"') :]
+    assert "<tspan" not in labels
+    assert ">Drip irrigation for the orchard 90 h</text>" in labels
+
+
+def test_quadrant_font_sizes_from_the_config() -> None:
+    config = {
+        "quadrantChart": {
+            "titleFontSize": 25,
+            "quadrantLabelFontSize": 19,
+            "xAxisLabelFontSize": 15,
+            "yAxisLabelFontSize": 13,
+            "pointLabelFontSize": 11,
+        }
+    }
+    with PeleRenderer(PeleTheme()) as renderer:
+        svg = renderer.render(QUADRANT, {"responsive": False, "config": config}).svg
+    assert _font_sizes(svg, "pele-title") == ["25"]
+    assert _font_sizes(svg, "pele-label")[0] == "19"
+    assert _font_sizes(svg, "pele-axis-labels") == ["15"]
+    assert re.findall(r'rotate\(-90\)" font-size="([\d.]+)"', svg) == ["13", "13"]
+    assert _font_sizes(svg, "pele-point-labels") == ["11"]
+
+
+def test_quadrant_font_sizes_follow_font_size_without_config() -> None:
+    with PeleRenderer(PeleTheme()) as renderer:
+        svg = renderer.render(QUADRANT, {"responsive": False, "fontSize": 20}).svg
+    assert _font_sizes(svg, "pele-title") == ["20"]
+    assert _font_sizes(svg, "pele-axis-labels") == ["18"]
+    assert _font_sizes(svg, "pele-point-labels") == ["15"]
+
+
+def test_patch_fails_on_another_build() -> None:
+    with pytest.raises(mermaid_pele.PeleUnavailableError):
+        mermaid_pele.patch_pele("var pele = {};")
+
+
 # ---- Vendored build ---------------------------------------------------------
 
 

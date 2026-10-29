@@ -272,6 +272,11 @@ DIAGRAM_CONFIG: dict[str, set[str]] = {
         "yAxisLabelPadding",
         "xAxisPosition",
         "yAxisPosition",
+        "titleFontSize",
+        "quadrantLabelFontSize",
+        "xAxisLabelFontSize",
+        "yAxisLabelFontSize",
+        "pointLabelFontSize",
     },
     "xyChart": {
         "width",
