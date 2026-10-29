@@ -158,13 +158,20 @@ def _svg(path: Path, width: float, height: float, font: int = 16) -> Path:
 )
 def test_needs_landscape(tmp_path: Path, width: float, height: float, expected: bool) -> None:
     image = _svg(tmp_path / "d.svg", width, height)
-    assert needs_landscape(image, MermaidSettings()) is expected
+    assert needs_landscape(image, MermaidSettings(landscape=True)) is expected
 
 
 def test_small_text_goes_to_landscape(tmp_path: Path) -> None:
     image = _svg(tmp_path / "d.svg", 1300, 1000, font=12)
-    assert needs_landscape(image, MermaidSettings()) is True
-    assert needs_landscape(image, MermaidSettings(landscape_min_font=4)) is False
+    assert needs_landscape(image, MermaidSettings(landscape=True)) is True
+    assert needs_landscape(image, MermaidSettings(landscape=True, landscape_min_font=4)) is False
+
+
+def test_diagrams_stay_portrait_by_default(tmp_path: Path) -> None:
+    image = _svg(tmp_path / "d.svg", 3400, 2000)
+    assert mermaid_settings({}).landscape is False
+    assert needs_landscape(image, mermaid_settings({})) is False
+    assert needs_landscape(image, mermaid_settings({"mermaid.landscape": "on"})) is True
 
 
 def test_landscape_options() -> None:
@@ -177,8 +184,8 @@ def test_landscape_options() -> None:
 
 def test_landscape_ratio_option(tmp_path: Path) -> None:
     image = _svg(tmp_path / "d.svg", 1000, 650)
-    assert needs_landscape(image, MermaidSettings()) is True
-    assert needs_landscape(image, MermaidSettings(landscape_ratio=2)) is False
+    assert needs_landscape(image, MermaidSettings(landscape=True)) is True
+    assert needs_landscape(image, MermaidSettings(landscape=True, landscape_ratio=2)) is False
 
 
 def test_wrap_landscape_figure_with_caption() -> None:

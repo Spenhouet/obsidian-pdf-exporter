@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import shutil
 from typing import TYPE_CHECKING
 
 import pytest
@@ -12,6 +13,7 @@ from obsidian_pdf_exporter.core import mermaid
 from obsidian_pdf_exporter.core import mermaid_pele
 from obsidian_pdf_exporter.core.html_postprocess import inline_svg_images
 from obsidian_pdf_exporter.core.mermaid import MermaidSettings
+from obsidian_pdf_exporter.core.mermaid import mermaid_settings
 from obsidian_pdf_exporter.core.mermaid import render_mermaid_blocks
 from obsidian_pdf_exporter.core.mermaid_pele import PeleRenderer
 from obsidian_pdf_exporter.core.mermaid_pele import PeleTheme
@@ -19,6 +21,7 @@ from obsidian_pdf_exporter.core.mermaid_pele import diagram_font_size
 from obsidian_pdf_exporter.core.mermaid_pele import finish_svg
 from obsidian_pdf_exporter.core.mermaid_pele import pele_theme
 from obsidian_pdf_exporter.core.mermaid_pele import resolve_vars
+from obsidian_pdf_exporter.core.mermaid_pele import series_colors
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -115,11 +118,58 @@ def test_closing_br_tag_breaks_the_line() -> None:
     assert "LocalDatabase" not in result.svg
 
 
-def test_wide_pele_diagram_goes_to_landscape(tmp_path: Path) -> None:
+def test_wide_pele_diagram_goes_to_landscape_when_asked(tmp_path: Path) -> None:
     chain = " --> ".join(f"N{i}[Step number {i}]" for i in range(12))
-    out = render_mermaid_blocks(_block(f"flowchart LR\n  {chain}"), tmp_path, PELE)
-    [(_name, attrs)] = _images(out)
+    block = _block(f"flowchart LR\n  {chain}")
+    [(_name, attrs)] = _images(render_mermaid_blocks(block, tmp_path, PELE))
+    assert ".landscape" not in attrs
+    on = mermaid_settings({"mermaid.landscape": "on"})
+    [(_name, attrs)] = _images(render_mermaid_blocks(block, tmp_path, on))
     assert ".landscape" in attrs
+
+
+XY_CHART = 'xychart-beta horizontal\n  x-axis ["A", "B", "C"]\n  bar [3, 5, 2]\n  bar [1, 4, 6]\n'
+
+
+def _bar_colors(svg: str) -> list[str]:
+    return re.findall(r'class="pele-series pele-bars" fill="([^"]+)"', svg)
+
+
+def test_xychart_uses_plot_color_palette(tmp_path: Path) -> None:
+    config = {"themeVariables": {"xyChart": {"plotColorPalette": "#112233, #445566"}}}
+    out = render_mermaid_blocks(_block(XY_CHART), tmp_path, MermaidSettings(config=config))
+    [(name, _attrs)] = _images(out)
+    assert _bar_colors((tmp_path / name).read_text(encoding="utf-8")) == ["#112233", "#445566"]
+
+
+def test_short_palette_starts_again() -> None:
+    colors = series_colors(
+        "", "xychart", {"themeVariables": {"xyChart": {"plotColorPalette": "#111"}}}
+    )
+    assert colors["--pele-series-1"] == colors["--pele-series-3"] == "#111"
+
+
+def test_palette_from_front_matter_wins() -> None:
+    code = "---\nconfig:\n  themeVariables:\n    xyChart:\n      plotColorPalette: '#abcdef'\n---\n"
+    config = {"themeVariables": {"xyChart": {"plotColorPalette": "#111111, #222222"}}}
+    colors = series_colors(code + XY_CHART, "xychart-beta", config)
+    assert colors["--pele-series-1"] == colors["--pele-series-2"] == "#abcdef"
+
+
+def test_pie_colors() -> None:
+    config = {"themeVariables": {"pie1": "#aa0000", "pie3": "#00aa00", "xyChart": {}}}
+    assert series_colors("pie\n", "pie", config) == {
+        "--pele-series-1": "#aa0000",
+        "--pele-series-3": "#00aa00",
+    }
+    assert series_colors("flowchart LR\n", "flowchart", config) == {}
+
+
+def test_palette_changes_the_image_name(tmp_path: Path) -> None:
+    plain = render_mermaid_blocks(_block(XY_CHART), tmp_path, PELE)
+    config = {"themeVariables": {"xyChart": {"plotColorPalette": "#112233"}}}
+    colored = render_mermaid_blocks(_block(XY_CHART), tmp_path, MermaidSettings(config=config))
+    assert _images(plain)[0][0] != _images(colored)[0][0]
 
 
 def test_font_size_from_front_matter(tmp_path: Path) -> None:
@@ -302,3 +352,35 @@ def test_vendored_build_carries_its_license() -> None:
     assert "MIT License" in header
     assert "Lucide" in header
     assert "ISC License" in header
+
+
+@pytest.mark.skipif(shutil.which("pandoc") is None, reason="pandoc not installed")
+def test_wide_chart_stays_on_a_portrait_page_with_its_heading(tmp_path: Path) -> None:
+    import json
+
+    import pypdfium2
+    from typer.testing import CliRunner
+
+    from obsidian_pdf_exporter.main import app
+
+    vault = tmp_path / "Report"
+    vault.mkdir()
+    filler = "\n\n".join(f"Paragraph {i} " + "with some words " * 12 for i in range(8))
+    chart = (
+        'xychart-beta horizontal\n  x-axis ["Alpha", "Beta", "Gamma", "Delta"]\n'
+        "  bar [23, 53, 55, 168]\n  bar [51, 42, 38, 31]"
+    )
+    note = f"# Report\n\n{filler}\n\n## Results\n\n{_block(chart)}\n"
+    (vault / "Report.md").write_text(note, encoding="utf-8")
+    config = tmp_path / "mermaid.json"
+    config.write_text(json.dumps({"xyChart": {"width": 700, "height": 420}}), encoding="utf-8")
+    pdf = tmp_path / "out.pdf"
+    args = ["export", str(vault), "-o", str(pdf), "--no-toc", "-O", f"mermaid.config={config}"]
+    result = CliRunner().invoke(app, args)
+    assert result.exit_code == 0, result.output
+
+    document = pypdfium2.PdfDocument(str(pdf))
+    pages = [page.get_textpage().get_text_range() for page in document]
+    assert all(page.get_height() > page.get_width() for page in document)
+    [with_heading] = [text for text in pages if "Results" in text]
+    assert "Delta" in with_heading
