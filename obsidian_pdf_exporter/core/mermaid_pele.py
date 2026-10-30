@@ -45,7 +45,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
 #: Version of the Pele build in ``assets/pele.js``.
-PELE_VERSION = "1.6.0"
+PELE_VERSION = "1.12.0"
 
 _ASSET = Path(__file__).resolve().parent / "assets" / "pele.js"
 
@@ -56,30 +56,32 @@ _ASSET = Path(__file__).resolve().parent / "assets" / "pele.js"
 #: ``quadrantLabelFontSize``, ``xAxisLabelFontSize``, ``yAxisLabelFontSize``
 #: and ``pointLabelFontSize`` set the font sizes, as in mermaid.js. Without
 #: them the sizes follow ``fontSize`` as before.
+#: Reported upstream as https://github.com/obsidianmd/pele/issues/108.
 PELE_PATCHES: tuple[tuple[str, str], ...] = (
     (
-        "o=Math.round(r*.875),s=Math.round(r*.75),a=n.measurer??et(n.fontFamily),"
-        'i=Math.round(Math.max(100,Mr(t,"chartWidth"',
-        'o=Mr(t,"xAxisLabelFontSize",Math.round(r*.875),128),'
-        '$qy=Mr(t,"yAxisLabelFontSize",Math.round(r*.875),128),'
-        '$qt=Mr(t,"titleFontSize",r,128),$qq=Mr(t,"quadrantLabelFontSize",r,128),'
-        's=Mr(t,"pointLabelFontSize",Math.round(r*.75),128),a=n.measurer??et(n.fontFamily),'
-        'i=Math.round(Math.max(100,Mr(t,"chartWidth"',
+        "i=Math.round(r*.875),s=Math.round(r*.75),a=n.measurer??ct(n.fontFamily,n.fontFamilyMono),"
+        'o=Math.round(Math.max(100,ns(t,"chartWidth"',
+        'i=ns(t,"xAxisLabelFontSize",Math.round(r*.875),128),'
+        '$qy=ns(t,"yAxisLabelFontSize",Math.round(r*.875),128),'
+        '$qt=ns(t,"titleFontSize",r,128),$qq=ns(t,"quadrantLabelFontSize",r,128),'
+        's=ns(t,"pointLabelFontSize",Math.round(r*.75),128),'
+        "a=n.measurer??ct(n.fontFamily,n.fontFamilyMono),"
+        'o=Math.round(Math.max(100,ns(t,"chartWidth"',
     ),
-    ("g=Oe(e.title,!1,a,r,Math.max(c-2*f,40),1)", "g=Oe(e.title,!1,a,$qt,Math.max(c-2*f,40),1)"),
+    ("b=Ge(e.title,!1,a,r,Math.max(c-2*d,40),1)", "b=Ge(e.title,!1,a,$qt,Math.max(c-2*d,40),1)"),
     (
-        'B=Ne(g,c/2,x/2+g.height/2,\' class="pele-title"',
-        'B=Ne(g,c/2,x/2+g.height/2,\' class="pele-title" font-size="\'+$qt+\'"',
+        'Ne(b,c/2,E/2+b.height/2,\' class="pele-title"',
+        'Ne(b,c/2,E/2+b.height/2,\' class="pele-title" font-size="\'+$qt+\'"',
     ),
-    ("J=h(e.quadrants[K],r,A-16)", "J=h(e.quadrants[K],$qq,A-16)"),
+    ("ne=p(e.quadrants[U],r,g-16)", "ne=p(e.quadrants[U],$qq,g-16)"),
     (
-        'Ne(J,se,ge,\' class="pele-label" fill="var(--_fg)" stroke="none"\')',
-        'Ne(J,se,ge,\' class="pele-label" font-size="\'+$qq+\'" fill="var(--_fg)" stroke="none"\')',
+        'Ne(ne,F,te,\' class="pele-label" fill="var(--_fg)" stroke="none"\')',
+        'Ne(ne,F,te,\' class="pele-label" font-size="\'+$qq+\'" fill="var(--_fg)" stroke="none"\')',
     ),
-    ("q=h(e.yAxisBottom,o,", "q=h(e.yAxisBottom,$qy,"),
-    ("Y=h(e.yAxisTop,o,", "Y=h(e.yAxisTop,$qy,"),
-    ('rotate(-90)">${Ne(ce,0,0,"")}', 'rotate(-90)" font-size="${$qy}">${Ne(ce,0,0,"")}'),
-    ("text:h(K.text,s,200)", "text:h(K.text,s,E)"),
+    ("ie=p(e.yAxisBottom,i,", "ie=p(e.yAxisBottom,$qy,"),
+    ("z=p(e.yAxisTop,i,", "z=p(e.yAxisTop,$qy,"),
+    ('rotate(-90)">${Ne(oe,0,0,"")}', 'rotate(-90)" font-size="${$qy}">${Ne(oe,0,0,"")}'),
+    ("text:p(U.text,s,200)", "text:p(U.text,s,S)"),
 )
 #: Number of series colors Pele has, ``--pele-series-1`` to ``--pele-series-8``.
 _SERIES = 8
