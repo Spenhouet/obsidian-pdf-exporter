@@ -30,7 +30,7 @@ import tarfile
 import urllib.request
 from pathlib import Path
 
-VERSION = "1.6.0"
+VERSION = "1.12.0"
 REPO = Path(__file__).resolve().parent.parent
 OUT = REPO / "obsidian_pdf_exporter" / "core" / "assets" / "pele.js"
 REGISTRY = "https://registry.npmjs.org/pele"

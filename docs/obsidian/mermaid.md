@@ -148,7 +148,7 @@ Pele reads the same syntax as Mermaid, but it is not mermaid.js. A diagram can l
 - Links and images in diagrams are turned off.
 - `<br>` and `</br>` both break a label into lines.
 
-The Pele build is part of ope (version 1.6.0, MIT license, see the license header of `obsidian_pdf_exporter/core/assets/pele.js`). ope applies a few small changes to it when it loads, listed in `PELE_PATCHES` in `obsidian_pdf_exporter/core/mermaid_pele.py`. `scripts/update_pele.py` in the repository replaces it with another version and checks it against the hash the npm registry publishes. CI checks that the stored build is the pinned one.
+The Pele build is part of ope (version 1.12.0, MIT license, see the license header of `obsidian_pdf_exporter/core/assets/pele.js`). ope applies a few small changes to it when it loads, listed in `PELE_PATCHES` in `obsidian_pdf_exporter/core/mermaid_pele.py`. The quadrant chart font sizes and the width at which point labels wrap are such a change. It stays until a Pele release has the fix, see [obsidianmd/pele#108](https://github.com/obsidianmd/pele/issues/108). `scripts/update_pele.py` in the repository replaces it with another version and checks it against the hash the npm registry publishes. CI checks that the stored build is the pinned one.
 
 ## Diagram size
 
