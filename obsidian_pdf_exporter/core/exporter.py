@@ -44,6 +44,10 @@ from obsidian_pdf_exporter.core.redline_html import parse_style
 from obsidian_pdf_exporter.core.redline_html import render_redline
 from obsidian_pdf_exporter.core.steps import core_steps
 from obsidian_pdf_exporter.core.steps.base import DocumentContext
+from obsidian_pdf_exporter.core.tags import NoTaggedNotesError
+from obsidian_pdf_exporter.core.tags import filter_tree
+from obsidian_pdf_exporter.core.tags import has_tag
+from obsidian_pdf_exporter.core.tags import notes_of
 from obsidian_pdf_exporter.core.tree import PageNode
 from obsidian_pdf_exporter.core.tree import build_space_tree
 from obsidian_pdf_exporter.core.tree import collect_page_index
@@ -76,6 +80,7 @@ class ExportRequest:
     date: str = ""
     include: list[str] = field(default_factory=list)
     exclude: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
     options: dict[str, str] = field(default_factory=dict)
     disabled_plugins: set[str] = field(default_factory=set)
     debug: bool = False
@@ -89,7 +94,8 @@ class RedlineRequest:
 
     The older version is either a git commit (``from_commit``, with ``to_commit`` as
     the newer one) or a folder or note on disk (``from_path``, compared with ``root``
-    as it is on disk).
+    as it is on disk). With ``tags``, only the notes with one of the tags in the newer
+    version are compared, see :func:`_filter_sides`.
     """
 
     root: Path
@@ -100,6 +106,7 @@ class RedlineRequest:
     from_path: Path | None = None
     title: str = ""
     subtitle: str = ""
+    tags: list[str] = field(default_factory=list)
     options: dict[str, str] = field(default_factory=dict)
     disabled_plugins: set[str] = field(default_factory=set)
     debug: bool = False
@@ -165,6 +172,10 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
             tree.children = [c for c in tree.children if c.name in request.include]
         if request.exclude:
             tree.children = [c for c in tree.children if c.name not in request.exclude]
+        if request.tags:
+            tree = filter_tree(tree, lambda md: has_tag(md, request.tags))
+            if tree is None:
+                raise NoTaggedNotesError(request.tags)
 
         log("  Building page index...")
         page_index = collect_page_index(tree)
@@ -299,20 +310,21 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
             tempfile.TemporaryDirectory() as tmp_old_str,
             tempfile.TemporaryDirectory() as tmp_new_str,
         ):
+            load = partial(_load_side, log=log, plugins=plugins)
             assemble = partial(
-                _assemble_if_present,
+                _assemble_both,
+                tags=request.tags,
                 build_dir=build_dir,
                 log=log,
                 plugins=plugins,
                 plugin_options=request.options,
+                new_steps=steps,
             )
             if request.from_path is not None:
-                sides = _path_sides(request, root_folder, partial(assemble, new_steps=steps), log)
+                sides = _path_sides(request, root_folder, load, assemble, log)
             else:
                 temp = (Path(tmp_old_str), Path(tmp_new_str))
-                sides = _commit_sides(
-                    request, root_folder, temp, partial(assemble, new_steps=steps), log
-                )
+                sides = _commit_sides(request, root_folder, temp, load, assemble, log)
 
             log("  Computing redline diff...")
             diff_body = diff_markdown(sides.old_md, sides.new_md)
@@ -408,7 +420,8 @@ def _commit_sides(
     request: RedlineRequest,
     root_folder: Path,
     temp: tuple[Path, Path],
-    assemble: Callable[..., str],
+    load: Callable[..., _Side],
+    assemble: Callable[[_Side, _Side], tuple[str, str]],
     log: Callable[[str], object],
 ) -> _Sides:
     """Assemble ``root_folder`` as it is in ``from_commit`` and in ``to_commit``."""
@@ -435,17 +448,13 @@ def _commit_sides(
     log("  Extracting new commit...")
     extract_commit(request.to_commit, tmp_new, repo)
 
-    old_md = assemble(
-        tmp_old / rel_path,
-        vault_root=tmp_old,
-        missing=f"  Note: path not found in {from_hash}",
+    old = load(
+        tmp_old / rel_path, vault_root=tmp_old, missing=f"  Note: path not found in {from_hash}"
     )
-    new_md = assemble(
-        tmp_new / rel_path,
-        vault_root=tmp_new,
-        missing=f"  Note: path not found in {to_hash}",
-        new=True,
+    new = load(
+        tmp_new / rel_path, vault_root=tmp_new, missing=f"  Note: path not found in {to_hash}"
     )
+    old_md, new_md = assemble(old, new)
     return _Sides(
         old_md=old_md,
         new_md=new_md,
@@ -459,7 +468,8 @@ def _commit_sides(
 def _path_sides(
     request: RedlineRequest,
     root_folder: Path,
-    assemble: Callable[..., str],
+    load: Callable[..., _Side],
+    assemble: Callable[[_Side, _Side], tuple[str, str]],
     log: Callable[[str], object],
 ) -> _Sides:
     """Assemble the folder or note ``from_path`` and ``root_folder`` as they are on disk.
@@ -476,14 +486,14 @@ def _path_sides(
         )
         raise ValueError(msg)
     log(f"  From: {old_root}  ->  To: {root_folder}")
-    sides = []
+    loaded = []
     for root in (old_root, root_folder):
         start = root.parent if root.is_file() else root
-        vault = find_vault_root(start)
-        sides.append(assemble(root, vault_root=vault, missing="", new=root is root_folder))
+        loaded.append(load(root, vault_root=find_vault_root(start), missing=""))
+    old_md, new_md = assemble(*loaded)
     return _Sides(
-        old_md=sides[0],
-        new_md=sides[1],
+        old_md=old_md,
+        new_md=new_md,
         label=f"Redline: {_root_name(old_root)} -> {_root_name(root_folder)}",
         subtitle=f"Changes from {request.from_path} to {request.root}",
         info=redline_path_info(old_root, root_folder, str(request.from_path), str(request.root)),
@@ -570,46 +580,120 @@ def _write_template_assets(template: Template, build_dir: Path) -> str:
     return css_filename
 
 
-def _assemble_if_present(
+@dataclass
+class _Side:
+    """One version of a redline: its folder or note, its vault and its page tree."""
+
+    root: Path
+    vault_root: Path
+    tree: PageNode | None = None
+    vault_index: VaultIndex | None = None
+
+
+def _load_side(
     root_dir: Path,
     *,
-    build_dir: Path,
     vault_root: Path,
     log,  # noqa: ANN001
     missing: str,
     plugins: list | None = None,
-    plugin_options: dict[str, str] | None = None,
-    new: bool = False,
-    new_steps: list | None = None,
-) -> str:
-    """Assemble the folder or note ``root_dir``; an empty document when it does not exist.
-
-    The newer side (``new``) runs ``new_steps``, the steps that also run on the diffed
-    document; the older side runs a fresh set.
-    """
+) -> _Side:
+    """Build the page tree of the folder or note ``root_dir``; no tree when it does not exist."""
+    side = _Side(root=root_dir, vault_root=vault_root)
     if not root_dir.exists():
         log(missing + " — treating as empty")
-        return ""
+        return side
     log(f"  Indexing vault at {vault_root}...")
-    vault_index = VaultIndex(vault_root)
+    side.vault_index = VaultIndex(vault_root)
     log(f"  Building tree at {root_dir.name}...")
     if root_dir.is_file():
-        tree = PageNode(folder=root_dir.parent, name=root_dir.stem, md_file=root_dir)
+        side.tree = PageNode(folder=root_dir.parent, name=root_dir.stem, md_file=root_dir)
     else:
-        tree = build_space_tree(root_dir, plugins=plugins, vault_index=vault_index)
-    if tree is None:
+        side.tree = build_space_tree(root_dir, plugins=plugins, vault_index=side.vault_index)
+    return side
+
+
+def _assemble_both(
+    old: _Side,
+    new: _Side,
+    *,
+    tags: list[str],
+    build_dir: Path,
+    log,  # noqa: ANN001
+    plugins: list | None = None,
+    plugin_options: dict[str, str] | None = None,
+    new_steps: list | None = None,
+) -> tuple[str, str]:
+    """Assemble both versions, after the ``--tag`` filter when ``tags`` are given.
+
+    The newer side runs ``new_steps``, the steps that also run on the diffed
+    document; the older side runs a fresh set.
+    """
+    if tags:
+        _filter_sides(old, new, tags)
+    assemble = partial(
+        _assemble_side, build_dir=build_dir, log=log, plugins=plugins, plugin_options=plugin_options
+    )
+    return assemble(old, steps=core_steps()), assemble(new, steps=new_steps or core_steps())
+
+
+def _filter_sides(old: _Side, new: _Side, tags: list[str]) -> None:
+    """Keep the notes that have one of ``tags`` in the newer version.
+
+    A note that has the tag in both versions is compared as usual. A note that got
+    the tag in the newer version is left out of the older one, so it is shown as
+    new. A note that lost the tag is left out of both. A deleted note that had the
+    tag is kept in the older version, so it is shown as deleted.
+    """
+    new_notes = notes_of(new.tree) if new.tree is not None else []
+    new_keys = {_note_key(md, new.root) for md in new_notes}
+    tagged = {_note_key(md, new.root) for md in new_notes if has_tag(md, tags)}
+
+    def keep_old(md: Path) -> bool:
+        key = _note_key(md, old.root)
+        return (key in tagged or key not in new_keys) and has_tag(md, tags)
+
+    if new.tree is not None:
+        new.tree = filter_tree(new.tree, lambda md: _note_key(md, new.root) in tagged)
+    if old.tree is not None:
+        old.tree = filter_tree(old.tree, keep_old)
+    if old.tree is None and new.tree is None:
+        raise NoTaggedNotesError(tags)
+
+
+def _note_key(md: Path, root: Path) -> str:
+    """The path of the note ``md`` in its version, to find the same note in the other one."""
+    if root.is_file():
+        return "."
+    try:
+        return md.relative_to(root).as_posix()
+    except ValueError:
+        return md.as_posix()
+
+
+def _assemble_side(
+    side: _Side,
+    *,
+    build_dir: Path,
+    log,  # noqa: ANN001
+    steps: list,
+    plugins: list | None = None,
+    plugin_options: dict[str, str] | None = None,
+) -> str:
+    """Assemble the page tree of ``side``; an empty document when it has none."""
+    if side.tree is None:
         return ""
-    idx = collect_page_index(tree)
+    idx = collect_page_index(side.tree)
     return assemble_document(
-        tree,
+        side.tree,
         idx,
         build_dir,
-        vault_root,
+        side.vault_root,
         plugins=plugins,
         plugin_options=plugin_options,
-        vault_index=vault_index,
+        vault_index=side.vault_index,
         log=log,
-        steps=new_steps if new and new_steps is not None else core_steps(),
+        steps=steps,
     )
 
 
@@ -622,5 +706,8 @@ def _cleanup(build_dir: Path, output_path: Path, *, debug: bool, log) -> None:  
     if not debug and output_path.exists() and build_dir.exists():
         with suppress(OSError):
             shutil.rmtree(build_dir)
-    elif debug and build_dir.exists():
+    elif not debug:
+        with suppress(OSError):
+            build_dir.rmdir()  # only when empty, as after an export that stopped early
+    elif build_dir.exists():
         log(f"  Debug: build dir kept at {build_dir}")

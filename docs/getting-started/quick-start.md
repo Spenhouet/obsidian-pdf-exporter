@@ -33,6 +33,17 @@ ope export ./MyVault/Handbook --exclude "Drafts" --no-toc
 
 `--include` and `--exclude` take names of the top-level subfolders.
 
+## Only notes with a tag
+
+```bash
+ope export ./MyVault/Handbook --tag security
+ope export ./MyVault/Handbook --tag security --tag "#onboarding" --include "Chapter A"
+```
+
+`--tag` keeps the notes that have the tag, at any depth. Tags in the `tags` property and inline tags in the text both count. The match works like the tag search of Obsidian: the leading `#` and the case do not matter, and `security` also matches the nested tag `security/backup`, but not `security-review`. With several `--tag`, a note needs one of them. Together with `--include` or `--exclude`, a note has to pass both.
+
+A folder whose note does not have the tag stays as a heading without text when a note below it has the tag. Folders without such a note are left out. When no note has the tag, the export stops with an error and writes no PDF.
+
 ## A different look
 
 ```bash

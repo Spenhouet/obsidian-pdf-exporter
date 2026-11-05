@@ -14,6 +14,7 @@ from obsidian_pdf_exporter.core.exporter import ExportRequest
 from obsidian_pdf_exporter.core.exporter import RedlineRequest
 from obsidian_pdf_exporter.core.exporter import export_pdf
 from obsidian_pdf_exporter.core.exporter import export_redline
+from obsidian_pdf_exporter.core.tags import NoTaggedNotesError
 from obsidian_pdf_exporter.core.util import is_git_repo
 from obsidian_pdf_exporter.core.util import safe_filename
 
@@ -208,6 +209,14 @@ def export(  # noqa: PLR0913 - typer commands enumerate every CLI flag
         "--exclude",
         help="Exclude these subfolder names",
     ),
+    tag: list[str] = typer.Option(
+        [],
+        "--tag",
+        help=(
+            "Only include notes with this tag, from the tags property or inline "
+            "(repeatable, any tag matches; 'area' also matches 'area/docs')"
+        ),
+    ),
     option: list[str] = typer.Option(
         [],
         "--option",
@@ -259,6 +268,7 @@ def export(  # noqa: PLR0913 - typer commands enumerate every CLI flag
         date=date or "",
         include=list(include),
         exclude=list(exclude),
+        tags=list(tag),
         options=options,
         disabled_plugins=set(disable_plugin),
         debug=debug,
@@ -313,6 +323,15 @@ def redline(  # noqa: PLR0913 - typer commands enumerate every CLI flag
         help="Document title (default: folder or note name)",
     ),
     subtitle: str | None = typer.Option(None, "--subtitle", help="Document subtitle"),
+    tag: list[str] = typer.Option(
+        [],
+        "--tag",
+        help=(
+            "Only compare notes with this tag in the newer version, from the tags property "
+            "or inline "
+            "(repeatable, any tag matches; 'area' also matches 'area/docs')"
+        ),
+    ),
     option: list[str] = typer.Option(
         [],
         "--option",
@@ -375,6 +394,7 @@ def redline(  # noqa: PLR0913 - typer commands enumerate every CLI flag
         from_path=from_path,
         title=chosen_title,
         subtitle=subtitle or "",
+        tags=list(tag),
         options=options,
         disabled_plugins=set(disable_plugin),
         debug=debug,
@@ -448,6 +468,9 @@ def _log(message: str) -> None:
 def _run(action) -> None:  # noqa: ANN001 - any zero-arg callable
     try:
         action()
+    except NoTaggedNotesError as e:
+        _console.print(f"[red]ERROR:[/red] {e}")
+        raise typer.Exit(code=1) from e
     except Exception as e:
         import traceback
 

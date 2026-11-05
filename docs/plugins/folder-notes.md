@@ -45,6 +45,7 @@ With `--disable-plugin folder_notes` the folders still become numbered sections,
 - Headings are numbered and listed in the table of contents. `--no-toc` leaves out the table of contents.
 - Headings inside a note nest under the section heading, so a note's `##` sits one level below its folder.
 - `--include` and `--exclude` pick top-level subfolders by name.
+- `--tag` keeps the folders whose note has the tag, at any depth, see [Only notes with a tag](../getting-started/quick-start.md#only-notes-with-a-tag). A folder above such a note keeps its heading but not its text.
 - Folders without Markdown, such as attachment folders, are left out. `.git`, `.obsidian`, `.vscode` and every other dot folder are skipped.
 
 ## The root note
