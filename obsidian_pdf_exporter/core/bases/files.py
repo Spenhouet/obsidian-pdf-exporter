@@ -6,21 +6,15 @@ import re
 from typing import TYPE_CHECKING
 
 from obsidian_pdf_exporter.core.bases.values import FileRecord
-from obsidian_pdf_exporter.core.frontmatter import RE_FRONTMATTER
 from obsidian_pdf_exporter.core.frontmatter import parse_frontmatter
+from obsidian_pdf_exporter.core.tags import searchable_body
+from obsidian_pdf_exporter.core.tags import tags_of
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from obsidian_pdf_exporter.core.vault_index import VaultIndex
 
-_RE_CODE_BLOCK = re.compile(
-    r"^[ \t]*(`{3,}|~{3,})[^\n]*\n.*?^[ \t]*\1[ \t]*$", re.DOTALL | re.MULTILINE
-)
-_RE_CODE_SPAN = re.compile(r"`[^`\n]+`")
-_RE_COMMENT = re.compile(r"%%.*?%%|<!--.*?-->", re.DOTALL)
-# A tag needs one character that is not a digit (Obsidian's rule).
-_RE_TAG = re.compile(r"(?<![\w#&/\]])#([\w/-]*[^\W\d][\w/-]*)")
 _RE_WIKI = re.compile(r"(!?)\[\[([^\]|#^]+)[^\]]*\]\]")
 _RE_MD_LINK = re.compile(r"(!?)\[[^\]]*\]\(<?([^)>\s]+\.md)>?(?:#[^)]*)?\)")
 
@@ -75,9 +69,8 @@ def read_record(path: Path, root: Path) -> FileRecord:
     except OSError:
         return record
     record.frontmatter = parse_frontmatter(text)
-    body = RE_FRONTMATTER.sub("", text, count=1)
-    body = _RE_CODE_SPAN.sub("", _RE_CODE_BLOCK.sub("", _RE_COMMENT.sub("", body)))
-    record.tags = _tags(record.frontmatter, body)
+    body = searchable_body(text)
+    record.tags = tags_of(record.frontmatter, body)
     links, embeds = _links(body)
     for value in _strings(record.frontmatter):
         for m in _RE_WIKI.finditer(value):
@@ -85,17 +78,6 @@ def read_record(path: Path, root: Path) -> FileRecord:
     record.links = list(dict.fromkeys(links))
     record.embeds = list(dict.fromkeys(embeds))
     return record
-
-
-def _tags(frontmatter: dict, body: str) -> list[str]:
-    tags: list[str] = []
-    raw = frontmatter.get("tags", frontmatter.get("tag"))
-    items = (
-        raw if isinstance(raw, list) else re.split(r"[,\s]+", raw) if isinstance(raw, str) else []
-    )
-    tags += [str(t).strip().lstrip("#") for t in items if str(t).strip()]
-    tags += [m.group(1) for m in _RE_TAG.finditer(body)]
-    return list(dict.fromkeys(tags))
 
 
 def _links(body: str) -> tuple[list[str], list[str]]:
