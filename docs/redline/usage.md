@@ -32,6 +32,7 @@ ope redline ./Handbook --from-commit v1.0.0
 | `-O redline.collapse=on` | off | Show only the changes and the headings of their sections. |
 | `-O KEY=VALUE`, `--option KEY=VALUE` | | Other options for steps, plugins and the template, as for `export`. |
 | `--blame` | off | A strip next to every page with the author, date and commit message of each changed block, see [Blame](blame.md). Needs `--from-commit`. |
+| `--tag TAG` | | Only compare the notes that have the tag in the newer version, see [Only notes with a tag](#only-notes-with-a-tag). Repeatable, a note needs one of the tags. |
 | `--disable-plugin NAME` | | Skip a plugin in both versions. |
 | `--toc/--no-toc` | `--toc` | Table of contents at the start. |
 | `--debug` | off | Keep the build folder `_build_<name>/` next to the PDF, with `redline_assembled.md` (the diffed Markdown) and `redline_final.html`. |
@@ -47,6 +48,23 @@ ope redline ./Handbook --from-commit v1.0.0
 ```bash
 ope redline ./Handbook --from-path ./archive/Handbook
 ```
+
+## Only notes with a tag
+
+```bash
+ope redline ./Handbook --from-commit v1.0.0 --tag security
+```
+
+`--tag` matches tags as `ope export --tag` does (see [Only notes with a tag](../getting-started/quick-start.md#only-notes-with-a-tag)). The newer version decides which notes are compared:
+
+| The note | In the redline |
+| -------- | -------------- |
+| has the tag in both versions | compared as usual |
+| has the tag only in the newer version | shown in full as inserted |
+| has the tag only in the older version | left out |
+| was deleted and had the tag in the older version | shown as deleted |
+
+When no note matches, the redline stops with an error and writes no PDF.
 
 ## Output name and title block
 

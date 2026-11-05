@@ -25,3 +25,5 @@ Inline tags such as `#draft` or `#area/docs` stay in the text as plain text. Tag
 </div>
 
 A tag at the start of a line is not a heading, because headings need a space after `#`.
+
+`ope export --tag TAG` and `ope redline --tag TAG` export only the notes with a tag, see [Only notes with a tag](../getting-started/quick-start.md#only-notes-with-a-tag).

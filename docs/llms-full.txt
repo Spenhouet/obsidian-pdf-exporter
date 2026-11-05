@@ -1357,6 +1357,17 @@ ope export ./MyVault/Handbook --exclude "Drafts" --no-toc
 
 `--include` and `--exclude` take names of the top-level subfolders.
 
+## Only notes with a tag
+
+```bash
+ope export ./MyVault/Handbook --tag security
+ope export ./MyVault/Handbook --tag security --tag "#onboarding" --include "Chapter A"
+```
+
+`--tag` keeps the notes that have the tag, at any depth. Tags in the `tags` property and inline tags in the text both count. The match works like the tag search of Obsidian: the leading `#` and the case do not matter, and `security` also matches the nested tag `security/backup`, but not `security-review`. With several `--tag`, a note needs one of them. Together with `--include` or `--exclude`, a note has to pass both.
+
+A folder whose note does not have the tag stays as a heading without text when a note below it has the tag. Folders without such a note are left out. When no note has the tag, the export stops with an error and writes no PDF.
+
 ## A different look
 
 ```bash
@@ -1505,6 +1516,7 @@ Builds one PDF from a vault folder. Git is not required. When the folder is in a
 | `-d YYYY-MM-DD`, `--date YYYY-MM-DD` | Document date (YYYY-MM-DD, default: today) |  |
 | `--include NAME` | Only include these subfolder names. Repeatable. |  |
 | `--exclude NAME` | Exclude these subfolder names. Repeatable. |  |
+| `--tag TAG` | Only include notes with this tag, from the tags property or inline (repeatable, any tag matches; 'area' also matches 'area/docs') |  |
 | `-O KEY=VALUE`, `--option KEY=VALUE` | Pass key=value options to plugins / template (repeatable) |  |
 | `--disable-plugin NAME` | Skip the named Obsidian plugin (repeatable; see `list-plugins`) |  |
 | `--toc/--no-toc` | Include a table of contents at the start of the document | `--toc` |
@@ -1543,6 +1555,7 @@ Builds a tracked-changes PDF between two git commits of `ROOT` (`--from-commit`,
 | `-o PATH`, `--output PATH` | Output PDF path (default: ./.export/&lt;title&gt;_redline.pdf) |  |
 | `-t TEXT`, `--title TEXT` | Document title (default: folder or note name) |  |
 | `--subtitle TEXT` | Document subtitle |  |
+| `--tag TAG` | Only compare notes with this tag in the newer version, from the tags property or inline (repeatable, any tag matches; 'area' also matches 'area/docs') |  |
 | `-O KEY=VALUE`, `--option KEY=VALUE` | Pass key=value options to plugins / template (repeatable), e.g. redline.style=side-by-side or redline.collapse=on |  |
 | `--disable-plugin NAME` | Skip the named Obsidian plugin (repeatable; see `list-plugins`) |  |
 | `--toc/--no-toc` | Include a table of contents at the start of the document | `--toc` |
@@ -2664,6 +2677,8 @@ PDF:
 
 A tag at the start of a line is not a heading, because headings need a space after `#`.
 
+`ope export --tag TAG` and `ope redline --tag TAG` export only the notes with a tag, see [Only notes with a tag](../getting-started/quick-start.md#only-notes-with-a-tag).
+
 ---
 
 Source: https://spenhouet.com/obsidian-pdf-exporter/obsidian/properties/
@@ -3170,6 +3185,7 @@ With `--disable-plugin folder_notes` the folders still become numbered sections,
 - Headings are numbered and listed in the table of contents. `--no-toc` leaves out the table of contents.
 - Headings inside a note nest under the section heading, so a note's `##` sits one level below its folder.
 - `--include` and `--exclude` pick top-level subfolders by name.
+- `--tag` keeps the folders whose note has the tag, at any depth, see [Only notes with a tag](../getting-started/quick-start.md#only-notes-with-a-tag). A folder above such a note keeps its heading but not its text.
 - Folders without Markdown, such as attachment folders, are left out. `.git`, `.obsidian`, `.vscode` and every other dot folder are skipped.
 
 ## The root note
@@ -3810,6 +3826,7 @@ ope redline ./Handbook --from-commit v1.0.0
 | `-O redline.collapse=on` | off | Show only the changes and the headings of their sections. |
 | `-O KEY=VALUE`, `--option KEY=VALUE` | | Other options for steps, plugins and the template, as for `export`. |
 | `--blame` | off | A strip next to every page with the author, date and commit message of each changed block, see [Blame](blame.md). Needs `--from-commit`. |
+| `--tag TAG` | | Only compare the notes that have the tag in the newer version, see [Only notes with a tag](#only-notes-with-a-tag). Repeatable, a note needs one of the tags. |
 | `--disable-plugin NAME` | | Skip a plugin in both versions. |
 | `--toc/--no-toc` | `--toc` | Table of contents at the start. |
 | `--debug` | off | Keep the build folder `_build_<name>/` next to the PDF, with `redline_assembled.md` (the diffed Markdown) and `redline_final.html`. |
@@ -3825,6 +3842,23 @@ ope redline ./Handbook --from-commit v1.0.0
 ```bash
 ope redline ./Handbook --from-path ./archive/Handbook
 ```
+
+## Only notes with a tag
+
+```bash
+ope redline ./Handbook --from-commit v1.0.0 --tag security
+```
+
+`--tag` matches tags as `ope export --tag` does (see [Only notes with a tag](../getting-started/quick-start.md#only-notes-with-a-tag)). The newer version decides which notes are compared:
+
+| The note | In the redline |
+| -------- | -------------- |
+| has the tag in both versions | compared as usual |
+| has the tag only in the newer version | shown in full as inserted |
+| has the tag only in the older version | left out |
+| was deleted and had the tag in the older version | shown as deleted |
+
+When no note matches, the redline stops with an error and writes no PDF.
 
 ## Output name and title block
 

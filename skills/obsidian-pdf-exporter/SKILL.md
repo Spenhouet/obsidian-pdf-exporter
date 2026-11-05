@@ -40,11 +40,13 @@ ope export ./Vault/Handbook                       # -> ./.export/Handbook.pdf
 ope export ./Vault/Handbook -o out/handbook.pdf \
   --title "Team handbook" --subtitle "How we work" --version 1.2.0 --date 2026-04-01
 ope export ./Vault/Handbook --include "Part A" --exclude Drafts --no-toc
+ope export ./Vault/Handbook --tag security --tag onboarding   # only notes with one of the tags
 ope export ./Vault/Handbook -O tables.landscape=off -O mermaid.landscape=on
 ope export ./Vault/Handbook --disable-plugin dataview
 ```
 
 - `ROOT` is a folder. Every subfolder becomes a numbered section, and `Folder/Folder.md` (the folder note) is its text. `ROOT/ROOT.md` is the first text. To export a single note, put it in its own folder named like the note.
+- `--tag TAG` (repeatable, any tag matches) keeps the notes with the tag in the `tags` property or inline, at any depth, and the folders above them as headings. Case and a leading `#` do not matter; `area` matches `area/docs` but not `area-docs`. ANDed with `--include`/`--exclude`. No matching note: exit `1`, no PDF.
 - Links and embeds are looked up in the whole vault (the folder with `.obsidian`, else the git root).
 - Without `--version`, a folder in a git repository shows the short commit hash as version.
 - Other `-O` keys: `line_breaks=hard|soft`, `links.outside=text|italic`, `footnotes=page|end`, `mermaid=off`, `mermaid.config=mermaid.json`, `mermaid.landscape=on`, `excalidraw.auto_export=off`, `citations.bibliography=refs.bib`, `citations.csl=style.csl`, `tables.landscape_min_cols=N`. List: https://spenhouet.com/obsidian-pdf-exporter/reference/cli/
@@ -66,7 +68,7 @@ ope redline ./Handbook --from-path ./archive/Handbook                # two folde
 
 - Refs are anything git resolves: tags, branches, SHAs, `HEAD~n` (not `a..b` ranges). `--to-commit` defaults to `HEAD`. Both sides come from git, so uncommitted changes are not included: commit first. `ROOT` may also be a single note.
 - Without git, compare two folders or two notes on disk with `ope redline NEW --from-path OLD` (not with `--from-commit`, `--to-commit` or `--blame`; each side resolves embeds in its own vault, the closest folder above it with `.obsidian`): https://spenhouet.com/obsidian-pdf-exporter/redline/compare/#without-git
-- Default output `./.export/<title>_redline.pdf`; the subtitle is `Changes from <from> to <to>`, the footer label has the short hashes. Same `-T`, `-O`, `--title`, `--toc/--no-toc`, `--disable-plugin`, `--blame`, `--debug` as `export` (no `--version`, `--date`, `--include`).
+- Default output `./.export/<title>_redline.pdf`; the subtitle is `Changes from <from> to <to>`, the footer label has the short hashes. Same `-T`, `-O`, `--title`, `--tag`, `--toc/--no-toc`, `--disable-plugin`, `--blame`, `--debug` as `export` (no `--version`, `--date`, `--include`). With `--tag`, the newer version decides: a note that gained the tag is shown as inserted, one that lost it is left out, a deleted note that had it is shown as deleted.
 - For a pull request compare against the merge base, not the tip of `main`. In CI, check out with full history (`fetch-depth: 0`). Workflows for pull requests and releases: https://spenhouet.com/obsidian-pdf-exporter/redline/usage/#in-ci
 - Embeds, Dataview and Meta Bind run before the comparison, so changes appear as they appear in the PDF. Properties that the text does not show are not compared. Images, SVG, PDF embeds and drawings are compared by file content, so a replaced file with the same name is marked as replaced.
 - Not shown: uncommitted changes, properties that the text does not show, changes inside a diagram (the old and new drawing are shown). Limits: https://spenhouet.com/obsidian-pdf-exporter/redline/limitations/

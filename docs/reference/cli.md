@@ -108,6 +108,7 @@ Builds one PDF from a vault folder. Git is not required. When the folder is in a
 | `-d YYYY-MM-DD`, `--date YYYY-MM-DD` | Document date (YYYY-MM-DD, default: today) |  |
 | `--include NAME` | Only include these subfolder names. Repeatable. |  |
 | `--exclude NAME` | Exclude these subfolder names. Repeatable. |  |
+| `--tag TAG` | Only include notes with this tag, from the tags property or inline (repeatable, any tag matches; 'area' also matches 'area/docs') |  |
 | `-O KEY=VALUE`, `--option KEY=VALUE` | Pass key=value options to plugins / template (repeatable) |  |
 | `--disable-plugin NAME` | Skip the named Obsidian plugin (repeatable; see `list-plugins`) |  |
 | `--toc/--no-toc` | Include a table of contents at the start of the document | `--toc` |
@@ -146,6 +147,7 @@ Builds a tracked-changes PDF between two git commits of `ROOT` (`--from-commit`,
 | `-o PATH`, `--output PATH` | Output PDF path (default: ./.export/&lt;title&gt;_redline.pdf) |  |
 | `-t TEXT`, `--title TEXT` | Document title (default: folder or note name) |  |
 | `--subtitle TEXT` | Document subtitle |  |
+| `--tag TAG` | Only compare notes with this tag in the newer version, from the tags property or inline (repeatable, any tag matches; 'area' also matches 'area/docs') |  |
 | `-O KEY=VALUE`, `--option KEY=VALUE` | Pass key=value options to plugins / template (repeatable), e.g. redline.style=side-by-side or redline.collapse=on |  |
 | `--disable-plugin NAME` | Skip the named Obsidian plugin (repeatable; see `list-plugins`) |  |
 | `--toc/--no-toc` | Include a table of contents at the start of the document | `--toc` |
