@@ -26,11 +26,8 @@ from pathlib import Path
 
 from obsidian_pdf_exporter.core import mermaid_pele
 from obsidian_pdf_exporter.core import mermaid_theme
-
-RE_MERMAID_BLOCK = re.compile(
-    r"^(?P<fence>`{3,}|~{3,})[ \t]*mermaid[ \t]*\n(?P<code>.*?)\n(?P=fence)[ \t]*$",
-    re.MULTILINE | re.DOTALL,
-)
+from obsidian_pdf_exporter.core.code import RE_FENCE_OPEN
+from obsidian_pdf_exporter.core.code import closes_fence
 
 # A ``%%`` comment line. ``%%{...}%%`` directives change the diagram and stay.
 _RE_COMMENT_LINE = re.compile(r"^[ \t]*%%(?!\{).*(?:\n|$)", re.MULTILINE)
@@ -175,7 +172,8 @@ def render_mermaid_blocks(
             f"  Warning: -O {option} has no effect. Mermaid diagrams are drawn with Pele "
             "(mermaid-cli is no longer used)."
         )
-    blocks = list(RE_MERMAID_BLOCK.finditer(markdown))
+    lines = markdown.split("\n")
+    blocks = mermaid_blocks(lines)
     if not blocks or not settings.enabled:
         return markdown
 
@@ -185,23 +183,52 @@ def render_mermaid_blocks(
             "  Warning: these Mermaid config keys have no effect, Pele has nothing to map "
             f"them to: {', '.join(unused)}."
         )
-    codes = list(dict.fromkeys(strip_comments(m.group("code")) for m in blocks))
-    images = _render_with_pele(codes, build_dir, settings, css, log)
+    codes = {
+        (start, end): strip_comments("\n".join(lines[start + 1 : end])) for start, end in blocks
+    }
+    images = _render_with_pele(list(dict.fromkeys(codes.values())), build_dir, settings, css, log)
     failed = 0
-
-    def replace(m: re.Match) -> str:
-        nonlocal failed
-        code = strip_comments(m.group("code"))
+    out: list[str] = []
+    done = 0
+    for (start, end), code in codes.items():
         image = images.get(code)
         if image is None:
             failed += 1
-            return m.group(0)
-        return _image_markdown(image, code, settings)
-
-    result = RE_MERMAID_BLOCK.sub(replace, markdown)
+            continue
+        out.extend(lines[done:start])
+        out.append(_image_markdown(image, code, settings))
+        done = end + 1
+    out.extend(lines[done:])
     if failed:
         log(f"  Warning: {failed} Mermaid block(s) could not be drawn and stay as code.")
-    return result
+    return "\n".join(out)
+
+
+def mermaid_blocks(lines: list[str]) -> list[tuple[int, int]]:
+    """The first and last line of every Mermaid code block in ``lines``.
+
+    A block opens with a ```` ```mermaid ```` or ``~~~mermaid`` fence at the
+    start of a line and needs its closing fence. Fences inside another code
+    block are code, so a Mermaid example in a ````` ````markdown ````` block
+    stays as written.
+    """
+    blocks: list[tuple[int, int]] = []
+    fence = ""
+    start = 0
+    is_mermaid = False
+    for i, line in enumerate(lines):
+        if fence:
+            if closes_fence(line, fence):
+                if is_mermaid:
+                    blocks.append((start, i))
+                fence = ""
+            continue
+        m = RE_FENCE_OPEN.match(line)
+        if m:
+            fence = m.group("fence")
+            start = i
+            is_mermaid = line.startswith(fence) and m.group("info").strip() == "mermaid"
+    return blocks
 
 
 def _render_with_pele(

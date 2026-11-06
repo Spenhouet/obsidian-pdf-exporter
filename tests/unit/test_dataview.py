@@ -670,6 +670,13 @@ def test_plugin_renders_blocks_in_callouts_and_keeps_other_code(vault: Path) -> 
     assert messages == []
 
 
+def test_inline_queries_inside_nested_fences_stay_code(vault: Path) -> None:
+    example = "````markdown\n```\n`= this.file.name`\n```\n````"
+    out, _ = _run(vault, f"{example}\n`= this.file.name`")
+    assert out.startswith(f"{example}\n")
+    assert out.endswith(">Report</span>")
+
+
 def test_plugin_reports_errors(vault: Path) -> None:
     out, messages = _run(vault, "```dataview\nTABLE x FROM\n```\n")
     assert out.startswith('<pre class="dataview+dataview-error">Dataview: Error: ')

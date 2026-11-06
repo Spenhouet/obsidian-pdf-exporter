@@ -16,9 +16,9 @@ from __future__ import annotations
 import html as html_lib
 import re
 
+from obsidian_pdf_exporter.core.code import code_mask
 from obsidian_pdf_exporter.core.util import slugify
 
-_FENCE = re.compile(r"^\s*(```|~~~)")
 _LINK_OR_CODE = re.compile(r"(`[^`\n]*`)|(?<!!)\[\[#([^\]|^][^\]|]*)(?:\|([^\]]*))?\]\]")
 _HEADING = re.compile(r"<h([1-6])\b[^>]*\bid=\"([^\"]+)\"[^>]*>(.*?)</h\1>", re.DOTALL)
 _HEADING_LINK = re.compile(r"<a\b[^>]*\bclass=\"heading-link\"[^>]*>")
@@ -40,12 +40,11 @@ def mark_same_page_links(content: str, scope: str) -> str:
         label = (m.group(3) or "").strip() or heading
         return f'[{label}](#{slugify(heading)}){{.heading-link data-scope="{scope}"}}'
 
-    out: list[str] = []
-    in_fence = False
-    for line in content.split("\n"):
-        if _FENCE.match(line):
-            in_fence = not in_fence
-        out.append(line if in_fence else _LINK_OR_CODE.sub(replace, line))
+    lines = content.split("\n")
+    out = [
+        line if in_code else _LINK_OR_CODE.sub(replace, line)
+        for line, in_code in zip(lines, code_mask(lines), strict=True)
+    ]
     return "\n".join(out)
 
 

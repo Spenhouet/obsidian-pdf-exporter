@@ -14,8 +14,10 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-#: A line that opens or closes a fenced code block.
-RE_FENCE = re.compile(r"^[ \t]*(```|~~~)")
+#: A line that opens a fenced code block: a run of three or more backticks or
+#: tildes, then the info string. The info string of a backtick fence has no
+#: backtick, as in CommonMark.
+RE_FENCE_OPEN = re.compile(r"^[ \t]*(?P<fence>`{3,}(?!.*`)|~{3,})(?P<info>.*)$")
 
 #: An inline code span: a run of backticks, then the code, then a run of the
 #: same length. The code may wrap onto the next line but not across a blank
@@ -30,16 +32,35 @@ _CLOSE = ""
 _RE_PLACEHOLDER = re.compile(f"{_OPEN}(\\d+){_CLOSE}")
 
 
+def closes_fence(line: str, fence: str) -> bool:
+    """True if ``line`` closes the code block opened with ``fence``.
+
+    As in CommonMark, the closing fence uses the same character and is at
+    least as long as the opening one, with nothing but spaces after it. Any
+    other line, such as a shorter fence or one with an info string, is code.
+    """
+    rest = line.strip()
+    return len(rest) >= len(fence) and rest == fence[0] * len(rest)
+
+
 def code_mask(lines: list[str]) -> list[bool]:
-    """True for every line inside (or delimiting) a fenced code block."""
+    """True for every line inside (or delimiting) a fenced code block.
+
+    A fence inside a longer fence, such as a ```` ```mermaid ```` example in a
+    ````` ````markdown ````` block, is code like the rest of the block.
+    """
     mask: list[bool] = []
-    in_fence = False
+    fence = ""
     for line in lines:
-        if RE_FENCE.match(line):
+        if fence:
             mask.append(True)
-            in_fence = not in_fence
-        else:
-            mask.append(in_fence)
+            if closes_fence(line, fence):
+                fence = ""
+            continue
+        m = RE_FENCE_OPEN.match(line)
+        if m:
+            fence = m.group("fence")
+        mask.append(bool(m))
     return mask
 
 
