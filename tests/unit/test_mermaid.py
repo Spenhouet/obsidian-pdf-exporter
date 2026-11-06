@@ -45,6 +45,24 @@ def test_blocks_are_replaced_by_svg_images(tmp_path: Path) -> None:
         assert (tmp_path / name).read_text(encoding="utf-8").startswith("<svg")
 
 
+@pytest.mark.parametrize(
+    "example",
+    [
+        f"````markdown\n{_block(FLOWCHART)}\n````",
+        f"````markdown\n{_block(FLOWCHART, '~~~')}\n````",
+        f"~~~~markdown\n{_block(FLOWCHART, '~~~')}\n~~~~",
+        f"~~~text\n{_block(FLOWCHART)}\n~~~",
+        f"`````text\n````markdown\n{_block(FLOWCHART)}\n````\n`````",
+        f"```text\n{_block(FLOWCHART)}",
+    ],
+)
+def test_mermaid_example_inside_another_fence_stays_code(tmp_path: Path, example: str) -> None:
+    md = f"{example}\n\n{_block(FLOWCHART)}\n"
+    out = render_mermaid_blocks(md, tmp_path, MermaidSettings())
+    assert out.startswith(f"{example}\n\n![](mermaid-")
+    assert len(re.findall(r"mermaid-[0-9a-f]+\.svg", out)) == 1
+
+
 def test_identical_blocks_render_once(tmp_path: Path) -> None:
     block = _block(FLOWCHART)
     messages: list[str] = []
