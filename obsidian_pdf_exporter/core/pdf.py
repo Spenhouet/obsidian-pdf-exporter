@@ -13,6 +13,7 @@ from typing import Any
 
 from obsidian_pdf_exporter.core.diagram_fit import render_fitted
 from obsidian_pdf_exporter.core.html_postprocess import RE_EMBEDDED_IMAGE
+from obsidian_pdf_exporter.core.page_resources import keep_used_page_resources
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -61,7 +62,9 @@ def html_to_pdf(
     WeasyPrint converts ``<a href="#id">`` anchors to native PDF GoTo
     annotations and builds the bookmark tree from heading hierarchy with no
     extra work required. With ``fit``, Mermaid diagrams taller than their
-    page are scaled or cut to fit it, see :mod:`.diagram_fit`.
+    page are scaled or cut to fit it, see :mod:`.diagram_fit`. Each page gets
+    a resource dictionary with only the resources it draws, see
+    :mod:`.page_resources`.
     """
     from weasyprint import HTML
 
@@ -70,7 +73,7 @@ def html_to_pdf(
         cache = image_cache(Path(folder) / "cache")
         with svg_current_color():
             document = render_fitted(HTML(string=html, base_url=base_url or None), fit, cache)
-            document.write_pdf(str(output_path))
+            document.write_pdf(str(output_path), finisher=keep_used_page_resources)
 
 
 def image_cache(folder: Path) -> Any:  # noqa: ANN401 - a WeasyPrint cache

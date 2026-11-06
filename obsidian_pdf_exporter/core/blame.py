@@ -512,6 +512,8 @@ class _Tooltips:
     Each line gets an invisible, read-only push button whose tooltip (``/TU``) is the
     full commit. The buttons are written by WeasyPrint with the rest of the PDF, so they
     go into its compressed object streams. Lines of the same commit share one tooltip.
+    Each page also gets a resource dictionary with only the resources it draws, as in
+    :func:`.pdf.html_to_pdf`.
     """
 
     def __init__(self, sizes: list[tuple[float, float]], labels: list[list[_Label]]) -> None:
@@ -519,9 +521,12 @@ class _Tooltips:
         # starts at the right edge of the document page.
         self.sizes, self.labels = sizes, labels
 
-    def __call__(self, _document: object, pdf: pydyf.PDF) -> None:
+    def __call__(self, document: object, pdf: pydyf.PDF) -> None:
         import pydyf
 
+        from obsidian_pdf_exporter.core.page_resources import keep_used_page_resources
+
+        keep_used_page_resources(document, pdf)
         if not any(self.labels):
             return
         by_number = {o.number: o for o in pdf.objects if isinstance(o, pydyf.Dictionary)}
