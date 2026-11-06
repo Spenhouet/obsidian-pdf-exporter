@@ -376,6 +376,45 @@ def test_blame_pdf_shares_fonts_and_stays_compressed(
     assert blamed.stat().st_size - plain.stat().st_size < 10_000
 
 
+def test_blame_pdf_pages_list_only_the_images_they_draw(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Each page of a blame PDF lists the images of that page, not those of the document."""
+    pypdf = pytest.importorskip("pypdf")
+    image = pytest.importorskip("PIL.Image")
+    repo = tmp_path / "vault"
+    (repo / "Doc").mkdir(parents=True)
+    text = "\n\n".join(f"Paragraph {n} about the scope of the document." for n in range(60))
+    for name, color in (("first.png", (255, 0, 0)), ("last.png", (0, 0, 255))):
+        image.new("RGB", (40, 20), color).save(repo / "Doc" / name)
+    (repo / "Doc" / "Doc.md").write_text(
+        f"![[first.png]]\n\n{text}\n\n![[last.png]]\n", encoding="utf-8"
+    )
+    _git(repo, "init", "-q", "-b", "main")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "First version")
+    monkeypatch.chdir(repo)
+    out = repo / "blamed.pdf"
+    export_pdf(
+        ExportRequest(
+            root=repo / "Doc",
+            output=out,
+            template=load_template("default"),
+            blame=True,
+            toc=False,
+        ),
+        log=lambda _msg: None,
+    )
+    reader = pypdf.PdfReader(out)
+    listed = [set(page["/Resources"].get("/XObject", {})) for page in reader.pages]
+    drawn = [
+        {"/" + n.decode() for n in re.findall(rb"/(\S+) Do", page.get_contents().get_data())}
+        for page in reader.pages
+    ]
+    assert len(listed) > 1
+    assert listed == drawn
+
+
 # ---------------------------------------------------------------------------
 # Links in the output
 # ---------------------------------------------------------------------------
