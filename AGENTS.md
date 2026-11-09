@@ -29,6 +29,8 @@ Pandoc embeds a short placeholder instead of each raster image of the build fold
 
 WeasyPrint points every page at one resource dictionary with the images and drawings of the whole document. A finisher (`core/page_resources.py`) gives each page its own dictionary with only the resources its content stream names, so viewers do not load all of them for every page.
 
+pydyf writes all compressible objects, the pages included, into one object stream. A second finisher (`core/object_streams.py`) makes it write object streams of at most 100 objects, so viewers that do not cache object streams do not read one huge stream again and again. `finish_pdf` in `core/pdf.py` runs both, for export, redline and blame.
+
 `ope redline` diffs the assembled Markdown of two commits, or of two folders or notes with `--from-path` (`core/redline.py`), then lays the HTML out in the chosen style with the change summary (`core/redline_html.py`, `redline_side_by_side.py`, `redline_collapse.py`). `--blame` (`core/blame.py`) renders the PDF unchanged and adds a strip next to every page. The CSS of the change marks is in `core/assets/` and comes before the template CSS.
 
 Where new code goes:

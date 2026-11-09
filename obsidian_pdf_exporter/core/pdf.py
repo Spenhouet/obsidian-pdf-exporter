@@ -13,10 +13,13 @@ from typing import Any
 
 from obsidian_pdf_exporter.core.diagram_fit import render_fitted
 from obsidian_pdf_exporter.core.html_postprocess import RE_EMBEDDED_IMAGE
+from obsidian_pdf_exporter.core.object_streams import bound_object_streams
 from obsidian_pdf_exporter.core.page_resources import keep_used_page_resources
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+    import pydyf
 
     from obsidian_pdf_exporter.core.diagram_fit import FitSettings
     from obsidian_pdf_exporter.templates.base import Decorations
@@ -64,7 +67,8 @@ def html_to_pdf(
     extra work required. With ``fit``, Mermaid diagrams taller than their
     page are scaled or cut to fit it, see :mod:`.diagram_fit`. Each page gets
     a resource dictionary with only the resources it draws, see
-    :mod:`.page_resources`.
+    :mod:`.page_resources`, and the object streams hold at most 100 objects
+    each, see :mod:`.object_streams`.
     """
     from weasyprint import HTML
 
@@ -73,7 +77,17 @@ def html_to_pdf(
         cache = image_cache(Path(folder) / "cache")
         with svg_current_color():
             document = render_fitted(HTML(string=html, base_url=base_url or None), fit, cache)
-            document.write_pdf(str(output_path), finisher=keep_used_page_resources)
+            document.write_pdf(str(output_path), finisher=finish_pdf)
+
+
+def finish_pdf(document: object, pdf: pydyf.PDF) -> None:
+    """WeasyPrint finisher of every PDF ope writes.
+
+    Gives each page only the resources it draws and bounds the size of the object
+    streams.
+    """
+    keep_used_page_resources(document, pdf)
+    bound_object_streams(document, pdf)
 
 
 def image_cache(folder: Path) -> Any:  # noqa: ANN401 - a WeasyPrint cache
