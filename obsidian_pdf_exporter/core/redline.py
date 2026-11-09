@@ -32,6 +32,8 @@ from dataclasses import dataclass
 from functools import partial
 from typing import TYPE_CHECKING
 
+from obsidian_pdf_exporter.core.code import closes_fence
+from obsidian_pdf_exporter.core.code import code_mask
 from obsidian_pdf_exporter.core.headings import RE_HEADING_LINE
 from obsidian_pdf_exporter.core.util import run_git
 
@@ -282,7 +284,7 @@ def _split_blocks(text: str) -> list[str]:
                 current.append(line)
         else:
             current.append(line)
-            if stripped.startswith(fence_marker) and len(stripped) >= len(fence_marker):
+            if closes_fence(line, fence_marker):
                 in_code = False
 
     if current:
@@ -294,11 +296,9 @@ def _split_blocks(text: str) -> list[str]:
 def _div_depth(block: str) -> int:
     """Return how many fenced divs ``block`` opens minus how many it closes."""
     depth = 0
-    in_code = False
-    for line in block.split("\n"):
+    lines = block.split("\n")
+    for line, in_code in zip(lines, code_mask(lines), strict=True):
         stripped = line.strip()
-        if RE_FENCE.match(stripped):
-            in_code = not in_code
         if in_code:
             continue
         if re.match(r"^:{3,}\s*\S", stripped):

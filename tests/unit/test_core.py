@@ -4,10 +4,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pytest
+
 from obsidian_pdf_exporter.core.callouts import convert_callouts
+from obsidian_pdf_exporter.core.code import code_mask
+from obsidian_pdf_exporter.core.code import outside_code
 from obsidian_pdf_exporter.core.exporter import _prepend_metadata
 from obsidian_pdf_exporter.core.frontmatter import parse_frontmatter
 from obsidian_pdf_exporter.core.frontmatter import strip_frontmatter
+from obsidian_pdf_exporter.core.heading_links import mark_same_page_links
 from obsidian_pdf_exporter.core.headings import offset_headings
 from obsidian_pdf_exporter.core.headings import strip_title_heading
 from obsidian_pdf_exporter.core.util import git_root
@@ -191,3 +196,50 @@ def test_code_span_pattern_finds_the_spans_of_the_lookbehind_form() -> None:
     masked, spans = mask_code_spans(texts[-1])
     assert spans == [m.group(0) for m in reference.finditer(texts[-1])]
     assert masked != texts[-1]
+
+
+#: Code blocks that show another fenced block as an example. Every line is code.
+NESTED_FENCES = [
+    "````markdown\n```mermaid\n# a\n```\n````",
+    "~~~~markdown\n~~~mermaid\n# a\n~~~\n~~~~",
+    "`````text\n````markdown\n```mermaid\n# a\n```\n````\n`````",
+    "~~~text\n```mermaid\n# a\n```\n~~~",
+    "```text\n~~~mermaid\n# a\n~~~\n```",
+    "```text\n```mermaid\n# a\n```",
+]
+
+
+@pytest.mark.parametrize("block", NESTED_FENCES)
+def test_code_mask_keeps_nested_fences_inside_the_outer_block(block: str) -> None:
+    lines = f"{block}\n# after".split("\n")
+    assert code_mask(lines) == [True] * (len(lines) - 1) + [False]
+
+
+def test_code_mask_closes_only_on_a_bare_fence_as_long_as_the_opening_one() -> None:
+    lines = ["````", "```", "```` x", "~~~~", "`````  ", "# after"]
+    assert code_mask(lines) == [True, True, True, True, True, False]
+
+
+def test_code_mask_does_not_open_on_a_code_span() -> None:
+    assert code_mask(["```a` b```", "# text"]) == [False, False]
+
+
+@pytest.mark.parametrize("block", NESTED_FENCES)
+def test_outside_code_leaves_nested_fences_alone(block: str) -> None:
+    out = outside_code(f"{block}\n# after", lambda text: text.replace("#", "!"))
+    assert out == f"{block}\n! after"
+
+
+@pytest.mark.parametrize("block", NESTED_FENCES)
+def test_offset_headings_skips_nested_fences(block: str) -> None:
+    assert offset_headings(f"{block}\n# after", 1) == f"{block}\n## after"
+
+
+def test_convert_callouts_leaves_nested_fences_alone() -> None:
+    src = "````markdown\n```\n> [!note]\n> text\n```\n````\n"
+    assert convert_callouts(src) == src
+
+
+def test_heading_links_leave_nested_fences_alone() -> None:
+    src = "````markdown\n```\n[[#Intro]]\n```\n````"
+    assert mark_same_page_links(src, "") == src

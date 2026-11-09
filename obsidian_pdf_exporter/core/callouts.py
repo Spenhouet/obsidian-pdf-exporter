@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import re
 
+from obsidian_pdf_exporter.core.code import code_mask
+
 _CALLOUT_TYPES: dict[str, tuple[str, str]] = {
     "note": ("note", "Note"),
     "info": ("info", "Info"),
@@ -50,7 +52,6 @@ _HEADER = re.compile(
 _CODE_INDENT = 4
 _LIST_ITEM = re.compile(r"^[ \t]*(?:[-*+]|\d{1,9}[.)])(?:[ \t]+|$)")
 _QUOTE_LINE = re.compile(r"^ {0,3}>")
-_FENCE = re.compile(r"^\s*(```|~~~)")
 _BLOCK_START = re.compile(
     r"^\s{0,3}(?:#{1,6}(?:\s|$)|```|~~~|[-*+](?:\s|$)|1[.)](?:\s|$)|(?:[-*_]\s*){3,}$|<|\|)"
 )
@@ -96,14 +97,13 @@ def _convert_blocks(content: str) -> str:
     """
     lines = content.split("\n")
     out: list[str] = []
-    in_fence = False
+    mask = code_mask(lines)
     items: list[int] = []  # content columns of the open list items, innermost last
     previous_blank = True
     i = 0
     while i < len(lines):
         line = lines[i]
-        if _FENCE.match(line):
-            in_fence = not in_fence
+        in_fence = mask[i]
         if previous_blank and line.strip():
             _close_items(items, _width(line))
         header = None if in_fence or "<br" in line.lower() else _HEADER.match(line)

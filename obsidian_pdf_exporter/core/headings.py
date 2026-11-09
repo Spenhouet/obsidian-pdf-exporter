@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import re
 
+from obsidian_pdf_exporter.core.code import code_mask
+
 RE_HEADING_LINE = re.compile(r"^(#{1,6})\s+(.+?)(?:\s*\{[^}]*\})?\s*$")
 
 
@@ -30,11 +32,8 @@ def offset_headings(content: str, offset: int) -> str:
 
     lines = content.split("\n")
     result = []
-    in_code_block = False
-    for raw in lines:
+    for raw, in_code_block in zip(lines, code_mask(lines), strict=True):
         line = raw
-        if line.startswith(("```", "~~~")):
-            in_code_block = not in_code_block
         if not in_code_block:
             m = re.match(r"^(#{1,6})\s+(.+)$", line)
             if m:
@@ -54,10 +53,7 @@ def normalize_heading_levels(content: str, base: int) -> str:
     """
     lines = content.split("\n")
     stack: list[int] = []
-    in_code_block = False
-    for i, line in enumerate(lines):
-        if line.startswith(("```", "~~~")):
-            in_code_block = not in_code_block
+    for i, (line, in_code_block) in enumerate(zip(lines, code_mask(lines), strict=True)):
         if in_code_block:
             continue
         m = re.match(r"^(#{1,6})\s+(.+)$", line)

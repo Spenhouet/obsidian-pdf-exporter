@@ -94,6 +94,11 @@ def test_meta_bind_leaves_fenced_code_alone() -> None:
     assert _meta_bind(content, {"a": "x"}) == "```\n`VIEW[{a}][text]` INPUT[text:a]\n```\nx"
 
 
+def test_meta_bind_leaves_nested_fenced_code_alone() -> None:
+    example = "````markdown\n```\n`VIEW[{a}][text]` INPUT[text:a]\n```\n````"
+    assert _meta_bind(f"{example}\n`VIEW[{{a}}][text]`", {"a": "x"}) == f"{example}\nx"
+
+
 def test_meta_bind_list_spans_become_html_lists(tmp_path: Path) -> None:
     html = (
         '<td><span class="meta-bind-ul"><span class="meta-bind-li">a <span class="x">b</span>'

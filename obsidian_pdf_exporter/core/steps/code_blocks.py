@@ -11,6 +11,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
+from obsidian_pdf_exporter.core.code import closes_fence
 from obsidian_pdf_exporter.core.steps.base import Step
 
 if TYPE_CHECKING:
@@ -59,11 +60,11 @@ def plugin_code_blocks(content: str) -> list[str]:
     found: list[str] = []
     fence = ""
     for line in content.split("\n"):
-        m = _RE_FENCE.match(line)
         if fence:
-            if m and m.group("fence").startswith(fence) and not m.group("lang"):
+            if closes_fence(line, fence):
                 fence = ""
             continue
+        m = _RE_FENCE.match(line)
         if m is None:
             continue
         fence = m.group("fence")
