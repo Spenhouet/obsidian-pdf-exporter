@@ -7,6 +7,7 @@ import json
 import re
 import shutil
 import subprocess
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -19,6 +20,7 @@ from obsidian_pdf_exporter.core.exporter import ExportRequest
 from obsidian_pdf_exporter.core.exporter import RedlineRequest
 from obsidian_pdf_exporter.core.exporter import export_pdf
 from obsidian_pdf_exporter.core.exporter import export_redline
+from obsidian_pdf_exporter.core.object_streams import OBJECTS_PER_STREAM
 from obsidian_pdf_exporter.core.redline import modified_date
 from obsidian_pdf_exporter.main import app
 from obsidian_pdf_exporter.templates import load_template
@@ -374,6 +376,31 @@ def test_blame_pdf_shares_fonts_and_stays_compressed(
     regular = {f for f in fonts if f.endswith(("Sans", "Arial", "ArialMT"))}
     assert len(regular) == 1
     assert blamed.stat().st_size - plain.stat().st_size < 10_000
+
+
+def test_blame_pdf_object_streams_stay_small(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The tooltip buttons of the strip go into object streams of bounded size."""
+    pypdf = pytest.importorskip("pypdf")
+    repo = tmp_path / "vault"
+    (repo / "Doc").mkdir(parents=True)
+    text = "\n\n".join(f"Paragraph {n} about the scope of the document." for n in range(150))
+    (repo / "Doc" / "Doc.md").write_text(f"## Part\n\n{text}\n", encoding="utf-8")
+    _git(repo, "init", "-q", "-b", "main")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "First version")
+    monkeypatch.chdir(repo)
+    out = repo / "blamed.pdf"
+    export_pdf(
+        ExportRequest(
+            root=repo / "Doc", output=out, template=load_template("default"), blame=True, toc=False
+        ),
+        log=lambda _msg: None,
+    )
+    streams = Counter(stream for stream, _ in pypdf.PdfReader(out).xref_objStm.values())
+    assert len(streams) > 1
+    assert max(streams.values()) <= OBJECTS_PER_STREAM
 
 
 def test_blame_pdf_pages_list_only_the_images_they_draw(
