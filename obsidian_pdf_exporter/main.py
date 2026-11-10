@@ -10,6 +10,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from obsidian_pdf_exporter.core.dialect import toc_depth
 from obsidian_pdf_exporter.core.exporter import ExportRequest
 from obsidian_pdf_exporter.core.exporter import RedlineRequest
 from obsidian_pdf_exporter.core.exporter import export_pdf
@@ -458,6 +459,10 @@ def _parse_options(raw: list[str]) -> dict[str, str]:
             raise typer.BadParameter(msg)
         key, value = item.split("=", 1)
         out[key.strip()] = value.strip()
+    try:
+        toc_depth(out)
+    except ValueError as e:
+        raise typer.BadParameter(str(e)) from e
     return out
 
 
