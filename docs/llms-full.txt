@@ -1368,6 +1368,15 @@ ope export ./MyVault/Handbook --tag security --tag "#onboarding" --include "Chap
 
 A folder whose note does not have the tag stays as a heading without text when a note below it has the tag. Folders without such a note are left out. When no note has the tag, the export stops with an error and writes no PDF.
 
+## Table of contents
+
+```bash
+ope export ./MyVault/Handbook -O toc.depth=2
+ope export ./MyVault/Handbook --no-toc
+```
+
+The table of contents lists four heading levels. `-O toc.depth=N` lists `N` levels instead, from `1` to `6`, for this export only. A large export gets a shorter table of contents this way. The PDF bookmarks keep all heading levels. `ope redline` takes the same option. `--no-toc` leaves the table of contents out.
+
 ## A different look
 
 ```bash
@@ -1573,6 +1582,7 @@ the template. These keys are read by ope itself:
 
 | Key | Values | Default | Described in |
 | --- | ------ | ------- | ------------ |
+| `toc.depth` | `1` to `6` | `4` | [Quick start](../getting-started/quick-start.md#table-of-contents) |
 | `line_breaks` | `hard`, `soft` | from `.obsidian/app.json` | [Line breaks](../obsidian/line-breaks.md) |
 | `links.outside` | `text`, `italic` | `text` | [Wiki links](../obsidian/wiki-links.md#links-to-pages-outside-the-pdf) |
 | `tables.landscape` | `auto`, `on`, `off` | `auto` | [Tables](../markdown/tables.md#wide-tables) |
@@ -1717,7 +1727,7 @@ The base is pandoc's `markdown` reader with these settings:
 | `-raw_tex` | Text like `A\B` stays as written. |
 | `--number-sections` | Headings are numbered. |
 | `--columns=100000` | Table columns are sized by their content, not by the dash count of the source. |
-| `--toc --toc-depth=4` | The table of contents, unless `--no-toc` is set. |
+| `--toc --toc-depth=4` | The table of contents, unless `--no-toc` is set. `-O toc.depth=N` sets another depth. |
 
 The core syntax steps add what they need on top, for example `mark` for [highlights](../obsidian/highlights-comments.md) and `hard_line_breaks` for [line breaks](../obsidian/line-breaks.md). Math is rendered by a step of its own, see [Math](math.md).
 
@@ -3829,6 +3839,7 @@ ope redline ./Handbook --from-commit v1.0.0
 | `--tag TAG` | | Only compare the notes that have the tag in the newer version, see [Only notes with a tag](#only-notes-with-a-tag). Repeatable, a note needs one of the tags. |
 | `--disable-plugin NAME` | | Skip a plugin in both versions. |
 | `--toc/--no-toc` | `--toc` | Table of contents at the start. |
+| `-O toc.depth=N` | `4` | Heading levels in the table of contents, from `1` to `6`. |
 | `--debug` | off | Keep the build folder `_build_<name>/` next to the PDF, with `redline_assembled.md` (the diffed Markdown) and `redline_final.html`. |
 
 `export` flags that have no meaning for a redline, such as `--version`, `--date`, `--include` and `--exclude`, are not available. The date in the footer is the day of the export. The full list is in the [CLI reference](../reference/cli.md#redline).
