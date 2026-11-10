@@ -55,6 +55,8 @@ A table that needs more width than a portrait page has goes to its own landscape
 
 A table goes to landscape when it has at least 6 columns and its content does not fit. The width is estimated from the text: each column counts with its longest cell (up to 25 characters, longer text wraps) or its longest word, which cannot wrap. An image counts as a full cell. A table of short values, such as keys and numbers, stays in the text.
 
+After the layout, every table is measured. A word does not wrap, so a table with long words can be wider than the page whatever its column count. Such a table goes to a landscape page too, and the document is laid out again. If it is still too wide there, or the template has no landscape page, every word in its cells may break. A document whose tables all fit is laid out once. `tables.landscape=off` turns this off as well. Redlines keep their tables portrait.
+
 | Option | Effect | Default |
 | ------ | ------ | ------- |
 | `-O tables.landscape=auto\|on\|off` | `auto` uses the estimate. `on` turns every table with enough columns. `off` keeps all tables portrait. | `auto` |
