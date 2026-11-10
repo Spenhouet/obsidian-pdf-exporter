@@ -699,6 +699,7 @@ The currently bundled plugins are:
 
 | Plugin         | What it covers                                           |
 |----------------|----------------------------------------------------------|
+| `templater`    | Remove Templater tags, read the frontmatter behind them  |
 | `folder_notes` | Map ``Folder/Folder.md`` onto its containing folder      |
 | `dataview`     | Run Dataview queries, inline fields and DataviewJS       |
 | `excalidraw`   | Turn embedded Excalidraw drawings into images            |
@@ -3114,6 +3115,7 @@ The third layer handles syntax and files from community Obsidian plugins and oth
 
 | Name | Obsidian plugin | What it does | Priority |
 | ---- | --------------- | ------------ | -------- |
+| `templater` | [Templater](https://github.com/SilentVoid13/Templater) | Removes `<% ... %>` tags and reads the frontmatter behind a leading tag. [More](templater.md) | 1 |
 | `folder_notes` | [Folder Notes](https://github.com/LostPaul/obsidian-folder-notes) | `Folder/Folder.md` is the text of its folder. [More](folder-notes.md) | 5 |
 | `dataview` | [Dataview](https://github.com/blacksmithgu/obsidian-dataview) | Runs DQL queries (`TABLE`, `LIST`, `TASK`, `CALENDAR`), inline queries, inline fields and DataviewJS. [More](dataview.md) | 10 |
 | `excalidraw` | [Excalidraw](https://github.com/zsviczian/obsidian-excalidraw-plugin) | Turns drawing embeds into images. [More](excalidraw.md) | 15 |
@@ -3145,6 +3147,44 @@ ope export ./Vault -O dataview.js-timeout=30
 ## Third-party plugins
 
 Any Python package can register a plugin under the `obsidian_pdf_exporter.obsidian_plugins` entry point. After `pip install` (or `uv tool install obsidian-pdf-exporter --with <package>`) it is used without any change to ope. See [Write a plugin](write-a-plugin.md).
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/plugins/templater/
+
+# Templater
+
+The `templater` plugin removes the tags of [Templater](https://github.com/SilentVoid13/Templater) from the PDF. Templater runs them only when a template is applied to a note. Reading view does not run them, so the PDF does not show their code either.
+
+Markdown:
+
+````markdown
+<%*
+const title = await tp.system.prompt("Title of the meeting");
+await tp.file.rename(title);
+-%>
+---
+type: meeting
+date: <% tp.date.now("YYYY-MM-DD") %>
+---
+## Agenda
+
+1. Status of open actions
+2. Next steps
+<% tp.file.cursor() %>
+
+Inline code such as `<% tp.file.title %>` is shown as written.
+````
+
+PDF:
+
+![The note without its Templater tags](../img/features/templater.png)
+
+- `<% ... %>`, `<%* ... %>` and `<%+ ... %>` are removed, on one line or on several.
+- Whitespace control works as in Templater: `-` next to `<%` or `%>` removes one newline on that side of the tag, `_` removes all whitespace on that side.
+- A template often starts with a `<%* ... -%>` block in front of its frontmatter. When the note starts with tags and the frontmatter follows them, the frontmatter is read like the frontmatter of any other note and not printed.
+- Tags inside code blocks and inline code are left as written.
+- `--disable-plugin templater` prints the tags as text.
 
 ---
 

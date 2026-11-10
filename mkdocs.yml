@@ -132,6 +132,7 @@ nav:
       - Bases: obsidian/bases.md
   - Plugins:
       - plugins/index.md
+      - Templater: plugins/templater.md
       - Folder Notes: plugins/folder-notes.md
       - Dataview: plugins/dataview.md
       - Excalidraw: plugins/excalidraw.md

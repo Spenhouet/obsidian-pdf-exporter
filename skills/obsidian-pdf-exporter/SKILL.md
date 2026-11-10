@@ -1,6 +1,6 @@
 ---
 name: obsidian-pdf-exporter
-description: Export Obsidian vaults, folders and notes to PDF with the ope (obsidian-pdf-exporter) CLI, and make redline (tracked-changes) PDFs that show what changed in a vault folder between two git commits, tags or branches, or between two folders or notes on disk. Handles wiki links, embeds, callouts, Mermaid, math, footnotes, Bases, Dataview, Meta Bind, Excalidraw, draw.io and pandoc citations, wide tables on landscape pages, and custom PDF templates with header, footer, letterhead or logo. Installs ope if it is missing. Use when asked to export Obsidian notes or a Markdown vault to PDF, make a PDF handbook or manual from notes, create a redline, diff or tracked-changes PDF of documentation (for a review, approval, audit, release or pull request), style or brand an exported PDF, change its header or footer, or debug how a note renders in the PDF.
+description: Export Obsidian vaults, folders and notes to PDF with the ope (obsidian-pdf-exporter) CLI, and make redline (tracked-changes) PDFs that show what changed in a vault folder between two git commits, tags or branches, or between two folders or notes on disk. Handles wiki links, embeds, callouts, Mermaid, math, footnotes, Bases, Dataview, Meta Bind, Templater, Excalidraw, draw.io and pandoc citations, wide tables on landscape pages, and custom PDF templates with header, footer, letterhead or logo. Installs ope if it is missing. Use when asked to export Obsidian notes or a Markdown vault to PDF, make a PDF handbook or manual from notes, create a redline, diff or tracked-changes PDF of documentation (for a review, approval, audit, release or pull request), style or brand an exported PDF, change its header or footer, or debug how a note renders in the PDF.
 ---
 
 # obsidian-pdf-exporter (`ope`)
@@ -114,7 +114,7 @@ Keeps `out/_build_handbook/`: `assembled.md` is what pandoc reads (after all ste
 
 ## What not to expect
 
-- Interactive features have no PDF form: callouts are always open, Meta Bind inputs and buttons are removed, Dataview tasks cannot be checked and `CALENDAR` is a static month grid.
+- Interactive features have no PDF form: callouts are always open, Meta Bind inputs and buttons are removed, Templater tags are removed, Dataview tasks cannot be checked and `CALENDAR` is a static month grid.
 - Dataview runs like in Obsidian: all of DQL, inline queries, inline fields and DataviewJS (embedded V8, no network, 10 s per block, `-O dataview.js-timeout=N`). Settings come from `.obsidian/plugins/dataview/data.json`; `-O dataview.<setting>=value` overrides one, `-O dataview.now=2026-04-01` fixes `date(today)`.
 - Canvas and video embeds are not rendered; they become links. PDF embeds are drawn as page images (`-O pdf_embeds.max_pages=N`, `-O pdf_embeds=link`).
 - A bare URL is not turned into a link; use `<https://...>`.
