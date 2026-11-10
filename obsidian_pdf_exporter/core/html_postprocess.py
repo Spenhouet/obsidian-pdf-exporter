@@ -30,6 +30,7 @@ svg.math-svg { display: inline; overflow: visible; }
 body { overflow-wrap: break-word; }
 td, th { overflow-wrap: break-word; }
 .long-word { overflow-wrap: anywhere; }
+table.break-words td, table.break-words th { overflow-wrap: anywhere; }
 .landscape-figure .landscape { margin-left: auto; margin-right: auto; }
 .footnote {
   float: footnote; font-size: 0.75rem; line-height: 1.35;

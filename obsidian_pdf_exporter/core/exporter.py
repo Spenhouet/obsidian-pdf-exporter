@@ -44,6 +44,7 @@ from obsidian_pdf_exporter.core.redline_html import parse_style
 from obsidian_pdf_exporter.core.redline_html import render_redline
 from obsidian_pdf_exporter.core.steps import core_steps
 from obsidian_pdf_exporter.core.steps.base import DocumentContext
+from obsidian_pdf_exporter.core.steps.tables import landscape_settings
 from obsidian_pdf_exporter.core.tags import NoTaggedNotesError
 from obsidian_pdf_exporter.core.tags import filter_tree
 from obsidian_pdf_exporter.core.tags import has_tag
@@ -390,7 +391,7 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
             log.summary()
 
             log("  Generating PDF...")
-            fit = _fit_settings(request.options)
+            fit = _fit_settings(request.options, redline=True)
             with missing_glyphs.reported(log):
                 if request.blame and sides.blame_folder is not None:
                     repo = git_root(Path.cwd())
@@ -532,12 +533,20 @@ def _write_with_blame(
     log(f"  Blame: {share:.0%} of the blocks matched a source line")
 
 
-def _fit_settings(options: dict[str, str]) -> FitSettings | None:
-    """Return how tall Mermaid diagrams are fitted to the page, or None when turned off."""
+def _fit_settings(options: dict[str, str], *, redline: bool = False) -> FitSettings | None:
+    """Return how diagrams and tables are fitted to the page, or None when both are off.
+
+    Tables that are too wide go to landscape pages unless ``tables.landscape=off``.
+    Redlines keep their tables portrait, as in the wide tables step.
+    """
     settings = mermaid_settings(dict(options))
-    if not settings.fit:
+    _, mode = landscape_settings(dict(options), lambda _message: None)
+    tables = mode != "off" and not redline
+    if not settings.fit and not tables:
         return None
-    return FitSettings(min_font_pt=settings.landscape_min_font)
+    return FitSettings(
+        min_font_pt=settings.landscape_min_font, diagrams=settings.fit, tables=tables
+    )
 
 
 def _resolve_root(root: Path) -> Path:
