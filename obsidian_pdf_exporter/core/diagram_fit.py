@@ -22,17 +22,21 @@ from __future__ import annotations
 import base64
 import copy
 import itertools
+import logging
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from typing import Any
 
+from obsidian_pdf_exporter.core.table_fit import premeasure
 from obsidian_pdf_exporter.core.table_fit import too_wide_tables
 from obsidian_pdf_exporter.core.table_fit import widen_table
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+_log = logging.getLogger(__name__)
 
 #: Space kept below a scaled diagram that has a caption, in CSS pixels.
 CAPTION_ROOM = 48
@@ -65,6 +69,8 @@ class FitSettings:
     diagrams: bool = True
     #: Put tables that are wider than the page on landscape pages, see :mod:`.table_fit`.
     tables: bool = False
+    #: Lay out tables that look wide on their own first, see :func:`.table_fit.premeasure`.
+    premeasure: bool = False
 
 
 @dataclass
@@ -87,6 +93,9 @@ def render_fitted(html: Any, settings: FitSettings | None, cache: Any = None) ->
     and decoded once. ``cache`` is that cache, a new dict if None.
     """
     images = {} if cache is None else cache
+    if settings is not None and settings.tables and settings.premeasure:
+        measured, wide = premeasure(html, images)
+        _log.debug("Pre-check: %d tables laid out, %d too wide", measured, wide)
     document = html.render(cache=images)
     if settings is None:
         return document
@@ -100,6 +109,7 @@ def render_fitted(html: Any, settings: FitSettings | None, cache: Any = None) ->
         if settings.tables:
             for table in too_wide_tables(document):
                 changed = widen_table(table, parents) or changed
+                _log.debug("Table too wide in the layout")
         if not changed:
             break
         document = html.render(cache=images)

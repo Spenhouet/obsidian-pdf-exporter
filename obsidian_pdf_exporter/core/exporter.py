@@ -537,6 +537,7 @@ def _fit_settings(options: dict[str, str], *, redline: bool = False) -> FitSetti
     """Return how diagrams and tables are fitted to the page, or None when both are off.
 
     Tables that are too wide go to landscape pages unless ``tables.landscape=off``.
+    ``tables.premeasure=on`` checks the tables that look wide before the layout.
     Redlines keep their tables portrait, as in the wide tables step.
     """
     settings = mermaid_settings(dict(options))
@@ -544,8 +545,12 @@ def _fit_settings(options: dict[str, str], *, redline: bool = False) -> FitSetti
     tables = mode != "off" and not redline
     if not settings.fit and not tables:
         return None
+    premeasure = options.get("tables.premeasure", "off").strip().lower() == "on"
     return FitSettings(
-        min_font_pt=settings.landscape_min_font, diagrams=settings.fit, tables=tables
+        min_font_pt=settings.landscape_min_font,
+        diagrams=settings.fit,
+        tables=tables,
+        premeasure=premeasure,
     )
 
 
