@@ -22,14 +22,21 @@ from __future__ import annotations
 import base64
 import copy
 import itertools
+import logging
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from typing import Any
 
+from obsidian_pdf_exporter.core.table_fit import premeasure
+from obsidian_pdf_exporter.core.table_fit import too_wide_tables
+from obsidian_pdf_exporter.core.table_fit import widen_table
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+_log = logging.getLogger(__name__)
 
 #: Space kept below a scaled diagram that has a caption, in CSS pixels.
 CAPTION_ROOM = 48
@@ -55,9 +62,15 @@ _RE_CAPTION = re.compile(r"^[^\W\d_]+\.?\s*\d+(?:[.-]\d+)*\s*[:.]")
 
 @dataclass
 class FitSettings:
-    """How diagrams that are too tall for the page are fitted."""
+    """How diagrams that are too tall and tables that are too wide are fitted."""
 
     min_font_pt: float = 7.0
+    #: Fit Mermaid diagrams that are taller than the page.
+    diagrams: bool = True
+    #: Put tables that are wider than the page on landscape pages, see :mod:`.table_fit`.
+    tables: bool = False
+    #: Lay out tables that look wide on their own first, see :func:`.table_fit.premeasure`.
+    premeasure: bool = False
 
 
 @dataclass
@@ -71,23 +84,34 @@ class _Overflow:
 
 
 def render_fitted(html: Any, settings: FitSettings | None, cache: Any = None) -> Any:  # noqa: ANN401 - WeasyPrint objects
-    """Lay out a WeasyPrint ``HTML`` object and fit its diagrams to the pages.
+    """Lay out a WeasyPrint ``HTML`` object and fit its diagrams and tables to the pages.
+
+    Diagrams are fitted as described above, tables as in :mod:`.table_fit`.
 
     Returns the WeasyPrint ``Document``. ``settings`` None lays it out once,
     without changes. The passes share one image cache, so every image is read
     and decoded once. ``cache`` is that cache, a new dict if None.
     """
     images = {} if cache is None else cache
+    if settings is not None and settings.tables and settings.premeasure:
+        measured, wide = premeasure(html, images)
+        _log.debug("Pre-check: %d tables laid out, %d too wide", measured, wide)
     document = html.render(cache=images)
     if settings is None:
         return document
     for _ in range(MAX_PASSES - 1):
         parents = _parents(html.etree_element)
-        overflows = list(_overflows(document, parents))
-        if not overflows:
+        changed = False
+        if settings.diagrams:
+            for overflow in list(_overflows(document, parents)):
+                _fit(overflow, parents, settings)
+                changed = True
+        if settings.tables:
+            for table in too_wide_tables(document):
+                changed = widen_table(table, parents) or changed
+                _log.debug("Table too wide in the layout")
+        if not changed:
             break
-        for overflow in overflows:
-            _fit(overflow, parents, settings)
         document = html.render(cache=images)
     return document
 

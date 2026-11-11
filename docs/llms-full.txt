@@ -1588,6 +1588,7 @@ the template. These keys are read by ope itself:
 | `links.outside` | `text`, `italic` | `text` | [Wiki links](../obsidian/wiki-links.md#links-to-pages-outside-the-pdf) |
 | `tables.landscape` | `auto`, `on`, `off` | `auto` | [Tables](../markdown/tables.md#wide-tables) |
 | `tables.landscape_min_cols` | number | `6` | [Tables](../markdown/tables.md#wide-tables) |
+| `tables.premeasure` | `on`, `off` | `off` | [Tables](../markdown/tables.md#wide-tables) |
 | `mermaid` | `off` | on | [Mermaid](../obsidian/mermaid.md) |
 | `mermaid.config` | path to JSON | none | [Mermaid](../obsidian/mermaid.md#options) |
 | `mermaid.max_height` | CSS length | none | [Mermaid](../obsidian/mermaid.md#options) |
@@ -1910,10 +1911,15 @@ PDF:
 
 A table goes to landscape when it has at least 6 columns and its content does not fit. The width is estimated from the text: each column counts with its longest cell (up to 25 characters, longer text wraps) or its longest word, which cannot wrap. An image counts as a full cell. A table of short values, such as keys and numbers, stays in the text.
 
+After the layout, every table is measured. A word does not wrap, so a table with long words can be wider than the page whatever its column count. Such a table goes to a landscape page too, and the document is laid out again. If it is still too wide there, or the template has no landscape page, every word in its cells may break. A document whose tables all fit is laid out once. `tables.landscape=off` turns this off as well. Redlines keep their tables portrait.
+
+With `tables.premeasure=on`, the tables that may be too wide are laid out on their own first, each on a portrait page with the CSS of the document: tables with 5 or more columns, with code, images or math in a cell, or with long words. The ones that are too wide go to landscape before the document is laid out, so a large document with a few wide tables is often laid out only once. The measurement after the layout stays and catches the tables the check can not see, for example in a list or a callout, where less width is left.
+
 | Option | Effect | Default |
 | ------ | ------ | ------- |
 | `-O tables.landscape=auto\|on\|off` | `auto` uses the estimate. `on` turns every table with enough columns. `off` keeps all tables portrait. | `auto` |
 | `-O tables.landscape_min_cols=N` | Fewest columns for landscape. | `6` |
+| `-O tables.premeasure=on\|off` | `on` lays out the tables that look wide on their own before the document, see below. | `off` |
 
 ```bash
 ope export ./Notes -O tables.landscape=off
@@ -5633,6 +5639,7 @@ svg.math-svg { display: inline; overflow: visible; }
 body { overflow-wrap: break-word; }
 td, th { overflow-wrap: break-word; }
 .long-word { overflow-wrap: anywhere; }
+table.break-words td, table.break-words th { overflow-wrap: anywhere; }
 /* A token of a highlighted code line is split into spans. WeasyPrint does not
    break a word at an inline box boundary, even with overflow-wrap, so a long
    token ran past the page. break-all lets it break between any letters. */

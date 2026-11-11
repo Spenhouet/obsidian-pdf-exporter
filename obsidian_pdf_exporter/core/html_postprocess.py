@@ -30,6 +30,7 @@ svg.math-svg { display: inline; overflow: visible; }
 body { overflow-wrap: break-word; }
 td, th { overflow-wrap: break-word; }
 .long-word { overflow-wrap: anywhere; }
+table.break-words td, table.break-words th { overflow-wrap: anywhere; }
 /* A token of a highlighted code line is split into spans. WeasyPrint does not
    break a word at an inline box boundary, even with overflow-wrap, so a long
    token ran past the page. break-all lets it break between any letters. */
