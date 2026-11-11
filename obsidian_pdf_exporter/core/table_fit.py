@@ -137,7 +137,9 @@ def premeasure(html: Any, cache: Any = None) -> tuple[int, int]:  # noqa: ANN401
     Each table that :func:`looks_wide` is copied onto its own page of a small
     document with the head (and so the CSS) of ``html``, and that document is
     laid out once. The tables of ``html`` whose copy is wider than its page go
-    into a landscape section, as :func:`widen_table` does. Returns how many
+    into a landscape section, as :func:`widen_table` does. A table that is in a
+    landscape section already is measured on a landscape page and gets the
+    ``break-words`` class when it is too wide there. Returns how many
     tables were laid out and how many of them were too wide.
     """
     import cssselect2
@@ -148,7 +150,7 @@ def premeasure(html: Any, cache: Any = None) -> tuple[int, int]:  # noqa: ANN401
         table
         for table in root.iter("table")
         if not _inside_table(table, parents)
-        and not _in_wide_section(table, parents)
+        and BREAK_WORDS not in (table.get("class") or "").split()
         and looks_wide(table)
     ]
     head = root.find("head")
@@ -161,7 +163,10 @@ def premeasure(html: Any, cache: Any = None) -> tuple[int, int]:  # noqa: ANN401
     probe_body = ET.SubElement(probe_root, "body", body.attrib)
     ET.SubElement(probe_body, "div")  # the first page may have its own margins
     for index, table in enumerate(tables):
-        section = ET.SubElement(probe_body, "div", {"style": "break-before: page"})
+        # A table that is on a landscape page already is measured there.
+        landscape = _in_wide_section(table, parents)
+        attributes = {"class": WIDE_SECTION} if landscape else {"style": "break-before: page"}
+        section = ET.SubElement(probe_body, "div", attributes)
         twin = copy.deepcopy(table)
         twin.tail = None
         twin.set(_MEASURE, str(index))

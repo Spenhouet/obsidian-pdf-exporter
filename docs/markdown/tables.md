@@ -57,10 +57,13 @@ A table goes to landscape when it has at least 6 columns and its content does no
 
 After the layout, every table is measured. A word does not wrap, so a table with long words can be wider than the page whatever its column count. Such a table goes to a landscape page too, and the document is laid out again. If it is still too wide there, or the template has no landscape page, every word in its cells may break. A document whose tables all fit is laid out once. `tables.landscape=off` turns this off as well. Redlines keep their tables portrait.
 
+With `tables.premeasure=on`, the tables that may be too wide are laid out on their own first, each on a portrait page with the CSS of the document: tables with 5 or more columns, with code, images or math in a cell, or with long words. The ones that are too wide go to landscape before the document is laid out, so a large document with a few wide tables is often laid out only once. The measurement after the layout stays and catches the tables the check can not see, for example in a list or a callout, where less width is left.
+
 | Option | Effect | Default |
 | ------ | ------ | ------- |
 | `-O tables.landscape=auto\|on\|off` | `auto` uses the estimate. `on` turns every table with enough columns. `off` keeps all tables portrait. | `auto` |
 | `-O tables.landscape_min_cols=N` | Fewest columns for landscape. | `6` |
+| `-O tables.premeasure=on\|off` | `on` lays out the tables that look wide on their own before the document, see below. | `off` |
 
 ```bash
 ope export ./Notes -O tables.landscape=off

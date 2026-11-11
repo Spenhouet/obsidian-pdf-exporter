@@ -81,6 +81,7 @@ the template. These keys are read by ope itself:
 | `links.outside` | `text`, `italic` | `text` | [Wiki links](../obsidian/wiki-links.md#links-to-pages-outside-the-pdf) |
 | `tables.landscape` | `auto`, `on`, `off` | `auto` | [Tables](../markdown/tables.md#wide-tables) |
 | `tables.landscape_min_cols` | number | `6` | [Tables](../markdown/tables.md#wide-tables) |
+| `tables.premeasure` | `on`, `off` | `off` | [Tables](../markdown/tables.md#wide-tables) |
 | `mermaid` | `off` | on | [Mermaid](../obsidian/mermaid.md) |
 | `mermaid.config` | path to JSON | none | [Mermaid](../obsidian/mermaid.md#options) |
 | `mermaid.max_height` | CSS length | none | [Mermaid](../obsidian/mermaid.md#options) |
