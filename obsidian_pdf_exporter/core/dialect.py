@@ -42,8 +42,36 @@ BASE_ARGS: tuple[str, ...] = (
     "--columns=100000",
 )
 
+#: Heading levels in the table of contents unless ``-O toc.depth`` sets another.
+DEFAULT_TOC_DEPTH = 4
+
+#: Heading levels HTML has, and so the deepest table of contents.
+MAX_TOC_DEPTH = 6
+
 #: Pandoc arguments for the table of contents.
-TOC_ARGS: tuple[str, ...] = ("--toc", "--toc-depth=4")
+TOC_ARGS: tuple[str, ...] = ("--toc", f"--toc-depth={DEFAULT_TOC_DEPTH}")
+
+
+def toc_depth(options: dict[str, str]) -> int:
+    """Return the heading levels of the table of contents from ``options['toc.depth']``.
+
+    Without the option the depth is :data:`DEFAULT_TOC_DEPTH`.
+
+    Raises:
+        ValueError: When the value is not a whole number from 1 to :data:`MAX_TOC_DEPTH`.
+    """
+    raw = options.get("toc.depth", "").strip()
+    if not raw:
+        return DEFAULT_TOC_DEPTH
+    if not (raw.isascii() and raw.isdigit()) or not 1 <= int(raw) <= MAX_TOC_DEPTH:
+        msg = f"-O toc.depth must be a whole number from 1 to {MAX_TOC_DEPTH}, got {raw!r}"
+        raise ValueError(msg)
+    return int(raw)
+
+
+def toc_args(depth: int = DEFAULT_TOC_DEPTH) -> tuple[str, ...]:
+    """Pandoc arguments for a table of contents with ``depth`` heading levels."""
+    return ("--toc", f"--toc-depth={depth}")
 
 
 @dataclass(frozen=True)

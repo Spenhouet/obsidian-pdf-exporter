@@ -27,6 +27,8 @@ from html import escape
 from importlib import resources
 from typing import TYPE_CHECKING
 
+from obsidian_pdf_exporter.core.dialect import DEFAULT_TOC_DEPTH
+from obsidian_pdf_exporter.core.dialect import toc_depth
 from obsidian_pdf_exporter.core.htmltree import HtmlTree
 from obsidian_pdf_exporter.core.htmltree import add_class
 from obsidian_pdf_exporter.core.htmltree import ancestor
@@ -130,7 +132,7 @@ def render_redline(html_text: str, options: dict[str, str]) -> str:
     for h in hunks:
         h.counts = count_changes(h.el)
     label_images(body)
-    mark_toc(tree, hunks, headings)
+    mark_toc(tree, hunks, headings, depth=toc_depth(options))
     insert_summary(body, summary_html(options, hunks, style))
     if style == SIDE_BY_SIDE:
         if collapse:
@@ -566,8 +568,18 @@ def _level(h: HtmlElement) -> int:
     return int(h.tag[1])
 
 
-def mark_toc(tree: HtmlTree, hunks: list[Hunk], headings: list[HtmlElement]) -> None:
-    """Mark changed sections in the table of contents and list removed headings."""
+def mark_toc(
+    tree: HtmlTree,
+    hunks: list[Hunk],
+    headings: list[HtmlElement],
+    *,
+    depth: int = DEFAULT_TOC_DEPTH,
+) -> None:
+    """Mark changed sections in the table of contents and list removed headings.
+
+    Removed headings deeper than ``depth`` levels are not listed, as pandoc
+    leaves those levels out of the table of contents.
+    """
     nav = tree.body.find(".//nav[@id='TOC']")
     if nav is None:
         return
@@ -586,7 +598,7 @@ def mark_toc(tree: HtmlTree, hunks: list[Hunk], headings: list[HtmlElement]) -> 
         elif hid in changed:
             add_class(li, "rl-toc-changed")
             a.append(element("span", "rl-toc-mark", str(changed[hid])))
-    _list_removed_headings(tree.body, nav)
+    _list_removed_headings(tree.body, nav, depth)
 
 
 def _section_counts(hunks: list[Hunk], headings: list[HtmlElement]) -> dict[str, int]:
@@ -606,12 +618,15 @@ def _section_counts(hunks: list[Hunk], headings: list[HtmlElement]) -> dict[str,
     return changed
 
 
-def _list_removed_headings(body: HtmlElement, nav: HtmlElement) -> None:
+def _list_removed_headings(body: HtmlElement, nav: HtmlElement, depth: int) -> None:
     """Add struck-through entries for removed headings where they used to be."""
     removed_after: dict[int, HtmlElement] = {}
     all_els = list(body.iter())
     pos_of = {id(e): k for k, e in enumerate(all_els)}
     for div in body.xpath("//div[contains(@class,'rl-heading')][contains(@class,'rl-del')]"):
+        level = int(div.get("data-level", "2"))
+        if level > depth:
+            continue
         prev = next(
             (e for e in reversed(all_els[: pos_of[id(div)]]) if is_document_heading(e)), None
         )
@@ -624,7 +639,6 @@ def _list_removed_headings(body: HtmlElement, nav: HtmlElement) -> None:
         new_li = element("li", "rl-toc-removed")
         new_li.append(element("span", "rl-toc-removed-text", text_of(div)))
         new_li.append(element("span", "rl-toc-mark rl-toc-mark-del", "removed"))
-        level = int(div.get("data-level", "2"))
         new_li.set("data-level", str(level))
         prev_level = int(li.get("data-level", "0")) or _level(prev)
         removed_after[id(prev)] = new_li

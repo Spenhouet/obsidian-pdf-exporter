@@ -44,6 +44,15 @@ ope export ./MyVault/Handbook --tag security --tag "#onboarding" --include "Chap
 
 A folder whose note does not have the tag stays as a heading without text when a note below it has the tag. Folders without such a note are left out. When no note has the tag, the export stops with an error and writes no PDF.
 
+## Table of contents
+
+```bash
+ope export ./MyVault/Handbook -O toc.depth=2
+ope export ./MyVault/Handbook --no-toc
+```
+
+The table of contents lists four heading levels. `-O toc.depth=N` lists `N` levels instead, from `1` to `6`, for this export only. A large export gets a shorter table of contents this way. The PDF bookmarks keep all heading levels. `ope redline` takes the same option. `--no-toc` leaves the table of contents out.
+
 ## A different look
 
 ```bash

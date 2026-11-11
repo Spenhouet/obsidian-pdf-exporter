@@ -35,6 +35,7 @@ ope redline ./Handbook --from-commit v1.0.0
 | `--tag TAG` | | Only compare the notes that have the tag in the newer version, see [Only notes with a tag](#only-notes-with-a-tag). Repeatable, a note needs one of the tags. |
 | `--disable-plugin NAME` | | Skip a plugin in both versions. |
 | `--toc/--no-toc` | `--toc` | Table of contents at the start. |
+| `-O toc.depth=N` | `4` | Heading levels in the table of contents, from `1` to `6`. |
 | `--debug` | off | Keep the build folder `_build_<name>/` next to the PDF, with `redline_assembled.md` (the diffed Markdown) and `redline_final.html`. |
 
 `export` flags that have no meaning for a redline, such as `--version`, `--date`, `--include` and `--exclude`, are not available. The date in the footer is the day of the export. The full list is in the [CLI reference](../reference/cli.md#redline).
