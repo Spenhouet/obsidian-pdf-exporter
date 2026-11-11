@@ -67,6 +67,7 @@ block_link_plus = "obsidian_pdf_exporter.plugins.block_link_plus:BlockLinkPlusPl
 drawio = "obsidian_pdf_exporter.plugins.drawio:DrawioPlugin"
 excalidraw = "obsidian_pdf_exporter.plugins.excalidraw:ExcalidrawPlugin"
 citations = "obsidian_pdf_exporter.plugins.citations:CitationsPlugin"
+templater = "obsidian_pdf_exporter.plugins.templater:TemplaterPlugin"
 
 [tool.hatch.build.targets.wheel]
 packages = ["obsidian_pdf_exporter"]

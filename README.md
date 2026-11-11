@@ -17,7 +17,7 @@
 
 **Documentation: https://spenhouet.com/obsidian-pdf-exporter/**
 
-`ope` turns a folder of an Obsidian vault into one PDF. Every folder becomes a numbered section with a table of contents, a running header and footer, and the Obsidian syntax in the notes is rendered: wiki links, embeds of notes, headings, blocks and images, callouts, highlights, tasks, footnotes, math, Mermaid and Bases. Community plugin syntax from Dataview, Meta Bind, Folder Notes, Block Link Plus, Excalidraw, draw.io and pandoc citations is rendered too. Templates control the look with CSS. It runs on the command line, without Obsidian, so it works in CI.
+`ope` turns a folder of an Obsidian vault into one PDF. Every folder becomes a numbered section with a table of contents, a running header and footer, and the Obsidian syntax in the notes is rendered: wiki links, embeds of notes, headings, blocks and images, callouts, highlights, tasks, footnotes, math, Mermaid and Bases. Community plugin syntax from Dataview, Meta Bind, Templater, Folder Notes, Block Link Plus, Excalidraw, draw.io and pandoc citations is rendered too. Templates control the look with CSS. It runs on the command line, without Obsidian, so it works in CI.
 
 ```bash
 ope export ./MyVault/Handbook --title "Team handbook" --version 1.2.0

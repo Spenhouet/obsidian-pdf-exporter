@@ -280,6 +280,7 @@ The currently bundled plugins are:
 
 | Plugin         | What it covers                                           |
 |----------------|----------------------------------------------------------|
+| `templater`    | Remove Templater tags, read the frontmatter behind them  |
 | `folder_notes` | Map ``Folder/Folder.md`` onto its containing folder      |
 | `dataview`     | Run Dataview queries, inline fields and DataviewJS       |
 | `excalidraw`   | Turn embedded Excalidraw drawings into images            |
