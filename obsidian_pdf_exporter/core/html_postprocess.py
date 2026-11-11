@@ -31,6 +31,10 @@ body { overflow-wrap: break-word; }
 td, th { overflow-wrap: break-word; }
 .long-word { overflow-wrap: anywhere; }
 table.break-words td, table.break-words th { overflow-wrap: anywhere; }
+/* A token of a highlighted code line is split into spans. WeasyPrint does not
+   break a word at an inline box boundary, even with overflow-wrap, so a long
+   token ran past the page. break-all lets it break between any letters. */
+code.sourceCode > span { word-break: break-all; }
 .landscape-figure .landscape { margin-left: auto; margin-right: auto; }
 .footnote {
   float: footnote; font-size: 0.75rem; line-height: 1.35;
@@ -502,7 +506,9 @@ def _first_strong_direction(html: str, start: int) -> str:
 LONG_WORD = 24
 _RE_CELL = re.compile(r"<(td|th)\b[^>]*>.*?</\1>", re.DOTALL | re.IGNORECASE)
 _RE_CELL_TEXT = re.compile(r">([^<]+)<")
-_RE_LONG_WORD = re.compile(rf"[^\s<>&]{{{LONG_WORD},}}")
+#: A word of HTML text. A character reference such as ``&lt;`` is one character of
+#: it; a non-breaking space ends the word, since it is meant to keep words apart.
+_RE_WORD = re.compile(r"(?:[^\s<>&]|&(?!nbsp;|#160;|#x0*a0;)#?\w+;)+", re.IGNORECASE)
 #: Cells whose text is not plain HTML text and stays as it is.
 _RE_RAW_ISLAND = re.compile(r"<(svg|math|script|style)\b", re.IGNORECASE)
 
@@ -520,13 +526,21 @@ def mark_long_words(html: str) -> str:
     if "<td" not in html and "<th" not in html:
         return html
 
+    def is_long(word: str) -> bool:
+        return len(word) >= LONG_WORD and len(html_lib.unescape(word)) >= LONG_WORD
+
+    def mark(w: re.Match[str]) -> str:
+        word = w.group(0)
+        return f'<span class="long-word">{word}</span>' if is_long(word) else word
+
     def text(m: re.Match[str]) -> str:
-        words = _RE_LONG_WORD.sub(lambda w: f'<span class="long-word">{w.group(0)}</span>', m[1])
-        return f">{words}<"
+        return f">{_RE_WORD.sub(mark, m[1])}<"
 
     def cell(m: re.Match[str]) -> str:
         markup = m.group(0)
-        if not _RE_LONG_WORD.search(markup) or _RE_RAW_ISLAND.search(markup):
+        if _RE_RAW_ISLAND.search(markup):
+            return markup
+        if not any(is_long(w) for t in _RE_CELL_TEXT.findall(markup) for w in _RE_WORD.findall(t)):
             return markup
         return _RE_CELL_TEXT.sub(text, markup)
 

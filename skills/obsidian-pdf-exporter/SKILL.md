@@ -1,6 +1,6 @@
 ---
 name: obsidian-pdf-exporter
-description: Export Obsidian vaults, folders and notes to PDF with the ope (obsidian-pdf-exporter) CLI, and make redline (tracked-changes) PDFs that show what changed in a vault folder between two git commits, tags or branches, or between two folders or notes on disk. Handles wiki links, embeds, callouts, Mermaid, math, footnotes, Bases, Dataview, Meta Bind, Excalidraw, draw.io and pandoc citations, wide tables on landscape pages, and custom PDF templates with header, footer, letterhead or logo. Installs ope if it is missing. Use when asked to export Obsidian notes or a Markdown vault to PDF, make a PDF handbook or manual from notes, create a redline, diff or tracked-changes PDF of documentation (for a review, approval, audit, release or pull request), style or brand an exported PDF, change its header or footer, or debug how a note renders in the PDF.
+description: Export Obsidian vaults, folders and notes to PDF with the ope (obsidian-pdf-exporter) CLI, and make redline (tracked-changes) PDFs that show what changed in a vault folder between two git commits, tags or branches, or between two folders or notes on disk. Handles wiki links, embeds, callouts, Mermaid, math, footnotes, Bases, Dataview, Meta Bind, Templater, Excalidraw, draw.io and pandoc citations, wide tables on landscape pages, and custom PDF templates with header, footer, letterhead or logo. Installs ope if it is missing. Use when asked to export Obsidian notes or a Markdown vault to PDF, make a PDF handbook or manual from notes, create a redline, diff or tracked-changes PDF of documentation (for a review, approval, audit, release or pull request), style or brand an exported PDF, change its header or footer, or debug how a note renders in the PDF.
 ---
 
 # obsidian-pdf-exporter (`ope`)
@@ -49,7 +49,7 @@ ope export ./Vault/Handbook --disable-plugin dataview
 - `--tag TAG` (repeatable, any tag matches) keeps the notes with the tag in the `tags` property or inline, at any depth, and the folders above them as headings. Case and a leading `#` do not matter; `area` matches `area/docs` but not `area-docs`. ANDed with `--include`/`--exclude`. No matching note: exit `1`, no PDF.
 - Links and embeds are looked up in the whole vault (the folder with `.obsidian`, else the git root).
 - Without `--version`, a folder in a git repository shows the short commit hash as version.
-- Other `-O` keys: `line_breaks=hard|soft`, `links.outside=text|italic`, `footnotes=page|end`, `mermaid=off`, `mermaid.config=mermaid.json`, `mermaid.landscape=on`, `excalidraw.auto_export=off`, `citations.bibliography=refs.bib`, `citations.csl=style.csl`, `tables.landscape_min_cols=N`. List: https://spenhouet.com/obsidian-pdf-exporter/reference/cli/
+- Other `-O` keys: `toc.depth=1..6` (default 4, bookmarks keep all levels), `line_breaks=hard|soft`, `links.outside=text|italic`, `footnotes=page|end`, `mermaid=off`, `mermaid.config=mermaid.json`, `mermaid.landscape=on`, `excalidraw.auto_export=off`, `citations.bibliography=refs.bib`, `citations.csl=style.csl`, `tables.landscape_min_cols=N`. List: https://spenhouet.com/obsidian-pdf-exporter/reference/cli/
 - Exit codes: `0` ok, `1` export failed, `2` bad arguments (for example an unknown template).
 
 Lines starting with `Warning:` name content that could not be rendered: an embed that was not found, a canvas embed or a PDF that cannot be opened (kept as a link), a plugin code block nobody renders (`tasks`, `ad-note`, ...), a Dataview query or DataviewJS script that failed. `Warning: Link to note outside the PDF: "Note" ...` and `Warning: Link to heading outside the PDF: "#heading" ...` name a link whose target is not part of the PDF; nothing is missing, the link text is plain text in the PDF (`-O links.outside=italic` shows it in italics). Report them to the user. All messages: https://spenhouet.com/obsidian-pdf-exporter/reference/warnings/
@@ -114,7 +114,7 @@ Keeps `out/_build_handbook/`: `assembled.md` is what pandoc reads (after all ste
 
 ## What not to expect
 
-- Interactive features have no PDF form: callouts are always open, Meta Bind inputs and buttons are removed, Dataview tasks cannot be checked and `CALENDAR` is a static month grid.
+- Interactive features have no PDF form: callouts are always open, Meta Bind inputs and buttons are removed, Templater tags are removed, Dataview tasks cannot be checked and `CALENDAR` is a static month grid.
 - Dataview runs like in Obsidian: all of DQL, inline queries, inline fields and DataviewJS (embedded V8, no network, 10 s per block, `-O dataview.js-timeout=N`). Settings come from `.obsidian/plugins/dataview/data.json`; `-O dataview.<setting>=value` overrides one, `-O dataview.now=2026-04-01` fixes `date(today)`.
 - Canvas and video embeds are not rendered; they become links. PDF embeds are drawn as page images (`-O pdf_embeds.max_pages=N`, `-O pdf_embeds=link`).
 - A bare URL is not turned into a link; use `<https://...>`.

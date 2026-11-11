@@ -19,6 +19,7 @@ from obsidian_pdf_exporter.core.blame import build_index
 from obsidian_pdf_exporter.core.blame import range_commits
 from obsidian_pdf_exporter.core.blame import write_blame_pdf
 from obsidian_pdf_exporter.core.diagram_fit import FitSettings
+from obsidian_pdf_exporter.core.dialect import toc_depth
 from obsidian_pdf_exporter.core.html_postprocess import mark_long_words
 from obsidian_pdf_exporter.core.html_postprocess import mark_rtl_blocks
 from obsidian_pdf_exporter.core.html_postprocess import unlink_missing_targets
@@ -133,6 +134,7 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
     log=print,  # noqa: ANN001 - log is any callable(str)
 ) -> Path:
     """Build a single PDF from an Obsidian tree according to ``request``."""
+    toc_depth(request.options)
     outside_mode(request.options)
     apply_weasyprint_patches(request.options)
     apply_svg_text_fix()
@@ -237,6 +239,7 @@ def export_pdf(  # noqa: PLR0915 - linear pipeline reads better than splitting
                 dialect=markdown_dialect(doc_ctx, steps),
                 extra_metadata=extra_meta,
                 toc=request.toc,
+                toc_depth=toc_depth(request.options),
                 resource_path=images.folder,
             )
         html = without_image_data(html, partial(run_html, context=doc_ctx, steps=steps))
@@ -282,6 +285,7 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
 
     root_folder = _resolve_root(request.root)
     parse_style(request.options)
+    toc_depth(request.options)
     if request.from_path is not None and request.blame:
         msg = (
             "--blame needs the git history of both versions; it cannot be used with "
@@ -370,6 +374,7 @@ def export_redline(  # noqa: PLR0915 - linear pipeline reads better than splitti
                     build_dir,
                     dialect=markdown_dialect(doc_ctx, steps),
                     toc=request.toc,
+                    toc_depth=toc_depth(request.options),
                     resource_path=images.folder,
                 )
             html = without_image_data(html, partial(run_html, context=doc_ctx, steps=steps))

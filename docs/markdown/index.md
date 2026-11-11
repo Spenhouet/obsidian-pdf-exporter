@@ -18,7 +18,7 @@ The base is pandoc's `markdown` reader with these settings:
 | `-raw_tex` | Text like `A\B` stays as written. |
 | `--number-sections` | Headings are numbered. |
 | `--columns=100000` | Table columns are sized by their content, not by the dash count of the source. |
-| `--toc --toc-depth=4` | The table of contents, unless `--no-toc` is set. |
+| `--toc --toc-depth=4` | The table of contents, unless `--no-toc` is set. `-O toc.depth=N` sets another depth. |
 
 The core syntax steps add what they need on top, for example `mark` for [highlights](../obsidian/highlights-comments.md) and `hard_line_breaks` for [line breaks](../obsidian/line-breaks.md). Math is rendered by a step of its own, see [Math](math.md).
 

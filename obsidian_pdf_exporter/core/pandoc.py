@@ -7,8 +7,9 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from obsidian_pdf_exporter.core.dialect import TOC_ARGS
+from obsidian_pdf_exporter.core.dialect import DEFAULT_TOC_DEPTH
 from obsidian_pdf_exporter.core.dialect import Dialect
+from obsidian_pdf_exporter.core.dialect import toc_args
 from obsidian_pdf_exporter.core.remote_images import prefetch_filter
 
 
@@ -32,6 +33,7 @@ def render_html(
     dialect: Dialect | None = None,
     extra_metadata: dict[str, str] | None = None,
     toc: bool = True,
+    toc_depth: int = DEFAULT_TOC_DEPTH,
     hard_line_breaks: bool = False,
     resource_path: Path | None = None,
 ) -> str:
@@ -41,7 +43,8 @@ def render_html(
     it, the dialect of the core steps is used, and ``hard_line_breaks=True``
     renders every newline inside a paragraph as a line break, as Obsidian
     does unless "Strict line breaks" is on. Set ``toc=False`` to leave out
-    the table of contents. Pandoc looks for images and other files in
+    the table of contents; ``toc_depth`` is the number of heading levels it
+    lists. Pandoc looks for images and other files in
     ``resource_path`` first, then in ``build_dir``. Remote images are
     downloaded once each before pandoc runs (see
     :mod:`obsidian_pdf_exporter.core.remote_images`).
@@ -54,7 +57,7 @@ def render_html(
     def argv(d: Dialect) -> list[str]:
         extras = [*d.args, "--from", d.reader]
         if toc:
-            extras += TOC_ARGS
+            extras += toc_args(toc_depth)
         extras += [f"--css={css_filename}", "--metadata", f"title={title}"]
         if resource_path is not None:
             extras.append(f"--resource-path={resource_path}{os.pathsep}.")

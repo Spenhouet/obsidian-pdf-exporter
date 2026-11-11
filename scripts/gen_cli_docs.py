@@ -77,6 +77,7 @@ the template. These keys are read by ope itself:
 
 | Key | Values | Default | Described in |
 | --- | ------ | ------- | ------------ |
+| `toc.depth` | `1` to `6` | `4` | [Quick start](../getting-started/quick-start.md#table-of-contents) |
 | `line_breaks` | `hard`, `soft` | from `.obsidian/app.json` | [Line breaks](../obsidian/line-breaks.md) |
 | `links.outside` | `text`, `italic` | `text` | [Wiki links](../obsidian/wiki-links.md#links-to-pages-outside-the-pdf) |
 | `tables.landscape` | `auto`, `on`, `off` | `auto` | [Tables](../markdown/tables.md#wide-tables) |

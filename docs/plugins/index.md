@@ -11,6 +11,7 @@ The third layer handles syntax and files from community Obsidian plugins and oth
 
 | Name | Obsidian plugin | What it does | Priority |
 | ---- | --------------- | ------------ | -------- |
+| `templater` | [Templater](https://github.com/SilentVoid13/Templater) | Removes `<% ... %>` tags and reads the frontmatter behind a leading tag. [More](templater.md) | 1 |
 | `folder_notes` | [Folder Notes](https://github.com/LostPaul/obsidian-folder-notes) | `Folder/Folder.md` is the text of its folder. [More](folder-notes.md) | 5 |
 | `dataview` | [Dataview](https://github.com/blacksmithgu/obsidian-dataview) | Runs DQL queries (`TABLE`, `LIST`, `TASK`, `CALENDAR`), inline queries, inline fields and DataviewJS. [More](dataview.md) | 10 |
 | `excalidraw` | [Excalidraw](https://github.com/zsviczian/obsidian-excalidraw-plugin) | Turns drawing embeds into images. [More](excalidraw.md) | 15 |

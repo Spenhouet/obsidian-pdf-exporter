@@ -699,6 +699,7 @@ The currently bundled plugins are:
 
 | Plugin         | What it covers                                           |
 |----------------|----------------------------------------------------------|
+| `templater`    | Remove Templater tags, read the frontmatter behind them  |
 | `folder_notes` | Map ``Folder/Folder.md`` onto its containing folder      |
 | `dataview`     | Run Dataview queries, inline fields and DataviewJS       |
 | `excalidraw`   | Turn embedded Excalidraw drawings into images            |
@@ -1368,6 +1369,15 @@ ope export ./MyVault/Handbook --tag security --tag "#onboarding" --include "Chap
 
 A folder whose note does not have the tag stays as a heading without text when a note below it has the tag. Folders without such a note are left out. When no note has the tag, the export stops with an error and writes no PDF.
 
+## Table of contents
+
+```bash
+ope export ./MyVault/Handbook -O toc.depth=2
+ope export ./MyVault/Handbook --no-toc
+```
+
+The table of contents lists four heading levels. `-O toc.depth=N` lists `N` levels instead, from `1` to `6`, for this export only. A large export gets a shorter table of contents this way. The PDF bookmarks keep all heading levels. `ope redline` takes the same option. `--no-toc` leaves the table of contents out.
+
 ## A different look
 
 ```bash
@@ -1573,6 +1583,7 @@ the template. These keys are read by ope itself:
 
 | Key | Values | Default | Described in |
 | --- | ------ | ------- | ------------ |
+| `toc.depth` | `1` to `6` | `4` | [Quick start](../getting-started/quick-start.md#table-of-contents) |
 | `line_breaks` | `hard`, `soft` | from `.obsidian/app.json` | [Line breaks](../obsidian/line-breaks.md) |
 | `links.outside` | `text`, `italic` | `text` | [Wiki links](../obsidian/wiki-links.md#links-to-pages-outside-the-pdf) |
 | `tables.landscape` | `auto`, `on`, `off` | `auto` | [Tables](../markdown/tables.md#wide-tables) |
@@ -1718,7 +1729,7 @@ The base is pandoc's `markdown` reader with these settings:
 | `-raw_tex` | Text like `A\B` stays as written. |
 | `--number-sections` | Headings are numbered. |
 | `--columns=100000` | Table columns are sized by their content, not by the dash count of the source. |
-| `--toc --toc-depth=4` | The table of contents, unless `--no-toc` is set. |
+| `--toc --toc-depth=4` | The table of contents, unless `--no-toc` is set. `-O toc.depth=N` sets another depth. |
 
 The core syntax steps add what they need on top, for example `mark` for [highlights](../obsidian/highlights-comments.md) and `hard_line_breaks` for [line breaks](../obsidian/line-breaks.md). Math is rendered by a step of its own, see [Math](math.md).
 
@@ -3120,6 +3131,7 @@ The third layer handles syntax and files from community Obsidian plugins and oth
 
 | Name | Obsidian plugin | What it does | Priority |
 | ---- | --------------- | ------------ | -------- |
+| `templater` | [Templater](https://github.com/SilentVoid13/Templater) | Removes `<% ... %>` tags and reads the frontmatter behind a leading tag. [More](templater.md) | 1 |
 | `folder_notes` | [Folder Notes](https://github.com/LostPaul/obsidian-folder-notes) | `Folder/Folder.md` is the text of its folder. [More](folder-notes.md) | 5 |
 | `dataview` | [Dataview](https://github.com/blacksmithgu/obsidian-dataview) | Runs DQL queries (`TABLE`, `LIST`, `TASK`, `CALENDAR`), inline queries, inline fields and DataviewJS. [More](dataview.md) | 10 |
 | `excalidraw` | [Excalidraw](https://github.com/zsviczian/obsidian-excalidraw-plugin) | Turns drawing embeds into images. [More](excalidraw.md) | 15 |
@@ -3151,6 +3163,44 @@ ope export ./Vault -O dataview.js-timeout=30
 ## Third-party plugins
 
 Any Python package can register a plugin under the `obsidian_pdf_exporter.obsidian_plugins` entry point. After `pip install` (or `uv tool install obsidian-pdf-exporter --with <package>`) it is used without any change to ope. See [Write a plugin](write-a-plugin.md).
+
+---
+
+Source: https://spenhouet.com/obsidian-pdf-exporter/plugins/templater/
+
+# Templater
+
+The `templater` plugin removes the tags of [Templater](https://github.com/SilentVoid13/Templater) from the PDF. Templater runs them only when a template is applied to a note. Reading view does not run them, so the PDF does not show their code either.
+
+Markdown:
+
+````markdown
+<%*
+const title = await tp.system.prompt("Title of the meeting");
+await tp.file.rename(title);
+-%>
+---
+type: meeting
+date: <% tp.date.now("YYYY-MM-DD") %>
+---
+## Agenda
+
+1. Status of open actions
+2. Next steps
+<% tp.file.cursor() %>
+
+Inline code such as `<% tp.file.title %>` is shown as written.
+````
+
+PDF:
+
+![The note without its Templater tags](../img/features/templater.png)
+
+- `<% ... %>`, `<%* ... %>` and `<%+ ... %>` are removed, on one line or on several.
+- Whitespace control works as in Templater: `-` next to `<%` or `%>` removes one newline on that side of the tag, `_` removes all whitespace on that side.
+- A template often starts with a `<%* ... -%>` block in front of its frontmatter. When the note starts with tags and the frontmatter follows them, the frontmatter is read like the frontmatter of any other note and not printed.
+- Tags inside code blocks and inline code are left as written.
+- `--disable-plugin templater` prints the tags as text.
 
 ---
 
@@ -3835,6 +3885,7 @@ ope redline ./Handbook --from-commit v1.0.0
 | `--tag TAG` | | Only compare the notes that have the tag in the newer version, see [Only notes with a tag](#only-notes-with-a-tag). Repeatable, a note needs one of the tags. |
 | `--disable-plugin NAME` | | Skip a plugin in both versions. |
 | `--toc/--no-toc` | `--toc` | Table of contents at the start. |
+| `-O toc.depth=N` | `4` | Heading levels in the table of contents, from `1` to `6`. |
 | `--debug` | off | Keep the build folder `_build_<name>/` next to the PDF, with `redline_assembled.md` (the diffed Markdown) and `redline_final.html`. |
 
 `export` flags that have no meaning for a redline, such as `--version`, `--date`, `--include` and `--exclude`, are not available. The date in the footer is the day of the export. The full list is in the [CLI reference](../reference/cli.md#redline).
@@ -5589,6 +5640,10 @@ body { overflow-wrap: break-word; }
 td, th { overflow-wrap: break-word; }
 .long-word { overflow-wrap: anywhere; }
 table.break-words td, table.break-words th { overflow-wrap: anywhere; }
+/* A token of a highlighted code line is split into spans. WeasyPrint does not
+   break a word at an inline box boundary, even with overflow-wrap, so a long
+   token ran past the page. break-all lets it break between any letters. */
+code.sourceCode > span { word-break: break-all; }
 .landscape-figure .landscape { margin-left: auto; margin-right: auto; }
 figure.pdf-embed { break-inside: auto; page-break-inside: auto; }
 img.pdf-embed-page {

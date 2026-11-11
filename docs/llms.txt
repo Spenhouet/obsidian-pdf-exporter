@@ -52,6 +52,7 @@
 ## Plugins
 
 - [Plugins](https://spenhouet.com/obsidian-pdf-exporter/plugins/): Support for community Obsidian plugins, how to turn it off, pass options and install third-party plugin support.
+- [Templater](https://spenhouet.com/obsidian-pdf-exporter/plugins/templater/): Templater tags removed from the PDF, frontmatter behind a leading tag read as frontmatter.
 - [Folder Notes](https://spenhouet.com/obsidian-pdf-exporter/plugins/folder-notes/): How a vault folder becomes a document, with sections, folder notes (Folder/Folder.md), a table of contents and numbering.
 - [Dataview](https://spenhouet.com/obsidian-pdf-exporter/plugins/dataview/): Dataview queries (TABLE, LIST, TASK, CALENDAR), inline queries, inline fields and DataviewJS, run at export time.
 - [Excalidraw](https://spenhouet.com/obsidian-pdf-exporter/plugins/excalidraw/): Excalidraw drawings embedded as images, from the auto-export files or drawn from the scene.
