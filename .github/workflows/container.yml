@@ -1,0 +1,120 @@
+name: Container image
+
+# Builds the container image of a release from PyPI and pushes it to the GitHub Container
+# Registry. The release workflow calls it after publishing to PyPI. A manual run builds the
+# image for an existing release. Pull requests that change the image only build and test it.
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      latest:
+        required: false
+        type: boolean
+        default: true
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Released version on PyPI, e.g. 0.16.3"
+        required: true
+        type: string
+      latest:
+        description: "Also tag the image as latest"
+        required: false
+        type: boolean
+        default: true
+  pull_request:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - .github/workflows/container.yml
+
+env:
+  IMAGE: ghcr.io/spenhouet/obsidian-pdf-exporter
+
+jobs:
+  image:
+    name: Build, test and push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Wait until the version is on PyPI
+        if: ${{ inputs.version != '' }}
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl -fsS -o /dev/null "https://pypi.org/pypi/obsidian-pdf-exporter/${{ inputs.version }}/json"; then
+              exit 0
+            fi
+            echo "Version ${{ inputs.version }} not on PyPI yet, waiting"
+            sleep 20
+          done
+          exit 1
+
+      - uses: docker/setup-qemu-action@v4
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build for the test
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          tags: ope:test
+          build-args: OPE_VERSION=${{ inputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Test the image
+        run: |
+          docker run --rm ope:test --version
+          docker run --rm ope:test setup --check
+          # Without network: everything an export needs is in the image.
+          docker run --rm --network none -v "$PWD/examples/_showcase:/vault" ope:test \
+            export Handbook --title "Handbook" --output /tmp/handbook.pdf
+
+      - name: Log in to the GitHub Container Registry
+        if: ${{ github.event_name != 'pull_request' }}
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image tags and labels
+        if: ${{ github.event_name != 'pull_request' }}
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=${{ inputs.version }}
+            type=raw,value=latest,enable=${{ inputs.latest }}
+
+      - name: Build and push
+        if: ${{ github.event_name != 'pull_request' }}
+        id: push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: OPE_VERSION=${{ inputs.version }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+
+      - name: Generate the build provenance
+        if: ${{ github.event_name != 'pull_request' }}
+        uses: actions/attest-build-provenance@v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
