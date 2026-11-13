@@ -104,6 +104,7 @@ nav:
       - getting-started/index.md
       - Installation: getting-started/installation.md
       - Quick start: getting-started/quick-start.md
+      - CI integration: getting-started/ci.md
       - CLI reference: reference/cli.md
       - Warnings: reference/warnings.md
   - Markdown:

@@ -18,6 +18,7 @@
 - [Getting started](https://spenhouet.com/obsidian-pdf-exporter/getting-started/): Install ope, export the first folder of a vault to PDF and look up every command and option.
 - [Installation](https://spenhouet.com/obsidian-pdf-exporter/getting-started/installation/): Install obsidian-pdf-exporter on Linux, macOS or Windows, with the native libraries WeasyPrint and pandoc need.
 - [Quick start](https://spenhouet.com/obsidian-pdf-exporter/getting-started/quick-start/): Export a vault folder to PDF, set title and version, pick a template and inspect the result.
+- [getting-started/ci.md](https://spenhouet.com/obsidian-pdf-exporter/getting-started/ci/)
 - [CLI reference](https://spenhouet.com/obsidian-pdf-exporter/reference/cli/): Every ope command, argument, option, environment variable and exit code.
 - [Warnings](https://spenhouet.com/obsidian-pdf-exporter/reference/warnings/): Every warning ope prints, and which ones mean that content is missing from the PDF.
 
