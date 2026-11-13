@@ -33,6 +33,8 @@ powershell -ExecutionPolicy ByPass -c "irm https://uvx.sh/obsidian-pdf-exporter/
 
 `ope setup` uses the platform package manager (apt, dnf, pacman, zypper, apk, brew, winget) and may need sudo. If it cannot install, report the command it printed to the user instead of working around it. Mermaid diagrams need nothing else: they are drawn by Pele inside ope.
 
+In container-based CI (GitLab CI, Kubernetes, Argo Workflows), use the image `ghcr.io/spenhouet/obsidian-pdf-exporter:<version>` instead of installing: it has ope, the native libraries, pandoc and git. See https://spenhouet.com/obsidian-pdf-exporter/getting-started/ci/.
+
 ## Export
 
 ```bash

@@ -104,27 +104,7 @@ What happens with other text:
 
 ## In CI
 
-A GitHub Actions job that exports a folder and keeps the PDF:
-
-```yaml
-jobs:
-  pdf:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # full history for redline and the version label
-      - uses: astral-sh/setup-uv@v6
-      - run: uv tool install obsidian-pdf-exporter
-      - run: ope setup --yes
-      - run: ope export ./Handbook --title "Team handbook" --version "${{ github.ref_name }}" -o handbook.pdf
-      - uses: actions/upload-artifact@v4
-        with:
-          name: handbook
-          path: handbook.pdf
-```
-
-[Mermaid](../obsidian/mermaid.md) diagrams are drawn inside ope, so the runner needs no Node.js or browser.
+A container image with ope and all native libraries is published for each release: `ghcr.io/spenhouet/obsidian-pdf-exporter:<version>`. [CI integration](ci.md) shows it in GitHub Actions, GitLab CI and Kubernetes, and the install with uv on a GitHub Actions runner.
 
 ## Check the install
 

@@ -99,7 +99,7 @@ done
 
 ## In CI
 
-The checkout needs the history of both commits, so set `fetch-depth: 0`. Install ope and its native libraries the same way as for [exports in CI](../getting-started/installation.md#in-ci).
+The checkout needs the history of both commits, so set `fetch-depth: 0`. Install ope and its native libraries the same way as for [exports in CI](../getting-started/ci.md), or run the steps in the container image.
 
 ### A redline for every pull request
 
